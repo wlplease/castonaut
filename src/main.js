@@ -160,11 +160,12 @@ function updateConnectSteps(activeStep, completed = []) {
   });
 }
 
-function setConnectionStatus(message, { active = 'sign', completed = [], canRetry = false } = {}) {
+function setConnectionStatus(message, { active = 'sign', completed = [], canRetry = false, showTestAccount = false } = {}) {
   $('#dialog-status').textContent = message;
   updateConnectSteps(active, completed);
   $('#wallet-connect').hidden = canRetry || state.signerReady;
   $('#check-signer').hidden = !canRetry;
+  $('#open-test-account').hidden = !showTestAccount;
 }
 
 function openConnectDialog() {
@@ -951,7 +952,10 @@ async function authorizeSigner(recoveryAccount = null) {
       state.signerReady = false;
       renderIdentity();
       setConnectionStatus(`The request may have reached the node, but confirmation failed. Your key is saved here. Check again before trying anything else. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
-    } else setConnectionStatus(error.message, { active: 'sign' });
+    } else setConnectionStatus(error.message, {
+      active: 'sign',
+      showTestAccount: error.message.includes('No compatible browser wallet'),
+    });
     setNotice(error.message, 'error');
   } finally {
     connectButton.disabled = false;
@@ -1158,6 +1162,12 @@ $('#portal-enter').addEventListener('click', () => {
 $('#manage-key').addEventListener('click', () => { if (confirm('Delete Castonaut’s signing key from this browser? This pauses posting here, but does not revoke the Farcaster signer. Revoke it separately in Farcaster account settings.')) clearLocalSigner(); });
 $('#wallet-connect').addEventListener('click', () => authorizeSigner());
 $('#check-signer').addEventListener('click', () => checkSavedSigner());
+$('#open-test-account').addEventListener('click', () => {
+  const recoveryImport = $('#recovery-import');
+  recoveryImport.open = true;
+  recoveryImport.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#recovery-phrase').focus({ preventScroll: true });
+});
 $('#recovery-lookup').addEventListener('click', () => lookupRecoveryAccount());
 $('#recovery-authorize').addEventListener('click', () => {
   if (!pendingRecoveryAccount) { setConnectionStatus('Verify the test account again before authorizing a key.'); return; }
