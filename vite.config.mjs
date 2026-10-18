@@ -26,6 +26,7 @@ function localSnapchainAdapter(serverEnv) {
         if (req.method !== route[1]) { res.statusCode = 405; res.end(JSON.stringify({ error: 'Method not allowed' })); return; }
         try {
           const target = new URL(route[0], base.endsWith('/') ? base : `${base}/`);
+          if ((serverEnv.SNAPCHAIN_HTTP_USER || serverEnv.SNAPCHAIN_HTTP_PASS) && target.protocol !== 'https:') throw new Error('Proxy credentials require an HTTPS Snapchain endpoint.');
           for (const [key, value] of requestUrl.searchParams.entries()) if (key !== 'route') target.searchParams.set(key, value);
           const headers = { accept: 'application/json' };
           let body;
@@ -62,6 +63,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [localSnapchainAdapter(serverEnv)],
+    resolve: {
+      alias: [{ find: /^@faker-js\/faker$/, replacement: resolve(process.cwd(), 'src/faker-compat.js') }],
+    },
     publicDir: false,
     build: {
       outDir: 'dist',

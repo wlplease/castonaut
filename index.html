@@ -70,6 +70,11 @@
                   <div><div class="overline">YOUR FARCASTER</div><h2 id="feed-title">Your people</h2><p id="feed-caption">Enter your Farcaster ID to catch up with the accounts you follow.</p></div>
                   <div class="feed-toolbar-actions"><span class="feed-count" id="feed-count">0 POSTS</span></div>
                 </div>
+                <section class="profile-summary" id="profile-summary" aria-live="polite" hidden></section>
+                <details class="feed-pulse" id="feed-pulse" hidden>
+                  <summary><span><strong>Feed Pulse</strong><small>A quick read of the posts loaded here</small></span><span class="pulse-local">ON THIS DEVICE</span></summary>
+                  <div class="pulse-content"><div class="pulse-stats" id="pulse-stats"></div><p class="pulse-insight" id="pulse-insight"></p></div>
+                </details>
                 <form class="composer" id="composer" hidden>
                   <label class="sr-only" for="composer-text">Write a cast</label>
                   <textarea id="composer-text" maxlength="320" rows="3" placeholder="Leave a note for the room…"></textarea>
@@ -114,10 +119,11 @@
 
           <section class="view node-view" id="node-view" data-panel="node" hidden>
             <div class="overline"><span class="live-pip"></span> ABOUT CASTONAUT</div>
-            <div class="node-page-heading"><div><h1>Your Farcaster.<br />Your own desk.</h1><p class="lead">Castonaut is a friendly, independent place to read the people you follow, keep favorite profiles close, and join the conversation when you’re ready.</p></div></div>
-            <div class="about-feature-grid"><article class="side-card"><span class="overline">A FEED THAT FLOWS</span><h3>Recent posts, in order.</h3><p>Catch up with the accounts you follow in one clear chronological feed.</p></article><article class="side-card"><span class="overline">A PLACE THAT FEELS YOURS</span><h3>Your people on your desk.</h3><p>Pin profiles you care about on this device and get back to them with one click.</p></article><article class="side-card"><span class="overline">EASY TO JOIN</span><h3>Read before connecting.</h3><p>Public feeds are open to read. Connect your account only when you want to post, follow, or react.</p></article></div>
-            <div class="node-page-grid"><section class="side-card"><span class="overline">BUILT FOR PEOPLE</span><h3>Open the app and feel at home.</h3><p>The app team maintains the shared network connection. There’s nothing to host, tune, or install before you can use your feed.</p></section><section class="side-card"><span class="overline">FOR CURIOUS BUILDERS</span><h3>Like to see how it works?</h3><p>The optional guide explains the service and walks builders through running a node.</p></section></div>
-            <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>Curious how it works?</strong><small>See the optional guide for the people who like the details.</small></span><span class="guide-arrow">↗</span></a>
+            <div class="node-page-heading"><div><h1>A calmer place<br />to catch up.</h1><p class="lead">Castonaut is an independent Farcaster client for your feed, your people, and the conversations you want to keep close.</p></div></div>
+            <div class="about-feature-grid"><article class="side-card"><span class="overline">THE FEED</span><h3>Recent posts, in order.</h3><p>Catch up with posts from the people you follow. Read without connecting a wallet.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep your people close.</h3><p>Pin profiles on this device and return to them with one tap.</p></article><article class="side-card"><span class="overline">PROFILE NOTES</span><h3>Make profiles yours.</h3><p>Add a private nickname or note for yourself. It stays in this browser and never edits their Farcaster profile.</p></article></div>
+            <section class="about-local-card"><div><span class="overline">PRIVATE BY DEFAULT</span><h2>Your feed stays yours.</h2><p>Feed Pulse counts only the posts loaded in this tab. Profile nicknames and notes stay on this device. Castonaut doesn’t send either to an AI service.</p></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
+            <section class="plus-preview"><div><span class="overline">OPTIONAL · PLANNED AFTER THE CONTEST</span><h2>Plus should earn its place.</h2><p>The free client stays useful on its own. A small prepaid upgrade could add more Desk layouts, saved views, and extra themes.</p></div><div class="plus-price"><strong>$1</strong><span>per 30 days</span><small>One-time prepay · no auto-renew</small></div><p class="plus-footnote">Not available yet. Any on-device AI recap would be a separate opt-in download; the basic feed and local insights stay free.</p></section>
+            <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>Curious how the network works?</strong><small>The builder guide covers Snapchain, hosting, and signer safety.</small></span><span class="guide-arrow">↗</span></a>
           </section>
         </main>
       </div>
@@ -126,11 +132,28 @@
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <dialog class="connect-dialog" id="connect-dialog" aria-labelledby="connect-title">
       <form method="dialog" class="dialog-top"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><button class="dialog-close" value="close" aria-label="Close dialog">×</button></form>
-      <div class="dialog-content"><span class="overline">CONNECT YOUR ACCOUNT</span><h2 id="connect-title">Join in with your Farcaster account.</h2><p class="dialog-intro">Your wallet authorizes a separate, limited app key. Castonaut never receives your recovery phrase or permission to move funds.</p>
-        <ol class="permission-list"><li><span>01</span><div><strong>Only social actions</strong><small>The key can post, react, follow, and remove those actions. It cannot move tokens or change account custody.</small></div></li><li><span>02</span><div><strong>Key stays in this browser</strong><small>A non-extractable key is stored in browser key storage. The server receives signed messages, never the private key. A compromised page could still ask the browser to sign.</small></div></li><li><span>03</span><div><strong>Expires in 30 days</strong><small>Use Farcaster account settings to revoke it sooner. “Forget this browser” deletes the local copy but does not revoke the network signer.</small></div></li></ol>
-        <div class="dialog-actions"><button type="button" class="button button-orange" id="wallet-connect">Connect wallet <span>↗</span></button></div>
+      <div class="dialog-content"><span class="overline">A QUICK, LIMITED CONNECTION</span><h2 id="connect-title">Join in when you’re ready.</h2><p class="dialog-intro">Read without connecting. To take part, your wallet approves a separate app key. Castonaut never asks for your recovery phrase or permission to move funds.</p>
+        <ol class="connect-steps" id="connect-steps" aria-label="Account connection steps">
+          <li class="connect-step is-current" data-connect-step="sign"><span class="step-number">1</span><span class="step-copy"><strong>Sign</strong><small>Choose the wallet that controls your Farcaster account and review its limited authorization.</small></span><span class="step-state" aria-hidden="true">NOW</span></li>
+          <li class="connect-step" data-connect-step="approve"><span class="step-number">2</span><span class="step-copy"><strong>Approve</strong><small>Your wallet signs a gasless request. Castonaut sends the signed request to Snapchain for confirmation.</small></span><span class="step-state" aria-hidden="true">NEXT</span></li>
+          <li class="connect-step" data-connect-step="done"><span class="step-number">3</span><span class="step-copy"><strong>Done</strong><small>Your limited key stays in this browser for up to 30 days. Then you can post, follow, and react.</small></span><span class="step-state" aria-hidden="true">NEXT</span></li>
+        </ol>
+        <div class="connect-requirements"><strong>Before you connect</strong><span>Use the custody wallet for an existing Farcaster account with storage. You’ll need a browser wallet and the Optimism network. No recovery phrase, transaction, or network fee is requested.</span></div>
+        <details class="connect-security"><summary>What exactly can this key do?</summary><ul><li>It can post, reply, follow, like, recast, and remove those social actions.</li><li>It cannot move funds or change account custody.</li><li>The private key is created as non-extractable browser key material and stored in this browser’s IndexedDB. The server receives signed messages, never the private key.</li><li>A compromised app page or browser extension could still ask this browser to sign. Revoke the signer in Farcaster account settings; “Forget this browser” only deletes its local key.</li></ul></details>
+        <div class="dialog-actions"><button type="button" class="button button-orange" id="wallet-connect">Connect with wallet <span>↗</span></button><button type="button" class="button button-outline" id="check-signer" hidden>Check connection again <span>↻</span></button></div>
         <p class="dialog-status" id="dialog-status" role="status"></p>
       </div>
+    </dialog>
+
+    <dialog class="profile-edit-dialog" id="profile-edit-dialog" aria-labelledby="profile-edit-title">
+      <form method="dialog" class="dialog-top"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><button class="dialog-close" value="close" aria-label="Close profile notes">×</button></form>
+      <form class="profile-edit-content" id="profile-edit-form">
+        <span class="overline">ONLY YOU CAN SEE THIS</span><h2 id="profile-edit-title">Make this profile yours.</h2><p>These touches stay in this browser. They don’t change the person’s Farcaster profile.</p>
+        <label for="profile-nickname">Your nickname for them</label><input id="profile-nickname" maxlength="40" placeholder="Use their profile name" autocomplete="off" />
+        <label for="profile-note">Private note</label><textarea id="profile-note" maxlength="240" rows="3" placeholder="A reminder for yourself…"></textarea>
+        <div class="profile-edit-actions"><button type="button" class="button button-outline" id="clear-profile-custom">Clear local details</button><button type="submit" class="button button-orange">Save on this device</button></div>
+        <p class="dialog-status" id="profile-edit-status" role="status"></p>
+      </form>
     </dialog>
 
     <script type="module" src="/src/main.js"></script>

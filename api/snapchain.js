@@ -15,6 +15,8 @@ const WINDOW_MS = 60_000;
 const MAX_READS_PER_WINDOW = 240;
 const MAX_WRITES_PER_WINDOW = 20;
 const MAX_BODY_BYTES = 64 * 1024;
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_RATE_LIMIT_ENTRIES = 4096;
 
 function rateLimitKey(req) {
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
@@ -23,7 +25,7 @@ function rateLimitKey(req) {
 
 function isSameOrigin(req) {
   const origin = req.headers.origin;
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const host = req.headers.host;
   if (!origin || !host) return false;
   try { return new URL(origin).host.toLowerCase() === String(host).toLowerCase(); } catch { return false; }
 }
@@ -46,7 +48,16 @@ function rateLimit(req, write) {
   const key = `${write ? 'w' : 'r'}:${rateLimitKey(req)}`;
   const now = Date.now();
   const current = hits.get(key);
-  if (!current || now - current.start >= WINDOW_MS) { hits.set(key, { start: now, count: 1 }); return true; }
+  if (!current || now - current.start >= WINDOW_MS) {
+    if (hits.size >= MAX_RATE_LIMIT_ENTRIES) {
+      for (const [entryKey, entry] of hits) {
+        if (now - entry.start >= WINDOW_MS) hits.delete(entryKey);
+        if (hits.size < MAX_RATE_LIMIT_ENTRIES) break;
+      }
+      if (hits.size >= MAX_RATE_LIMIT_ENTRIES) hits.delete(hits.keys().next().value);
+    }
+    hits.set(key, { start: now, count: 1 }); return true;
+  }
   const max = write ? MAX_WRITES_PER_WINDOW : MAX_READS_PER_WINDOW;
   if (current.count >= max) return false;
   current.count += 1;
@@ -62,6 +73,29 @@ async function readBody(req) {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
+}
+
+async function readResponse(response) {
+  const reader = response.body?.getReader();
+  if (!reader) return '';
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new Error('Snapchain response exceeded the 2 MB limit');
+      }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return new TextDecoder().decode(bytes);
 }
 
 export default async function snapchain(req, res) {
@@ -100,6 +134,9 @@ export default async function snapchain(req, res) {
   if (routeName === 'castById' && !target.searchParams.has('hash')) return res.status(400).json({ error: 'hash is required' });
   if (routeName === 'linkById' && !target.searchParams.has('target_fid')) return res.status(400).json({ error: 'target_fid is required' });
   if (routeName === 'reactionById' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return res.status(400).json({ error: 'reaction target and type are required' });
+  if ((process.env.SNAPCHAIN_HTTP_USER || process.env.SNAPCHAIN_HTTP_PASS) && target.protocol !== 'https:') {
+    return res.status(500).json({ error: 'Proxy credentials require an HTTPS Snapchain endpoint.' });
+  }
 
   try {
     const headers = { accept: 'application/json' };
@@ -112,7 +149,7 @@ export default async function snapchain(req, res) {
       headers.authorization = `Basic ${Buffer.from(`${process.env.SNAPCHAIN_HTTP_USER}:${process.env.SNAPCHAIN_HTTP_PASS}`).toString('base64')}`;
     }
     const response = await fetch(target, { method: route.method, headers, body, signal: AbortSignal.timeout(12_000) });
-    const raw = await response.text();
+    const raw = await readResponse(response);
     let result;
     try { result = raw ? JSON.parse(raw) : {}; } catch { result = { error: 'Snapchain returned an unreadable response' }; }
     res.setHeader('Cache-Control', 'no-store');
@@ -122,7 +159,8 @@ export default async function snapchain(req, res) {
     }
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(502).json({ error: error.message === 'Message is larger than the 64 KB limit' ? error.message : 'Could not reach the configured Snapchain node' });
+    const knownLimit = error.message === 'Message is larger than the 64 KB limit' || error.message === 'Snapchain response exceeded the 2 MB limit';
+    return res.status(502).json({ error: knownLimit ? error.message : 'Could not reach the configured Snapchain node' });
   }
 };
 

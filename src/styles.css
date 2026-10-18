@@ -57,3 +57,35 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .node-setup-link{font-size:10px;font-weight:700;color:#65458f;white-space:nowrap;text-underline-offset:3px}
 .node-setup-link:hover{color:#49316d;text-decoration:underline}
 @media(max-width:420px){.node-ribbon-right{gap:8px}.node-setup-link{font-size:9px}.node-source{display:none}}
+
+/* Clear, recoverable signer onboarding */
+.connect-dialog{width:min(100% - 28px,560px);max-height:min(90dvh,820px);overflow:auto;padding:0;border:1px solid #d7cce1;border-radius:12px}
+.dialog-content{padding:clamp(20px,5vw,34px)}
+.dialog-content h2{max-width:430px;margin:11px 0 9px;font:600 clamp(27px,5vw,34px)/1.05 var(--display);letter-spacing:-.05em}
+.dialog-intro{font-size:13px;line-height:1.65;margin:0 0 20px;max-width:465px}
+.connect-steps{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.connect-step{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:start;gap:11px;padding:12px;border:1px solid #e0ded4;border-radius:7px;background:#f8f7ef;transition:border-color .16s,background .16s,transform .16s}
+.connect-step.is-current{border-color:#9a80be;background:#f1ebf7;box-shadow:inset 3px 0 #7050a4}
+.connect-step.is-complete{border-color:#c7d4c3;background:#eef3e8}
+.step-number{width:28px;height:28px;border:1px solid #c9c0d2;border-radius:50%;display:grid;place-items:center;color:#7050a4;font:11px var(--mono);background:#fffdfb}
+.connect-step.is-current .step-number{border-color:#7050a4;background:#7050a4;color:#fff}
+.connect-step.is-complete .step-number{border-color:#64856b;background:#64856b;color:white}
+.step-copy{display:grid;gap:3px;padding-top:1px}
+.step-copy strong{font-size:12px;color:#382d47}
+.step-copy small{font-size:10px;line-height:1.5;color:#6d756e}
+.step-state{padding-top:5px;color:#8c8290;font:8px var(--mono);letter-spacing:.08em}
+.connect-step.is-current .step-state{color:#65458f}
+.connect-step.is-complete .step-state{color:#55725b}
+.connect-requirements{display:grid;gap:4px;margin:13px 0;padding:12px 13px;border-left:3px solid #db6653;background:#f5f0e9}
+.connect-requirements strong{font-size:10px;color:#493b4f}
+.connect-requirements span{font-size:10px;line-height:1.55;color:#68746b}
+.connect-security{margin:12px 0 2px;border-top:1px solid #e0ded4;padding-top:11px}
+.connect-security summary{cursor:pointer;font-size:10px;font-weight:700;color:#65458f}
+.connect-security ul{margin:9px 0 0;padding-left:17px;display:grid;gap:6px}
+.connect-security li{font-size:10px;line-height:1.5;color:#68746b}
+.dialog-actions{display:flex;flex-wrap:wrap;gap:9px;padding-top:16px;border-top:1px solid #dedfd5;margin-top:15px}
+.dialog-actions .button{min-height:42px}
+.dialog-actions [hidden]{display:none}
+.dialog-status{min-height:18px;margin:10px 0 0;font-size:10px;line-height:1.55}
+.connect-dialog button:disabled{opacity:.58;cursor:wait;transform:none}
+@media(max-width:620px){.connect-dialog{width:calc(100% - 20px);max-height:calc(100dvh - 20px);border-radius:10px}.dialog-content{padding:19px}.dialog-intro{font-size:12px}.connect-step{grid-template-columns:28px minmax(0,1fr);gap:9px;padding:10px}.step-state{display:none}.step-copy small,.connect-requirements span,.connect-security li{font-size:10px}.dialog-actions{display:grid;grid-template-columns:1fr}.dialog-actions .button{width:100%}}

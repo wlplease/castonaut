@@ -1,5 +1,5 @@
 import './styles.css';
-import { createPublicClient, createWalletClient, custom, isAddress } from 'viem';
+import { createPublicClient, createWalletClient, custom, decodeAbiParameters, isAddress } from 'viem';
 import { optimism } from 'viem/chains';
 
 const $ = (selector) => document.querySelector(selector);
@@ -10,14 +10,19 @@ const SIGNER_DB = 'castonaut-security';
 const SIGNER_STORE = 'signers';
 const FEED_STORAGE = 'openroom.last-feed.v1';
 const DESK_STORAGE = 'packet-porch.desk-pins.v1';
+const PROFILE_NOTES_STORAGE = 'castonaut.profile-notes.v1';
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, nodeInfo: null, casts: [], people: new Map(), sourceBySigner: new Map(), parent: null, feedBusy: false, feedPending: null, feedMode: 'following', deskPins: [] };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, nodeInfo: null, casts: [], people: new Map(), sourceBySigner: new Map(), parent: null, feedBusy: false, feedPending: null, feedMode: 'following', feedTargetFid: null, deskPins: [], profileNotes: {} };
 
 try {
   const pins = JSON.parse(localStorage.getItem(DESK_STORAGE) || '[]');
   if (Array.isArray(pins)) state.deskPins = [...new Set(pins.map(Number).filter((fid) => Number.isSafeInteger(fid) && fid > 0))].slice(0, 24);
 } catch { /* The desk stays usable when local storage is unavailable. */ }
+try {
+  const storedNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}');
+  if (storedNotes && typeof storedNotes === 'object' && !Array.isArray(storedNotes)) state.profileNotes = storedNotes;
+} catch { /* Local profile touches are optional. */ }
 
 function resultOrThrow(result, label) {
   if (!result || (typeof result.isErr === 'function' && result.isErr())) throw new Error(`${label}: ${result?.error || 'could not create protocol message'}`);
@@ -122,6 +127,38 @@ function setNotice(message, kind = 'info') {
   setNotice.timer = setTimeout(() => { toast.hidden = true; }, 5600);
 }
 
+function updateConnectSteps(activeStep, completed = []) {
+  const done = new Set(completed);
+  document.querySelectorAll('[data-connect-step]').forEach((item) => {
+    const step = item.dataset.connectStep;
+    const isDone = done.has(step);
+    item.classList.toggle('is-complete', isDone);
+    item.classList.toggle('is-current', step === activeStep && !isDone);
+    const label = item.querySelector('.step-state');
+    if (label) label.textContent = isDone ? 'DONE' : step === activeStep ? 'NOW' : 'NEXT';
+    const number = item.querySelector('.step-number');
+    if (number) number.textContent = isDone ? '✓' : String([...document.querySelectorAll('[data-connect-step]')].indexOf(item) + 1);
+  });
+}
+
+function setConnectionStatus(message, { active = 'sign', completed = [], canRetry = false } = {}) {
+  $('#dialog-status').textContent = message;
+  updateConnectSteps(active, completed);
+  $('#wallet-connect').hidden = canRetry || state.signerReady;
+  $('#check-signer').hidden = !canRetry;
+}
+
+function openConnectDialog() {
+  if (state.signer && !state.signerReady) {
+    setConnectionStatus('Your app key is saved in this browser. Check whether Snapchain has confirmed it before creating anything else.', { active: 'approve', completed: ['sign'], canRetry: true });
+  } else if (state.signerReady) {
+    setConnectionStatus('This browser is connected and ready for social actions.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+  } else {
+    setConnectionStatus('', { active: 'sign', completed: [], canRetry: false });
+  }
+  $('#connect-dialog').showModal();
+}
+
 async function nodeRequest(route, params = {}, options = {}) {
   const url = new URL('/api/snapchain', window.location.origin);
   url.searchParams.set('route', route);
@@ -163,15 +200,40 @@ function unwrapMessages(response) {
 }
 
 function latestUserData(messages) {
-  const fields = {};
+  const latest = new Map();
   const numericTypes = { 1: 'pfp', 2: 'display', 3: 'bio', 5: 'url', 6: 'username' };
   for (const message of messages) {
     const body = message?.data?.userDataBody;
     if (!body) continue;
     const type = typeof body.type === 'number' ? numericTypes[body.type] : String(body.type || '').replace('USER_DATA_TYPE_', '').toLowerCase();
-    if (type && !(type in fields)) fields[type] = body.value;
+    if (!type) continue;
+    const timestamp = Number(message?.data?.timestamp || 0);
+    const previous = latest.get(type);
+    if (!previous || timestamp >= previous.timestamp) latest.set(type, { value: body.value, timestamp });
   }
-  return fields;
+  return Object.fromEntries([...latest].map(([type, entry]) => [type, entry.value]));
+}
+
+function decodeRequesterFid(metadataValue) {
+  try {
+    const bytes = typeof metadataValue === 'string'
+      ? (/^0x(?:[0-9a-f]{2})+$/i.test(metadataValue)
+        ? Uint8Array.from(metadataValue.slice(2).match(/.{2}/g).map((byte) => Number.parseInt(byte, 16)))
+        : fromBase64(metadataValue))
+      : Uint8Array.from(metadataValue || []);
+    if (bytes.length < 64) return null;
+    const [decoded] = decodeAbiParameters([{
+      type: 'tuple',
+      components: [
+        { name: 'requestFid', type: 'uint256' },
+        { name: 'requestSigner', type: 'address' },
+        { name: 'signature', type: 'bytes' },
+        { name: 'deadline', type: 'uint256' },
+      ],
+    }], bytesHex(bytes));
+    const fid = Number(decoded.requestFid);
+    return Number.isSafeInteger(fid) && fid > 0 ? fid : null;
+  } catch { return null; }
 }
 
 async function mapLimit(items, limit, callback) {
@@ -198,21 +260,10 @@ async function fetchProfile(fid) {
     const keyBody = row?.data?.keyAddBody || row?.data?.signerAddBody || row;
     const signer = signerHex(keyBody.key || keyBody.signer);
     let clientFid = Number(keyBody.requesterFid || keyBody.request_fid || keyBody.sourceFid || row.requesterFid || 0) || null;
-    if (!clientFid && keyBody.metadata) {
-      try {
-        const metadata = typeof keyBody.metadata === 'string'
-          ? (/^0x[0-9a-f]+$/i.test(keyBody.metadata)
-            ? Uint8Array.from(keyBody.metadata.slice(2).match(/.{2}/g).map((byte) => Number.parseInt(byte, 16)))
-            : fromBase64(keyBody.metadata))
-          : Uint8Array.from(keyBody.metadata);
-        const { decodeGaslessSignedKeyRequestMetadata } = await import('./protocol.js');
-        const decoded = decodeGaslessSignedKeyRequestMetadata(metadata);
-        if (!decoded.isErr()) clientFid = Number(decoded.value.requestFid) || null;
-      } catch { /* Older or incomplete signer metadata stays unattributed. */ }
-    }
+    if (!clientFid && keyBody.metadata) clientFid = decodeRequesterFid(keyBody.metadata);
     if (signer && clientFid && clientFid !== fid) state.sourceBySigner.set(signer, clientFid);
   }
-  const profile = { fid, name: fields.display || fields.username || `Farcaster ${fid}`, username: fields.username || `fid-${fid}`, avatar: fields.pfp || '' };
+  const profile = { fid, name: fields.display || fields.username || `Farcaster ${fid}`, username: fields.username || `fid-${fid}`, avatar: fields.pfp || '', bio: fields.bio || '' };
   state.people.set(fid, profile);
   return profile;
 }
@@ -319,7 +370,8 @@ function renderCast(message) {
   else avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
   const content = document.createElement('div');
   const head = document.createElement('div'); head.className = 'post-head';
-  const name = document.createElement('button'); name.type = 'button'; name.className = 'post-profile-link'; name.dataset.openProfile = String(fid); name.setAttribute('aria-label', `Open ${profile.name}'s recent posts`); name.textContent = profile.name;
+  const shownName = localProfileName(profile);
+  const name = document.createElement('button'); name.type = 'button'; name.className = 'post-profile-link'; name.dataset.openProfile = String(fid); name.setAttribute('aria-label', `Open ${shownName}'s recent posts`); name.textContent = shownName;
   const handle = document.createElement('span'); handle.className = 'post-handle'; handle.textContent = `@${profile.username}`;
   const time = document.createElement('span'); time.className = 'post-time'; time.textContent = farcasterDate(data.timestamp);
   const source = document.createElement('span'); source.className = 'post-source';
@@ -351,6 +403,7 @@ async function loadFeed(fidValue = $('#fid-input').value, mode = state.feedMode)
   try { localStorage.setItem(FEED_STORAGE, String(fid)); } catch { /* Feed reading still works if browser storage is unavailable. */ }
   $('#forget-feed').hidden = false;
   state.feedMode = mode === 'profile' ? 'profile' : 'following';
+  state.feedTargetFid = fid;
   state.feedBusy = true;
   const list = $('#feed-list'); list.setAttribute('aria-busy', 'true');
   $('#feed-title').textContent = state.feedMode === 'profile' ? 'Profile' : 'Following feed';
@@ -377,8 +430,7 @@ async function loadFeed(fidValue = $('#fid-input').value, mode = state.feedMode)
     await mapLimit(missingProfiles, 8, fetchProfile);
     renderFeed();
     $('#feed-filters').hidden = false;
-    $('#feed-end').hidden = messages.length === 0;
-    $('#feed-count').textContent = `${messages.length} CAST${messages.length === 1 ? '' : 'S'}`;
+    if (!messages.length) $('#feed-count').textContent = '0 POSTS';
     if (followFids.length > 35) setNotice('Showing the 35 most recent follows so the node stays responsive.');
   } catch (error) {
     const needsSetup = /SNAPCHAIN_URL|not configured|not been configured/i.test(error.message);
@@ -413,10 +465,100 @@ function renderFeed() {
     return exclude ? source !== requestedSource : source === requestedSource;
   });
   const list = $('#feed-list');
-  if (!messages.length) { renderEmpty('Nothing matches this view.', 'No casts were returned, or your source filter removed them. Source attribution can be unknown when the signer was not retained or registered as a gasless app key.'); return; }
+  renderFeedPulse(messages);
+  renderProfileSummary();
+  if (!messages.length) {
+    renderEmpty('Nothing matches this view.', 'No casts were returned, or your source filter removed them. Source attribution can be unknown when the signer was not retained or registered as a gasless app key.');
+    $('#feed-count').textContent = '0 POSTS';
+    $('#feed-end').hidden = true;
+    return;
+  }
+  $('#feed-count').textContent = requestedSource ? `${messages.length} OF ${state.casts.length} POSTS` : `${messages.length} POSTS`;
+  $('#feed-end').hidden = false;
   const fragment = document.createDocumentFragment();
   messages.forEach((message) => fragment.append(renderCast(message)));
   list.replaceChildren(fragment);
+}
+
+function localProfileName(profile) {
+  const nickname = state.profileNotes[profile.fid]?.nickname;
+  return typeof nickname === 'string' && nickname.trim() ? nickname.trim() : profile.name;
+}
+
+function renderFeedPulse(messages) {
+  const panel = $('#feed-pulse');
+  if (!panel) return;
+  panel.hidden = !state.casts.length;
+  if (!state.casts.length) return;
+  const people = new Map();
+  for (const message of messages) {
+    const fid = Number(message?.data?.fid) || 0;
+    if (fid) people.set(fid, (people.get(fid) || 0) + 1);
+  }
+  const busiest = [...people.entries()].sort((a, b) => b[1] - a[1])[0];
+  const stats = $('#pulse-stats');
+  stats.replaceChildren();
+  const addStat = (label, value) => {
+    const item = document.createElement('div'); item.className = 'pulse-stat';
+    const strong = document.createElement('strong'); strong.textContent = value;
+    const small = document.createElement('small'); small.textContent = label;
+    item.append(strong, small); stats.append(item);
+  };
+  addStat('posts in this view', String(messages.length));
+  addStat('people in this view', String(people.size));
+  if (busiest) {
+    const profile = state.people.get(busiest[0]) || { fid: busiest[0], name: `FID ${busiest[0]}` };
+    addStat('most active', `${localProfileName(profile)} · ${busiest[1]}`);
+  }
+  $('#pulse-insight').textContent = busiest
+    ? `${localProfileName(state.people.get(busiest[0]) || { fid: busiest[0], name: `FID ${busiest[0]}` })} appears most in the posts currently loaded. Counts are calculated in this tab; they are not network-wide analytics.`
+    : 'No posts match the current view. Adjust the source filter to see this snapshot.';
+}
+
+function renderProfileSummary() {
+  const card = $('#profile-summary');
+  if (!card) return;
+  const isProfile = state.feedMode === 'profile' && state.feedTargetFid;
+  card.hidden = !isProfile;
+  if (!isProfile) return;
+  const profile = state.people.get(state.feedTargetFid) || { fid: state.feedTargetFid, name: `Farcaster ${state.feedTargetFid}`, username: `fid-${state.feedTargetFid}`, avatar: '', bio: '' };
+  const local = state.profileNotes[profile.fid] || {};
+  const shell = document.createElement('div'); shell.className = 'profile-summary-main';
+  const avatar = document.createElement('span'); avatar.className = 'profile-summary-avatar'; avatar.textContent = localProfileName(profile).slice(0, 1).toUpperCase();
+  if (profile.avatar && /^https?:\/\//i.test(profile.avatar)) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.loading = 'lazy'; avatar.replaceChildren(image); }
+  const identity = document.createElement('div'); identity.className = 'profile-summary-identity';
+  const name = document.createElement('h3'); name.textContent = localProfileName(profile);
+  const handle = document.createElement('p'); handle.textContent = `@${profile.username} · FID ${profile.fid}`;
+  identity.append(name, handle);
+  if (profile.bio) { const bio = document.createElement('p'); bio.className = 'profile-summary-bio'; bio.textContent = profile.bio; identity.append(bio); }
+  if (local.nickname || local.note) { const note = document.createElement('p'); note.className = 'profile-private-note'; note.textContent = local.note ? `Your note: ${local.note}` : 'Your personal nickname is saved on this device.'; identity.append(note); }
+  const actions = document.createElement('div'); actions.className = 'profile-summary-actions';
+  const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'button button-outline'; pin.dataset.profilePin = String(profile.fid); pin.textContent = state.deskPins.includes(profile.fid) ? 'On your Desk ✓' : 'Pin to Desk';
+  const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button button-outline'; edit.dataset.editProfile = String(profile.fid); edit.textContent = 'Personalize';
+  actions.append(pin, edit); shell.append(avatar, identity, actions); card.replaceChildren(shell);
+}
+
+function openProfileEditor(fid) {
+  const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}` };
+  const local = state.profileNotes[fid] || {};
+  $('#profile-edit-title').textContent = `Your notes for ${localProfileName(profile)}.`;
+  $('#profile-nickname').value = local.nickname || '';
+  $('#profile-note').value = local.note || '';
+  $('#profile-edit-status').textContent = '';
+  $('#profile-edit-dialog').dataset.fid = String(fid);
+  $('#profile-edit-dialog').showModal();
+}
+
+function saveProfileTouch(fid, values) {
+  const nickname = values.nickname.trim().slice(0, 40);
+  const note = values.note.trim().slice(0, 240);
+  if (nickname || note) state.profileNotes[fid] = { nickname, note };
+  else delete state.profileNotes[fid];
+  try { localStorage.setItem(PROFILE_NOTES_STORAGE, JSON.stringify(state.profileNotes)); }
+  catch { setNotice('Browser storage is unavailable. These profile touches could not be saved.', 'error'); return false; }
+  renderDesk(); renderFeed(); renderIdentity();
+  setNotice('Your private profile touches are saved on this device.', 'success');
+  return true;
 }
 
 function renderDesk() {
@@ -430,13 +572,14 @@ function renderDesk() {
     const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '' };
     const chip = document.createElement('div'); chip.className = 'desk-person';
     const open = document.createElement('button'); open.type = 'button'; open.className = 'desk-person-open'; open.dataset.deskFid = String(fid);
-    const avatar = document.createElement('span'); avatar.className = 'desk-avatar'; avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
+    const shownName = localProfileName(profile);
+    const avatar = document.createElement('span'); avatar.className = 'desk-avatar'; avatar.textContent = shownName.slice(0, 1).toUpperCase();
     if (profile.avatar && /^https?:\/\//i.test(profile.avatar)) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.loading = 'lazy'; avatar.replaceChildren(image); }
     const labels = document.createElement('span'); labels.className = 'desk-person-label';
-    const name = document.createElement('strong'); name.textContent = profile.name;
+    const name = document.createElement('strong'); name.textContent = shownName;
     const handle = document.createElement('small'); handle.textContent = `@${profile.username}`;
     labels.append(name, handle); open.append(avatar, labels);
-    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'desk-unpin'; remove.dataset.action = 'unpin-person'; remove.dataset.fid = String(fid); remove.textContent = '×'; remove.setAttribute('aria-label', `Remove ${profile.name} from your desk`);
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'desk-unpin'; remove.dataset.action = 'unpin-person'; remove.dataset.fid = String(fid); remove.textContent = '×'; remove.setAttribute('aria-label', `Remove ${shownName} from your desk`);
     chip.append(open, remove); container.append(chip);
   }
 }
@@ -458,11 +601,12 @@ async function toggleDeskPin(fidValue, button) {
 }
 
 function fromBase64(value) { const binary = atob(value); return Uint8Array.from(binary, (char) => char.charCodeAt(0)); }
+function toBase64(bytes) { let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }
 function bytesHex(bytes) { return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`; }
 
 async function createCustodySigner() {
   const protocol = await import('./protocol.js');
-  if (!window.ethereum) throw new Error('No Ethereum wallet was found. Install or open a wallet, then try again.');
+  if (!window.ethereum) throw new Error('No compatible browser wallet was found. Open Castonaut in a wallet-enabled browser, or keep reading without connecting. Castonaut never accepts recovery phrases.');
   const chainId = await window.ethereum.request({ method: 'eth_chainId' });
   if (Number.parseInt(chainId, 16) !== optimism.id) {
     try {
@@ -529,17 +673,19 @@ async function authorizeSigner() {
     const saved = await loadSigner();
     const legacy = localStorage.getItem(LEGACY_KEY_STORAGE);
     if (state.signer || saved || legacy) throw new Error('This browser already has an app key saved. Reload to check its status, or use “Forget this browser” before creating another one.');
-    status.textContent = 'Finding your Farcaster account and preparing a scoped key…';
+    setConnectionStatus('Finding the Farcaster account controlled by your wallet…', { active: 'sign' });
     const { eip712Signer, custodyAddress, fid } = await createCustodySigner();
     const { signer, publicKey: publicKeyBytes, privateKey } = await createBrowserSigner();
     const publicKey = bytesHex(publicKeyBytes);
     const nonce = await readCurrentNonce(fid);
     const deadline = Number(resultOrThrow(protocol.getFarcasterTime(), 'Could not read Farcaster time')) + 60 * 60;
-    status.textContent = 'Your wallet will authorize a 30-day gasless app key. No transaction or network fee is requested.';
+    setConnectionStatus('Review the wallet request. It authorizes a limited app key for up to 30 days; it does not move funds.', { active: 'sign' });
     const scopes = [protocol.MessageType.CAST_ADD, protocol.MessageType.CAST_REMOVE, protocol.MessageType.REACTION_ADD, protocol.MessageType.REACTION_REMOVE, protocol.MessageType.LINK_ADD, protocol.MessageType.LINK_REMOVE];
     const keyBody = resultOrThrow(await protocol.makeKeyAddBody({ fid: BigInt(fid), key: protocol.hexStringToBytes(publicKey), scopes, ttl: KEY_TTL_SECONDS, nonce: nonce + 1, deadline }, eip712Signer), 'Could not authorize the app key');
     const message = resultOrThrow(await protocol.makeKeyAdd(keyBody, { fid, network: protocol.FarcasterNetwork.MAINNET }, signer), 'Could not sign key registration');
-    await storeSigner({ fid, publicKey, custodyAddress, privateKey });
+    const signedRequest = protocol.Message.encode(message).finish();
+    await storeSigner({ fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
+    setConnectionStatus('Wallet authorization signed. Sending the signed app-key request to Snapchain…', { active: 'approve', completed: ['sign'] });
     state.fid = fid;
     state.signer = signer;
     state.publicKey = publicKey;
@@ -548,7 +694,7 @@ async function authorizeSigner() {
     $('#fid-input').value = String(fid);
     try { localStorage.setItem(FEED_STORAGE, String(fid)); } catch { /* Account connection still works without feed preference storage. */ }
     renderIdentity();
-    status.textContent = 'Sending KEY_ADD through your read node…';
+    status.textContent = 'Checking for network confirmation…';
     relayAttempted = true;
     const relayed = await submitMessage(message);
     if (!relayed.hash) throw new Error('The node accepted no message hash. Check node health and try again.');
@@ -557,29 +703,63 @@ async function authorizeSigner() {
     await fetchProfile(fid).catch(() => null);
     renderIdentity();
     if (confirmed) {
-      status.textContent = 'App key confirmed in Snapchain. This browser can now post, follow, and react.';
+      setConnectionStatus('Approved and confirmed. This browser is ready to post, follow, and react.', { active: 'done', completed: ['sign', 'approve', 'done'] });
       setNotice('Gasless app key confirmed. This browser is ready to write.', 'success');
       loadFeed(String(fid));
-      setTimeout(() => $('#connect-dialog').close(), 1300);
+      setTimeout(() => { if ($('#connect-dialog').open) $('#connect-dialog').close(); }, 2200);
     } else {
-      status.textContent = 'The read node accepted the key for relay but has not confirmed merge yet. The key is saved locally; try again after the next block.';
+      setConnectionStatus('Snapchain accepted the request, but confirmation is still pending. Your key is saved here. Check again in a moment; posting stays paused until confirmation.', { active: 'approve', completed: ['sign'], canRetry: true });
       setNotice('Key relayed; merge is still pending. Writes stay locked until the node confirms it.', 'pending');
     }
   } catch (error) {
     if (relayAttempted) {
       state.signerReady = false;
       renderIdentity();
-      status.textContent = `Authorization could not be confirmed. The app key remains saved in this browser so it is not lost. Reload to check its network status before trying again. (${error.message})`;
-    } else status.textContent = error.message;
+      setConnectionStatus(`The request may have reached the node, but confirmation failed. Your key is saved here. Check again before trying anything else. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
+    } else setConnectionStatus(error.message, { active: 'sign' });
     setNotice(error.message, 'error');
   } finally {
     connectButton.disabled = false;
   }
 }
 
+async function checkSavedSigner() {
+  const button = $('#check-signer');
+  button.disabled = true;
+  setConnectionStatus('Checking this browser’s saved app key with Snapchain…', { active: 'approve', completed: ['sign'], canRetry: true });
+  try {
+    if (!state.fid || !state.publicKey || !state.signer) await restoreSession();
+    if (!state.fid || !state.publicKey || !state.signer) throw new Error('No saved app key was found in this browser. Start again with your wallet.');
+    const saved = await loadSigner();
+    let confirmed = await findSigner(state.fid, state.publicKey);
+    if (!confirmed && saved?.signedKeyAdd) {
+      setConnectionStatus('The key is not visible yet. Retrying its signed registration request, then checking for confirmation…', { active: 'approve', completed: ['sign'], canRetry: true });
+      const encoded = fromBase64(saved.signedKeyAdd);
+      try { await submitEncodedMessage(encoded); } catch { /* The first relay may already have accepted it; verify network state below. */ }
+      confirmed = await waitForSigner(state.fid, state.publicKey);
+    }
+    state.signerReady = confirmed;
+    await fetchProfile(state.fid).catch(() => null);
+    renderIdentity();
+    if (confirmed) {
+      setConnectionStatus('Approved and confirmed. This browser is ready to post, follow, and react.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+      setNotice('App key confirmed. This browser is ready to write.', 'success');
+      loadFeed(String(state.fid));
+    } else {
+      setConnectionStatus('Snapchain has not confirmed this key yet. Try again in a moment; do not create another key while this one is pending.', { active: 'approve', completed: ['sign'], canRetry: true });
+    }
+  } catch (error) {
+    setConnectionStatus(`Could not check the saved key. It remains in this browser. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
+  } finally { button.disabled = false; }
+}
+
 async function submitMessage(message) {
   const { Message } = await import('./protocol.js');
   const encoded = Message.encode(message).finish();
+  return submitEncodedMessage(encoded);
+}
+
+async function submitEncodedMessage(encoded) {
   return nodeRequest('submit', {}, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: encoded });
 }
 
@@ -610,8 +790,9 @@ function renderIdentity() {
   empty.hidden = !!state.fid; connected.hidden = !state.fid;
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
-  $('#avatar-initial').textContent = profile.name.slice(0, 1).toUpperCase();
-  $('#profile-name').textContent = profile.name;
+  const shownName = localProfileName(profile);
+  $('#avatar-initial').textContent = shownName.slice(0, 1).toUpperCase();
+  $('#profile-name').textContent = shownName;
   $('#profile-handle').textContent = `@${profile.username} · FID ${state.fid}`;
   $('#profile-avatar').textContent = profile.name.slice(0, 1).toUpperCase();
   if (profile.avatar && /^https?:\/\//i.test(profile.avatar)) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.loading = 'lazy'; $('#profile-avatar').replaceChildren(image); }
@@ -699,6 +880,7 @@ $('#forget-feed').addEventListener('click', () => {
   state.feedMode = 'following'; state.casts = [];
   $('#feed-title').textContent = 'Your people';
   $('#feed-caption').textContent = 'Enter your Farcaster ID to catch up with the accounts you follow.';
+  $('#profile-summary').hidden = true; $('#feed-pulse').hidden = true;
   $('#feed-count').textContent = '0 POSTS'; $('#feed-end').hidden = true; $('#feed-filters').hidden = true;
   renderEmpty('Your saved feed is cleared.', 'Enter a Farcaster ID above whenever you want to catch up.');
   setNotice('Saved FID removed from this device.', 'success');
@@ -718,12 +900,20 @@ document.addEventListener('click', async (event) => {
 });
 $('#source-fid').addEventListener('input', renderFeed);
 $('#source-mode').addEventListener('change', renderFeed);
-$('#open-account').addEventListener('click', () => $('#connect-dialog').showModal());
-$('#connect-button').addEventListener('click', () => $('#connect-dialog').showModal());
+$('#open-account').addEventListener('click', openConnectDialog);
+$('#connect-button').addEventListener('click', openConnectDialog);
 $('#manage-key').addEventListener('click', () => { if (confirm('Delete Castonaut’s signing key from this browser? This pauses posting here, but does not revoke the Farcaster signer. Revoke it separately in Farcaster account settings.')) clearLocalSigner(); });
 $('#wallet-connect').addEventListener('click', () => authorizeSigner());
+$('#check-signer').addEventListener('click', () => checkSavedSigner());
 $('#connect-dialog').addEventListener('click', (event) => { if (event.target === $('#connect-dialog')) $('#connect-dialog').close(); });
 $('#composer-text').addEventListener('input', () => { $('#char-count').textContent = `${[...$('#composer-text').value].length} / 320`; });
+$('#composer-text').addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && state.parent) {
+    state.parent = null;
+    $('#composer-text').placeholder = 'Leave a note for the room…';
+    setNotice('Reply cancelled.');
+  }
+});
 
 $('#composer').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -737,13 +927,21 @@ $('#composer').addEventListener('submit', async (event) => {
     const signedMessage = resultOrThrow(message, 'Could not sign cast');
     const hash = postHash(signedMessage);
     await signAndRelay({ value: signedMessage }, 'castById', { fid: state.fid, hash }, 'Cast merged into Snapchain.');
-    $('#composer-text').value = ''; $('#char-count').textContent = '0 / 320'; state.parent = null;
+    $('#composer-text').value = ''; $('#char-count').textContent = '0 / 320'; state.parent = null; $('#composer-text').placeholder = 'Leave a note for the room…';
     await loadFeed();
   } catch (error) { setNotice(error.message, 'error'); }
   finally { submit.disabled = !state.signerReady; }
 });
 
 document.addEventListener('click', async (event) => {
+  const profilePin = event.target.closest('[data-profile-pin]');
+  if (profilePin) {
+    await toggleDeskPin(profilePin.dataset.profilePin, null);
+    renderProfileSummary();
+    return;
+  }
+  const profileEdit = event.target.closest('[data-edit-profile]');
+  if (profileEdit) { openProfileEditor(Number(profileEdit.dataset.editProfile)); return; }
   const profileButton = event.target.closest('[data-open-profile]');
   if (profileButton) {
     const fid = Number(profileButton.dataset.openProfile);
@@ -779,6 +977,17 @@ document.addEventListener('click', async (event) => {
     button.setAttribute('aria-pressed', 'true');
   } catch (error) { setNotice(error.message, 'error'); button.disabled = !state.signerReady; }
 });
+$('#profile-edit-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const dialog = $('#profile-edit-dialog');
+  const saved = saveProfileTouch(Number(dialog.dataset.fid), { nickname: $('#profile-nickname').value, note: $('#profile-note').value });
+  if (saved) dialog.close();
+});
+$('#clear-profile-custom').addEventListener('click', () => {
+  const dialog = $('#profile-edit-dialog');
+  if (saveProfileTouch(Number(dialog.dataset.fid), { nickname: '', note: '' })) dialog.close();
+});
+$('#profile-edit-dialog').addEventListener('click', (event) => { if (event.target === $('#profile-edit-dialog')) $('#profile-edit-dialog').close(); });
 
 if (location.hash === '#node' || location.hash === '#about') navigate('node');
 renderDesk();
