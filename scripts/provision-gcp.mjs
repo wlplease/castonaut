@@ -24,8 +24,8 @@ try {
   const existing = runGcloud(['compute', 'instances', 'describe', 'castonaut-snapchain', `--project=${activeProject}`, `--zone=${zone}`, '--format=value(status)'], { capture: true, allowFailure: true, cwd: root });
   if (existing.status === 0 && existing.stdout) throw new Error(`castonaut-snapchain already exists (${existing.stdout}). Run npm run node to finish setup, or delete it from the Cloud Console when you are done.`);
 
-  console.log('\nThis creates a 4-vCPU / 16-GB VM, a 1.75-TiB persistent data disk, and a public Snapchain peer/API endpoint.');
-  console.log('Estimate: roughly $0.24 per hour, about $40 for 7 days, before network and IP charges. Actual rates and trial coverage vary by region and account.');
+  console.log('\nThis creates a 4-vCPU / 16-GB VM, a 2-TB persistent data disk, and a public Snapchain peer/API endpoint.');
+  console.log('Estimate: roughly $0.25 per hour, about $42 for 7 days, before network and IP charges. Actual rates and trial coverage vary by region and account.');
   console.log('The disk is set to auto-delete when you delete the VM. The VM keeps running until you stop or delete it.\n');
   const prompt = createInterface({ input, output });
   const answer = await prompt.question('Type CREATE to provision these billable resources: ');
@@ -44,7 +44,7 @@ try {
   runGcloud([
     'compute', 'instances', 'create', 'castonaut-snapchain', `--project=${activeProject}`, `--zone=${zone}`,
     '--machine-type=e2-standard-4', '--image-family=ubuntu-2204-lts', '--image-project=ubuntu-os-cloud',
-    '--boot-disk-size=30GB', '--boot-disk-type=pd-balanced', '--create-disk=name=castonaut-snapchain-data,device-name=castonaut-snapchain-data,size=1792GB,type=pd-standard,auto-delete=yes,boot=no',
+    '--boot-disk-size=30GB', '--boot-disk-type=pd-balanced', '--create-disk=name=castonaut-snapchain-data,device-name=castonaut-snapchain-data,size=2048GB,type=pd-standard,auto-delete=yes,boot=no',
     '--tags=snapchain-readnode', `--metadata-from-file=startup-script=${resolve(root, 'scripts/gcp-startup.sh')}`,
   ], { cwd: root });
   const details = JSON.parse(runGcloud(['compute', 'instances', 'describe', 'castonaut-snapchain', `--project=${activeProject}`, `--zone=${zone}`, '--format=json'], { capture: true, cwd: root }).stdout);

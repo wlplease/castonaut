@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 const ROUTES = {
   info: { path: '/v1/info', method: 'GET', params: [] },
   casts: { path: '/v1/castsByFid', method: 'GET', params: ['fid', 'pageSize', 'pageToken', 'reverse', 'startTimestamp', 'stopTimestamp'] },
@@ -19,15 +21,25 @@ const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_RATE_LIMIT_ENTRIES = 4096;
 
 function rateLimitKey(req) {
+  // Vercel overwrites x-forwarded-for with the connecting client IP. Validate
+  // it before using it as a key so malformed headers cannot create huge keys.
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || req.socket?.remoteAddress || 'unknown';
+  if (forwarded.length <= 64 && isIP(forwarded)) return forwarded;
+  const remote = String(req.socket?.remoteAddress || '').trim();
+  return remote.length <= 64 && isIP(remote) ? remote : 'unknown';
 }
 
 function isSameOrigin(req) {
   const origin = req.headers.origin;
   const host = req.headers.host;
   if (!origin || !host) return false;
-  try { return new URL(origin).host.toLowerCase() === String(host).toLowerCase(); } catch { return false; }
+  if (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin') return false;
+  try {
+    const parsed = new URL(origin);
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+    if (forwardedProto && parsed.protocol !== `${forwardedProto}:`) return false;
+    return ['http:', 'https:'].includes(parsed.protocol) && parsed.host.toLowerCase() === String(host).toLowerCase();
+  } catch { return false; }
 }
 
 function validateParam(name, value) {
@@ -118,15 +130,20 @@ export default async function snapchain(req, res) {
   if (!base) return res.status(503).json({ error: 'Snapchain is not configured. Set SNAPCHAIN_URL to your read node HTTP URL.' });
   let target;
   try {
-    target = new URL(route.path, base.endsWith('/') ? base : `${base}/`);
     const baseUrl = new URL(base);
-    if (!['http:', 'https:'].includes(baseUrl.protocol) || baseUrl.username || baseUrl.password) throw new Error('Invalid Snapchain URL');
+    if (!['http:', 'https:'].includes(baseUrl.protocol) || baseUrl.username || baseUrl.password || baseUrl.pathname !== '/' || baseUrl.search || baseUrl.hash) throw new Error('Invalid Snapchain URL');
+    if (Boolean(process.env.SNAPCHAIN_HTTP_USER) !== Boolean(process.env.SNAPCHAIN_HTTP_PASS)) throw new Error('Proxy credentials must be set as a pair');
+    target = new URL(route.path, baseUrl);
   } catch {
-    return res.status(500).json({ error: 'SNAPCHAIN_URL must be a valid HTTP or HTTPS origin' });
+    return res.status(500).json({ error: 'SNAPCHAIN_URL must be an HTTP or HTTPS origin; proxy credentials must be set as a pair.' });
   }
 
+  const seenParams = new Set();
+  if (url.searchParams.getAll('route').length !== 1) return res.status(400).json({ error: 'Exactly one Snapchain route is required' });
   for (const [name, value] of url.searchParams.entries()) {
     if (name === 'route') continue;
+    if (seenParams.has(name)) return res.status(400).json({ error: `Duplicate ${name} parameter` });
+    seenParams.add(name);
     if (!route.params.includes(name) || !validateParam(name, value)) return res.status(400).json({ error: `Invalid ${name} parameter` });
     target.searchParams.set(name, value);
   }
@@ -148,14 +165,17 @@ export default async function snapchain(req, res) {
     if (process.env.SNAPCHAIN_HTTP_USER && process.env.SNAPCHAIN_HTTP_PASS) {
       headers.authorization = `Basic ${Buffer.from(`${process.env.SNAPCHAIN_HTTP_USER}:${process.env.SNAPCHAIN_HTTP_PASS}`).toString('base64')}`;
     }
-    const response = await fetch(target, { method: route.method, headers, body, signal: AbortSignal.timeout(12_000) });
+    const response = await fetch(target, { method: route.method, headers, body, redirect: 'error', signal: AbortSignal.timeout(12_000) });
     const raw = await readResponse(response);
     let result;
-    try { result = raw ? JSON.parse(raw) : {}; } catch { result = { error: 'Snapchain returned an unreadable response' }; }
+    try { result = raw ? JSON.parse(raw) : {}; } catch { return res.status(502).json({ error: 'Snapchain returned an unreadable response' }); }
     res.setHeader('Cache-Control', 'no-store');
     if (response.status >= 400) {
-      const message = String(result.details || result.error || result.message || 'Snapchain rejected the request').slice(0, 500);
-      return res.status(response.status === 404 ? 404 : response.status >= 500 ? 502 : response.status).json({ error: message });
+      const status = response.status >= 500 ? 502 : response.status;
+      const message = response.status >= 500
+        ? 'Snapchain is temporarily unavailable.'
+        : `Snapchain rejected the request (${response.status}). Check the account or message and try again.`;
+      return res.status(status).json({ error: message });
     }
     return res.status(200).json(result);
   } catch (error) {

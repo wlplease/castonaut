@@ -1,5 +1,5 @@
 import './styles.css';
-import { createPublicClient, createWalletClient, custom, decodeAbiParameters, isAddress } from 'viem';
+import { createPublicClient, createWalletClient, custom, decodeAbiParameters, http, isAddress } from 'viem';
 import { optimism } from 'viem/chains';
 
 const $ = (selector) => document.querySelector(selector);
@@ -8,12 +8,20 @@ const KEY_TTL_SECONDS = 30 * 24 * 60 * 60;
 const LEGACY_KEY_STORAGE = 'openroom.snapchain.signer.v1';
 const SIGNER_DB = 'castonaut-security';
 const SIGNER_STORE = 'signers';
-const FEED_STORAGE = 'openroom.last-feed.v1';
 const DESK_STORAGE = 'packet-porch.desk-pins.v1';
 const PROFILE_NOTES_STORAGE = 'castonaut.profile-notes.v1';
+const FLIGHT_LOG_STORAGE = 'castonaut.flight-log.v1';
+const REMOTE_MEDIA_STORAGE = 'castonaut.remote-media.v1';
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, nodeInfo: null, casts: [], people: new Map(), sourceBySigner: new Map(), parent: null, feedBusy: false, feedPending: null, feedMode: 'following', feedTargetFid: null, deskPins: [], profileNotes: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, nodeInfo: null, casts: [], people: new Map(), sourceBySigner: new Map(), parent: null, feedBusy: false, feedPending: null, feedRequest: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', savedCasts: [], deskPins: [], profileNotes: {}, remoteMediaEnabled: false };
+let pendingRecoveryAccount = null;
+
+function setStationTone() {
+  const hour = new Date().getHours();
+  document.documentElement.dataset.stationTone = hour < 10 ? 'morning' : hour < 16 ? 'day' : hour < 20 ? 'evening' : 'night';
+}
+setStationTone();
 
 try {
   const pins = JSON.parse(localStorage.getItem(DESK_STORAGE) || '[]');
@@ -23,6 +31,7 @@ try {
   const storedNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}');
   if (storedNotes && typeof storedNotes === 'object' && !Array.isArray(storedNotes)) state.profileNotes = storedNotes;
 } catch { /* Local profile touches are optional. */ }
+try { state.remoteMediaEnabled = localStorage.getItem(REMOTE_MEDIA_STORAGE) === 'true'; } catch { /* Remote media stays off when browser storage is unavailable. */ }
 
 function resultOrThrow(result, label) {
   if (!result || (typeof result.isErr === 'function' && result.isErr())) throw new Error(`${label}: ${result?.error || 'could not create protocol message'}`);
@@ -85,6 +94,16 @@ async function removeStoredSigner() {
     }); } finally { db.close(); }
     return true;
   } catch { return false; }
+}
+
+async function clearPendingRegistration() {
+  try {
+    const saved = await loadSigner();
+    if (saved?.signedKeyAdd) {
+      delete saved.signedKeyAdd;
+      await storeSigner(saved);
+    }
+  } catch { /* A confirmed key remains usable if browser storage cleanup fails. */ }
 }
 
 async function createBrowserSigner() {
@@ -170,8 +189,10 @@ async function nodeRequest(route, params = {}, options = {}) {
 }
 
 function asFid(value) {
-  const fid = Number(value);
-  if (!Number.isSafeInteger(fid) || fid < 1) throw new Error('Enter a valid Farcaster ID (a positive whole number).');
+  const raw = String(value ?? '').trim();
+  if (!/^[1-9]\d{0,14}$/.test(raw)) throw new Error('Enter a valid Farcaster ID (a positive whole number with up to 15 digits).');
+  const fid = Number(raw);
+  if (!Number.isSafeInteger(fid)) throw new Error('Enter a valid Farcaster ID (a positive whole number with up to 15 digits).');
   return fid;
 }
 
@@ -190,6 +211,25 @@ function signerHex(value) {
   if (typeof value === 'string') return value.toLowerCase().startsWith('0x') ? value.toLowerCase() : `0x${value.toLowerCase()}`;
   if (value && typeof value[Symbol.iterator] === 'function') return `0x${Array.from(value, (byte) => Number(byte).toString(16).padStart(2, '0')).join('')}`;
   return '';
+}
+
+function safeImageUrl(value) {
+  try {
+    const url = new URL(String(value));
+    if (url.protocol !== 'https:' || url.username || url.password) return '';
+    return url.href;
+  } catch { return ''; }
+}
+
+function makeRemoteImage(url, className = '') {
+  const image = document.createElement('img');
+  if (className) image.className = className;
+  image.src = url;
+  image.alt = '';
+  image.loading = 'lazy';
+  image.decoding = 'async';
+  image.referrerPolicy = 'no-referrer';
+  return image;
 }
 
 function unwrapMessages(response) {
@@ -296,10 +336,10 @@ async function checkNode() {
     const version = $('#node-version'); if (version) version.textContent = info.version || 'Unknown';
     const shardCount = $('#node-shards'); if (shardCount) shardCount.textContent = `${shards.length || info.numShards || '—'} ACTIVE`;
     const inSync = maxDelay !== null && maxDelay <= 10;
-    const title = inSync ? 'You’re ready to read' : 'The feed is catching up';
-    const detail = inSync ? 'The service is connected and your Farcaster feed is ready.' : `The service is catching up${maxDelay === null ? '.' : `; its latest update is ${maxDelay} seconds behind.`}`;
+    const title = inSync ? 'Waystation service is ready' : 'The feed is catching up';
+    const detail = inSync ? 'The service is connected. Verify your account to open your station.' : `The service is catching up${maxDelay === null ? '.' : `; its latest update is ${maxDelay} seconds behind.`}`;
     setNodeState(inSync ? 'good' : '', title, detail);
-    const foot = $('#telemetry-foot'); if (foot) foot.textContent = inSync ? 'Connection is healthy. You can read without connecting a wallet.' : 'The service is loading older network data. Try your feed again shortly.';
+    const foot = $('#telemetry-foot'); if (foot) foot.textContent = inSync ? 'Connection is healthy. Sign in to open your account desk.' : 'The service is loading older network data. Try your feed again shortly.';
     const list = $('#shard-list');
     if (list) list.replaceChildren();
     for (const shard of list ? (info.shardInfos || []) : []) {
@@ -323,13 +363,13 @@ async function checkNode() {
     const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
       ? localPreview
-        ? 'This local preview is not connected to a Snapchain node. Follow the feed setup guide to connect one. Visitors to the hosted app will not need to run a node.'
-        : 'The app’s server needs its Snapchain URL configured. Readers will not need a personal node or wallet.'
-      : 'The shared feed service is not responding right now. Try again shortly.';
+        ? 'This preview needs a Snapchain endpoint. The hosted app connects for you.'
+        : 'The app’s server needs its Snapchain URL configured before account desks can open.'
+      : 'Feed service unavailable. Try again shortly.';
     const message = needsSetup ? (localPreview ? 'Local preview needs a node' : 'Feed service setup needed') : 'Feed service unavailable';
     setNodeState('bad', message, detail);
     const largeDetail = $('#node-detail-large'); if (largeDetail) largeDetail.textContent = needsSetup ? detail : error.message;
-    const foot = $('#telemetry-foot'); if (foot) foot.textContent = needsSetup ? 'No account or wallet setup is needed to read once the feed service is connected.' : 'The shared feed service is not responding right now.';
+    const foot = $('#telemetry-foot'); if (foot) foot.textContent = needsSetup ? 'Account sign-in opens after setup.' : 'Try the connection again in a moment.';
   } finally {
     if (small) small.disabled = false;
     if (large) large.disabled = false;
@@ -343,13 +383,22 @@ function renderEmpty(title, copy, action = null) {
   box.append(strong, p);
   if (action?.type === 'retry') {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
-    button.addEventListener('click', () => loadFeed($('#fid-input').value, state.feedMode));
+    button.addEventListener('click', () => loadFeed(state.feedTargetFid || state.fid, state.feedMode));
     box.append(button);
   } else if (action?.type === 'guide') {
     const link = document.createElement('a'); link.className = 'button button-outline'; link.href = '/tutorial.html'; link.textContent = action.label;
     box.append(link);
+  } else if (action?.type === 'profile') {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
+    button.addEventListener('click', () => loadFeed(state.feedTargetFid || state.fid, 'profile'));
+    box.append(button);
+  } else if (action?.type === 'clear-source') {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
+    button.addEventListener('click', () => { $('#source-fid').value = ''; $('#source-mode').value = 'include'; renderFeed(); });
+    box.append(button);
   }
   $('#feed-list').replaceChildren(box);
+  $('#feed-end').hidden = true;
 }
 
 function postHash(message) {
@@ -366,8 +415,9 @@ function renderCast(message) {
   const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '' };
   const card = document.createElement('article'); card.className = 'post-card';
   const avatar = document.createElement('div'); avatar.className = 'post-avatar';
-  if (profile.avatar && /^https?:\/\//i.test(profile.avatar)) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.loading = 'lazy'; avatar.append(image); }
-  else avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
+  avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
+  const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+  if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl));
   const content = document.createElement('div');
   const head = document.createElement('div'); head.className = 'post-head';
   const shownName = localProfileName(profile);
@@ -381,34 +431,55 @@ function renderCast(message) {
   const copy = document.createElement('p'); copy.className = 'post-copy'; copy.textContent = body.text || '(empty cast)';
   content.append(head, copy);
   const imageEmbed = (body.embeds || []).find((embed) => /\.(png|jpg|jpeg|gif|webp)(\?|$)/i.test(embed.url || ''));
-  if (imageEmbed && /^https?:\/\//i.test(imageEmbed.url)) { const image = document.createElement('img'); image.className = 'post-image'; image.src = imageEmbed.url; image.alt = 'Cast attachment'; image.loading = 'lazy'; content.append(image); }
+  const embedUrl = state.remoteMediaEnabled ? safeImageUrl(imageEmbed?.url) : '';
+  if (embedUrl && /\.(png|jpg|jpeg|gif|webp)(\?|$)/i.test(embedUrl)) content.append(makeRemoteImage(embedUrl, 'post-image'));
+  else if (imageEmbed && !state.remoteMediaEnabled) { const mediaNote = document.createElement('span'); mediaNote.className = 'media-hidden-note'; mediaNote.textContent = 'IMAGE NOT LOADED · remote images are off'; content.append(mediaNote); }
   const actions = document.createElement('div'); actions.className = 'post-actions';
   const like = document.createElement('button'); like.type = 'button'; like.className = 'post-action'; like.textContent = '♡ Like'; like.dataset.action = 'like';
   const recast = document.createElement('button'); recast.type = 'button'; recast.className = 'post-action'; recast.textContent = '⟳ Recast'; recast.dataset.action = 'recast';
   const reply = document.createElement('button'); reply.type = 'button'; reply.className = 'post-action'; reply.textContent = '↩ Reply'; reply.dataset.action = 'reply';
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'post-action'; follow.textContent = '＋ Follow'; follow.dataset.action = 'follow';
-  const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'post-action pin-action'; pin.textContent = state.deskPins.includes(fid) ? '⌖ On your desk' : '⌖ Pin'; pin.dataset.action = 'pin-person';
+  const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'post-action pin-action'; pin.textContent = state.deskPins.includes(fid) ? '⌖ Pinned' : '⌖ Pin'; pin.dataset.action = 'pin-person';
   pin.setAttribute('aria-pressed', String(state.deskPins.includes(fid)));
+  const flightLog = document.createElement('button'); flightLog.type = 'button'; flightLog.className = 'post-action flight-log-action';
+  flightLog.dataset.flightLog = 'true'; flightLog.dataset.fid = String(fid); flightLog.dataset.hash = postHash(message);
+  const saved = state.savedCasts.some((cast) => Number(cast.fid) === fid && cast.hash === postHash(message));
+  flightLog.textContent = saved ? '★ Saved' : '☆ Save'; flightLog.setAttribute('aria-pressed', String(saved));
   for (const button of [like, recast, reply, follow, pin]) { button.dataset.fid = String(fid); button.dataset.hash = postHash(message); button.disabled = button !== pin && (!state.signerReady || (button === follow && fid === state.fid)); }
-  actions.append(like, recast, reply, follow, pin);
-  const context = document.createElement('span'); context.className = 'post-context'; context.textContent = `FID ${fid}`;
-  actions.append(context); content.append(actions); card.append(avatar, content);
+  actions.append(like, recast, reply, follow, pin, flightLog);
+  content.append(actions); card.append(avatar, content);
   return card;
 }
 
-async function loadFeed(fidValue = $('#fid-input').value, mode = state.feedMode) {
+async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
+  if (!state.fid || !state.signerReady) {
+    renderEmpty('Sign in to open your station.', 'Connect the wallet linked to your Farcaster account. Your identity and posting access are verified together.');
+    return;
+  }
   if (state.feedBusy) { state.feedPending = [fidValue, mode]; return; }
   let fid;
-  try { fid = asFid(fidValue); } catch (error) { setNotice(error.message); return; }
-  try { localStorage.setItem(FEED_STORAGE, String(fid)); } catch { /* Feed reading still works if browser storage is unavailable. */ }
-  $('#forget-feed').hidden = false;
+  try {
+    fid = asFid(fidValue);
+    if (mode !== 'profile' && fid !== Number(state.fid)) throw new Error('Your following feed can only be opened for the connected Farcaster account.');
+  } catch (error) {
+    renderEmpty('Could not load this station.', error.message, { type: 'retry', label: 'Try again' });
+    $('#feed-count').textContent = '0 POSTS';
+    setNotice(error.message, 'error');
+    return;
+  }
   state.feedMode = mode === 'profile' ? 'profile' : 'following';
   state.feedTargetFid = fid;
+  const requestId = ++state.feedRequest;
+  state.casts = [];
+  $('#feed-pulse').hidden = true;
+  renderProfileSummary();
   state.feedBusy = true;
   const list = $('#feed-list'); list.setAttribute('aria-busy', 'true');
-  $('#feed-title').textContent = state.feedMode === 'profile' ? 'Profile' : 'Following feed';
-  $('#feed-caption').textContent = state.feedMode === 'profile' ? `Recent posts by FID ${fid}.` : `Recent posts from the people followed by FID ${fid}.`;
-  renderEmpty('Gathering your people…', 'Putting recent posts from the accounts you follow in one place.');
+  if (state.boardMode === 'signals') {
+    $('#feed-title').textContent = state.feedMode === 'profile' ? 'Profile' : 'Signals';
+    $('#feed-caption').textContent = state.feedMode === 'profile' ? `Recent posts by FID ${fid}.` : `Recent posts from the people followed by FID ${fid}.`;
+  }
+  renderEmpty('Gathering your people…', state.feedMode === 'profile' ? 'Loading this profile’s recent posts.' : 'Putting recent posts from the accounts you follow in one place.');
   try {
     if (!state.nodeInfo) checkNode();
     const [followResponse, profile] = await Promise.all([
@@ -417,32 +488,39 @@ async function loadFeed(fidValue = $('#fid-input').value, mode = state.feedMode)
     ]);
     const followFids = unwrapMessages(followResponse).map((message) => Number(message?.data?.linkBody?.targetFid)).filter((target) => Number.isSafeInteger(target) && target > 0 && target !== fid);
     const uniqueFids = state.feedMode === 'profile' ? [fid] : [fid, ...new Set(followFids)].slice(0, 36);
-    $('#feed-title').textContent = state.feedMode === 'profile' ? profile.name : 'Following feed';
-    $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · FID ${fid} · recent posts` : `Recent posts from the people followed by FID ${fid}.`;
+    if (state.boardMode === 'signals') {
+      $('#feed-title').textContent = state.feedMode === 'profile' ? localProfileName(profile) : 'Signals';
+      $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · FID ${fid} · recent posts` : `Recent posts from the people followed by FID ${fid}.`;
+    }
     const castGroups = await mapLimit(uniqueFids, 8, async (target) => {
       const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize: 12, reverse: true }), fetchProfile(target)]);
       return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
     });
+    if (requestId !== state.feedRequest) return;
     const messages = castGroups.flat().sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0)).slice(0, 60);
     state.casts = messages;
     const profileFids = [...new Set(messages.map((message) => Number(message?.data?.fid)).filter((value) => value > 0))];
     const missingProfiles = profileFids.filter((target) => !state.people.has(target));
     await mapLimit(missingProfiles, 8, fetchProfile);
+    const missingPins = state.deskPins.filter((target) => !state.people.has(target));
+    await mapLimit(missingPins, 6, fetchProfile);
+    renderDesk();
     renderFeed();
-    $('#feed-filters').hidden = false;
+    $('#feed-filters').hidden = state.boardMode === 'flight-log';
     if (!messages.length) $('#feed-count').textContent = '0 POSTS';
     if (followFids.length > 35) setNotice('Showing the 35 most recent follows so the node stays responsive.');
   } catch (error) {
+    if (requestId !== state.feedRequest) return;
     const needsSetup = /SNAPCHAIN_URL|not configured|not been configured/i.test(error.message);
     const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
       ? localPreview
         ? 'This local preview is not connected to a Snapchain node. Visitors to the hosted app will not need to run one.'
-        : 'The app’s server needs its Snapchain URL configured. Readers will not need a personal node or wallet.'
+        : 'The app’s server needs its Snapchain URL configured before your station can load.'
       : error.message;
     const action = needsSetup
       ? (localPreview ? { type: 'guide', label: 'Open feed setup guide' } : null)
-      : { type: 'retry', label: 'Try this FID again' };
+      : { type: 'retry', label: 'Try this account again' };
     renderEmpty(needsSetup ? 'Feed service is not connected yet.' : 'Could not build this feed.', detail, action);
     $('#feed-count').textContent = '0 POSTS';
   } finally {
@@ -457,9 +535,10 @@ async function loadFeed(fidValue = $('#fid-input').value, mode = state.feedMode)
 }
 
 function renderFeed() {
-  const requestedSource = Number($('#source-fid').value) || null;
+  const requestedSource = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
   const exclude = $('#source-mode').value === 'exclude';
-  const messages = state.casts.filter((message) => {
+  const sourceMessages = state.boardMode === 'flight-log' ? state.savedCasts.map(savedCastMessage) : state.casts;
+  const messages = sourceMessages.filter((message) => {
     const source = state.sourceBySigner.get(signerHex(message.signer)) || null;
     if (!requestedSource) return true;
     return exclude ? source !== requestedSource : source === requestedSource;
@@ -468,12 +547,22 @@ function renderFeed() {
   renderFeedPulse(messages);
   renderProfileSummary();
   if (!messages.length) {
-    renderEmpty('Nothing matches this view.', 'No casts were returned, or your source filter removed them. Source attribution can be unknown when the signer was not retained or registered as a gasless app key.');
-    $('#feed-count').textContent = '0 POSTS';
+    const sourceFilter = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
+    if (state.boardMode === 'flight-log') {
+      renderEmpty('Your Flight Log is empty.', 'Save a post from Signals and it will be waiting here on this device.');
+    } else if (state.casts.length && sourceFilter) {
+      renderEmpty('No posts match this source filter.', 'Source attribution can be unknown when a signer was not retained or registered as a gasless app key.', { type: 'clear-source', label: 'Clear source filter' });
+    } else if (state.feedMode === 'profile') {
+      const profile = state.people.get(state.feedTargetFid);
+      renderEmpty('No recent posts on this profile.', profile ? `@${profile.username} has no posts in the recent history available from this node.` : 'This profile has no posts in the recent history available from this node.');
+    } else {
+      renderEmpty('Your feed is quiet for now.', 'There are no recent posts from the accounts you follow in the history available from this node.', { type: 'profile', label: 'View your own posts' });
+    }
+    $('#feed-count').textContent = state.boardMode === 'flight-log' ? '0 SAVED' : '0 POSTS';
     $('#feed-end').hidden = true;
     return;
   }
-  $('#feed-count').textContent = requestedSource ? `${messages.length} OF ${state.casts.length} POSTS` : `${messages.length} POSTS`;
+  $('#feed-count').textContent = state.boardMode === 'flight-log' ? `${messages.length} SAVED` : requestedSource ? `${messages.length} OF ${state.casts.length} POSTS` : `${messages.length} POSTS`;
   $('#feed-end').hidden = false;
   const fragment = document.createDocumentFragment();
   messages.forEach((message) => fragment.append(renderCast(message)));
@@ -488,8 +577,8 @@ function localProfileName(profile) {
 function renderFeedPulse(messages) {
   const panel = $('#feed-pulse');
   if (!panel) return;
-  panel.hidden = !state.casts.length;
-  if (!state.casts.length) return;
+  panel.hidden = !state.casts.length || state.boardMode === 'flight-log';
+  if (!state.casts.length || state.boardMode === 'flight-log') return;
   const people = new Map();
   for (const message of messages) {
     const fid = Number(message?.data?.fid) || 0;
@@ -518,14 +607,15 @@ function renderFeedPulse(messages) {
 function renderProfileSummary() {
   const card = $('#profile-summary');
   if (!card) return;
-  const isProfile = state.feedMode === 'profile' && state.feedTargetFid;
+  const isProfile = state.boardMode === 'signals' && state.feedMode === 'profile' && state.feedTargetFid;
   card.hidden = !isProfile;
   if (!isProfile) return;
   const profile = state.people.get(state.feedTargetFid) || { fid: state.feedTargetFid, name: `Farcaster ${state.feedTargetFid}`, username: `fid-${state.feedTargetFid}`, avatar: '', bio: '' };
   const local = state.profileNotes[profile.fid] || {};
   const shell = document.createElement('div'); shell.className = 'profile-summary-main';
   const avatar = document.createElement('span'); avatar.className = 'profile-summary-avatar'; avatar.textContent = localProfileName(profile).slice(0, 1).toUpperCase();
-  if (profile.avatar && /^https?:\/\//i.test(profile.avatar)) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.loading = 'lazy'; avatar.replaceChildren(image); }
+  const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+  if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl));
   const identity = document.createElement('div'); identity.className = 'profile-summary-identity';
   const name = document.createElement('h3'); name.textContent = localProfileName(profile);
   const handle = document.createElement('p'); handle.textContent = `@${profile.username} · FID ${profile.fid}`;
@@ -550,12 +640,18 @@ function openProfileEditor(fid) {
 }
 
 function saveProfileTouch(fid, values) {
+  const previous = state.profileNotes[fid];
   const nickname = values.nickname.trim().slice(0, 40);
   const note = values.note.trim().slice(0, 240);
   if (nickname || note) state.profileNotes[fid] = { nickname, note };
   else delete state.profileNotes[fid];
   try { localStorage.setItem(PROFILE_NOTES_STORAGE, JSON.stringify(state.profileNotes)); }
-  catch { setNotice('Browser storage is unavailable. These profile touches could not be saved.', 'error'); return false; }
+  catch {
+    if (previous) state.profileNotes[fid] = previous;
+    else delete state.profileNotes[fid];
+    setNotice('Browser storage is unavailable. These profile touches could not be saved.', 'error');
+    return false;
+  }
   renderDesk(); renderFeed(); renderIdentity();
   setNotice('Your private profile touches are saved on this device.', 'success');
   return true;
@@ -574,7 +670,8 @@ function renderDesk() {
     const open = document.createElement('button'); open.type = 'button'; open.className = 'desk-person-open'; open.dataset.deskFid = String(fid);
     const shownName = localProfileName(profile);
     const avatar = document.createElement('span'); avatar.className = 'desk-avatar'; avatar.textContent = shownName.slice(0, 1).toUpperCase();
-    if (profile.avatar && /^https?:\/\//i.test(profile.avatar)) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.loading = 'lazy'; avatar.replaceChildren(image); }
+    const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+    if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl));
     const labels = document.createElement('span'); labels.className = 'desk-person-label';
     const name = document.createElement('strong'); name.textContent = shownName;
     const handle = document.createElement('small'); handle.textContent = `@${profile.username}`;
@@ -582,6 +679,82 @@ function renderDesk() {
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'desk-unpin'; remove.dataset.action = 'unpin-person'; remove.dataset.fid = String(fid); remove.textContent = '×'; remove.setAttribute('aria-label', `Remove ${shownName} from your desk`);
     chip.append(open, remove); container.append(chip);
   }
+}
+
+function savedCastMessage(cast) {
+  const fid = Number(cast.fid);
+  if (!state.people.has(fid)) state.people.set(fid, { fid, name: cast.name || `Farcaster ${fid}`, username: cast.username || `fid-${fid}`, avatar: '' });
+  return {
+    hash: cast.hash,
+    signer: cast.signer || '',
+    data: { fid, timestamp: Number(cast.timestamp) || 0, castAddBody: { text: cast.text, embeds: Array.isArray(cast.embeds) ? cast.embeds : [] } },
+  };
+}
+
+function renderFlightLogCount() {
+  const badge = $('#flight-log-count');
+  if (badge) badge.textContent = String(state.savedCasts.length);
+}
+
+function flightLogStorageKey(fid = state.fid) { return `${FLIGHT_LOG_STORAGE}:${Number(fid) || 'unverified'}`; }
+
+function loadFlightLog(fid) {
+  state.savedCasts = [];
+  try {
+    const accountKey = flightLogStorageKey(fid);
+    let raw = localStorage.getItem(accountKey);
+    if (raw === null) {
+      const previousLog = JSON.parse(localStorage.getItem(FLIGHT_LOG_STORAGE) || '[]');
+      const forThisAccount = Array.isArray(previousLog) ? previousLog.filter((cast) => Number(cast?.fid) === Number(fid)) : [];
+      if (forThisAccount.length) {
+        raw = JSON.stringify(forThisAccount);
+        localStorage.setItem(accountKey, raw);
+      }
+    }
+    const stored = JSON.parse(raw || '[]');
+    if (Array.isArray(stored)) state.savedCasts = stored.filter((cast) => Number(cast?.fid) === Number(fid) && /^0x[0-9a-f]{40,64}$/i.test(String(cast?.hash || '')) && typeof cast?.text === 'string').slice(0, 100);
+  } catch { /* The flight log remains empty if this browser cannot read its local storage. */ }
+  renderFlightLogCount();
+}
+
+function setBoardMode(mode) {
+  state.boardMode = mode === 'flight-log' ? 'flight-log' : 'signals';
+  const logMode = state.boardMode === 'flight-log';
+  $('#show-signals').classList.toggle('is-active', !logMode);
+  $('#show-signals').setAttribute('aria-pressed', String(!logMode));
+  $('#show-flight-log').classList.toggle('is-active', logMode);
+  $('#show-flight-log').setAttribute('aria-pressed', String(logMode));
+  $('#page-label').textContent = logMode ? 'FLIGHT LOG' : state.feedMode === 'profile' ? 'PROFILE' : 'SIGNALS';
+  $('#feed-title').textContent = logMode ? 'Flight Log' : state.feedMode === 'profile' ? (state.people.get(state.feedTargetFid)?.name || 'Profile file') : 'Signals';
+  $('#feed-caption').textContent = logMode
+    ? 'Posts saved on this device only. They are not shared to the Farcaster network.'
+    : state.feedMode === 'profile' ? `Recent posts from @${state.people.get(state.feedTargetFid)?.username || 'this profile'}.` : 'Newest posts first.';
+  $('#feed-filters').hidden = logMode || !state.casts.length;
+  $('#composer').hidden = !state.signerReady || logMode;
+  renderFeed();
+}
+
+function toggleFlightLog(fidValue, hashValue) {
+  const fid = Number(fidValue);
+  const hash = String(hashValue || '').toLowerCase();
+  const match = (cast) => Number(cast.fid) === fid && String(cast.hash).toLowerCase() === hash;
+  const prior = [...state.savedCasts];
+  const existing = state.savedCasts.findIndex(match);
+  if (existing >= 0) state.savedCasts.splice(existing, 1);
+  else {
+    const message = state.casts.find((cast) => Number(cast?.data?.fid) === fid && postHash(cast) === hash);
+    if (!message) { setNotice('This transmission is no longer available to save. Refresh your signal board and try again.', 'error'); return; }
+    if (state.savedCasts.length >= 100) { setNotice('Your Flight Log is full. Remove a saved post before adding another.'); return; }
+    const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}` };
+    const body = message.data?.castAddBody || {};
+    const embeds = (body.embeds || []).filter((embed) => typeof embed?.url === 'string' && embed.url.length <= 2048).slice(0, 4).map((embed) => ({ url: embed.url }));
+    state.savedCasts.unshift({ fid, hash, signer: signerHex(message.signer), text: String(body.text || '').slice(0, 320), timestamp: Number(message.data?.timestamp) || 0, name: String(profile.name || '').slice(0, 80), username: String(profile.username || '').slice(0, 80), embeds, savedAt: Date.now() });
+  }
+  try { localStorage.setItem(flightLogStorageKey(), JSON.stringify(state.savedCasts)); }
+  catch { state.savedCasts = prior; setNotice('Browser storage is unavailable. Your Flight Log could not be updated.', 'error'); return; }
+  renderFlightLogCount();
+  renderFeed();
+  setNotice(existing >= 0 ? 'Transmission removed from your Flight Log.' : 'Transmission saved to your Flight Log on this device.', 'success');
 }
 
 async function toggleDeskPin(fidValue, button) {
@@ -594,7 +767,7 @@ async function toggleDeskPin(fidValue, button) {
   renderDesk();
   if (button) {
     const pinned = state.deskPins.includes(fid);
-    button.textContent = pinned ? '⌖ On your desk' : '⌖ Pin';
+    button.textContent = pinned ? '⌖ Pinned' : '⌖ Pin';
     button.setAttribute('aria-pressed', String(pinned));
   }
   setNotice(state.deskPins.includes(fid) ? 'Pinned to your desk on this device.' : 'Removed from your desk.', 'success');
@@ -604,9 +777,23 @@ function fromBase64(value) { const binary = atob(value); return Uint8Array.from(
 function toBase64(bytes) { let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }
 function bytesHex(bytes) { return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`; }
 
-async function createCustodySigner() {
+async function createCustodySigner(recoveryAccount = null) {
   const protocol = await import('./protocol.js');
-  if (!window.ethereum) throw new Error('No compatible browser wallet was found. Open Castonaut in a wallet-enabled browser, or keep reading without connecting. Castonaut never accepts recovery phrases.');
+  if (recoveryAccount) {
+    const custodyAddress = recoveryAccount.address;
+    let registeredFid;
+    try {
+      const publicClient = createPublicClient({ chain: optimism, transport: http() });
+      registeredFid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [custodyAddress] });
+    } catch (error) {
+      throw new Error(`Could not verify this account on Optimism: ${error.message}`);
+    }
+    if (!registeredFid || BigInt(registeredFid) < 1n) throw new Error('This phrase’s first account is not linked to a Farcaster ID. Check the phrase and account index, or use your linked wallet.');
+    const fid = asFid(registeredFid.toString());
+    const eip712Signer = new protocol.ViemLocalEip712Signer(recoveryAccount);
+    return { eip712Signer, custodyAddress, fid };
+  }
+  if (!window.ethereum) throw new Error('No compatible browser wallet was found. Use your linked wallet or open the advanced test-account option below.');
   const chainId = await window.ethereum.request({ method: 'eth_chainId' });
   if (Number.parseInt(chainId, 16) !== optimism.id) {
     try {
@@ -641,6 +828,45 @@ async function createCustodySigner() {
   return { eip712Signer, custodyAddress, fid };
 }
 
+async function lookupRecoveryAccount() {
+  const phraseField = $('#recovery-phrase');
+  const lookupButton = $('#recovery-lookup');
+  const accountPanel = $('#recovery-account');
+  const phrase = phraseField.value.trim().toLowerCase().replace(/\s+/g, ' ');
+  phraseField.value = '';
+  pendingRecoveryAccount = null;
+  accountPanel.hidden = true;
+  if (!phrase) { setConnectionStatus('Enter the disposable test account phrase, or connect with your wallet.'); return; }
+  const wordCount = phrase.split(' ').length;
+  if (![12, 15, 18, 21, 24].includes(wordCount)) { setConnectionStatus('Use a standard 12, 15, 18, 21, or 24-word phrase. The field has been cleared.'); return; }
+  lookupButton.disabled = true;
+  setConnectionStatus('Deriving the first account in this tab and checking its Farcaster ID…', { active: 'sign' });
+  try {
+    const { mnemonicToAccount } = await import('viem/accounts');
+    let account;
+    try { account = mnemonicToAccount(phrase); }
+    catch { throw new Error('That phrase could not be imported. Check the words and try again.'); }
+    const publicClient = createPublicClient({ chain: optimism, transport: http() });
+    let fid;
+    try {
+      fid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [account.address] });
+    } catch (error) {
+      throw new Error(`Could not check the account on Optimism: ${error.message}`);
+    }
+    if (!fid || BigInt(fid) < 1n) throw new Error('The first account from this phrase is not linked to a Farcaster ID. Check the phrase/account or use your linked wallet.');
+    pendingRecoveryAccount = { account, address: account.address, fid: asFid(fid.toString()) };
+    $('#recovery-account-fid').textContent = `Farcaster account · FID ${pendingRecoveryAccount.fid}`;
+    $('#recovery-account-address').textContent = `Custody address · ${account.address}`;
+    $('#recovery-authorize').textContent = `Authorize key for FID ${pendingRecoveryAccount.fid}`;
+    accountPanel.hidden = false;
+    setConnectionStatus('Account found. Check the FID and custody address, then explicitly authorize this browser key.', { active: 'sign' });
+  } catch (error) {
+    setConnectionStatus(`${error.message} The phrase field has been cleared.`, { active: 'sign' });
+  } finally {
+    lookupButton.disabled = false;
+  }
+}
+
 async function readCurrentNonce(fid) {
   const result = await nodeRequest('signers', { fid, pageSize: 100 });
   return Number(result.currentUserNonce || 0);
@@ -663,36 +889,43 @@ async function waitForSigner(fid, publicKey, tries = 8) {
   return false;
 }
 
-async function authorizeSigner() {
+async function authorizeSigner(recoveryAccount = null) {
   const protocol = await import('./protocol.js');
   const status = $('#dialog-status');
   const connectButton = $('#wallet-connect');
   connectButton.disabled = true;
+  const recoveryButton = $('#recovery-authorize');
+  if (recoveryButton) recoveryButton.disabled = true;
   let relayAttempted = false;
   try {
     const saved = await loadSigner();
     const legacy = localStorage.getItem(LEGACY_KEY_STORAGE);
     if (state.signer || saved || legacy) throw new Error('This browser already has an app key saved. Reload to check its status, or use “Forget this browser” before creating another one.');
-    setConnectionStatus('Finding the Farcaster account controlled by your wallet…', { active: 'sign' });
-    const { eip712Signer, custodyAddress, fid } = await createCustodySigner();
+    setConnectionStatus(recoveryAccount
+      ? 'Checking the disposable test account you verified…'
+      : 'Finding the Farcaster account controlled by your wallet…', { active: 'sign' });
+    const { eip712Signer, custodyAddress, fid } = await createCustodySigner(recoveryAccount?.account || null);
+    if (recoveryAccount && (fid !== recoveryAccount.fid || custodyAddress.toLowerCase() !== recoveryAccount.address.toLowerCase())) throw new Error('The checked account changed. Close this panel and verify the test account again.');
+    if (recoveryAccount) pendingRecoveryAccount = null;
     const { signer, publicKey: publicKeyBytes, privateKey } = await createBrowserSigner();
     const publicKey = bytesHex(publicKeyBytes);
     const nonce = await readCurrentNonce(fid);
     const deadline = Number(resultOrThrow(protocol.getFarcasterTime(), 'Could not read Farcaster time')) + 60 * 60;
-    setConnectionStatus('Review the wallet request. It authorizes a limited app key for up to 30 days; it does not move funds.', { active: 'sign' });
+    setConnectionStatus(recoveryAccount
+      ? 'Your disposable test account will sign a limited app key locally. This gasless request cannot move funds.'
+      : 'Review the wallet request. It authorizes a limited app key for up to 30 days; it does not move funds.', { active: 'sign' });
     const scopes = [protocol.MessageType.CAST_ADD, protocol.MessageType.CAST_REMOVE, protocol.MessageType.REACTION_ADD, protocol.MessageType.REACTION_REMOVE, protocol.MessageType.LINK_ADD, protocol.MessageType.LINK_REMOVE];
     const keyBody = resultOrThrow(await protocol.makeKeyAddBody({ fid: BigInt(fid), key: protocol.hexStringToBytes(publicKey), scopes, ttl: KEY_TTL_SECONDS, nonce: nonce + 1, deadline }, eip712Signer), 'Could not authorize the app key');
     const message = resultOrThrow(await protocol.makeKeyAdd(keyBody, { fid, network: protocol.FarcasterNetwork.MAINNET }, signer), 'Could not sign key registration');
     const signedRequest = protocol.Message.encode(message).finish();
     await storeSigner({ fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
-    setConnectionStatus('Wallet authorization signed. Sending the signed app-key request to Snapchain…', { active: 'approve', completed: ['sign'] });
+    setConnectionStatus(`${recoveryAccount ? 'Local test-account authorization' : 'Wallet authorization'} signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'] });
     state.fid = fid;
+    loadFlightLog(fid);
     state.signer = signer;
     state.publicKey = publicKey;
     state.custodyAddress = custodyAddress;
     state.signerReady = false;
-    $('#fid-input').value = String(fid);
-    try { localStorage.setItem(FEED_STORAGE, String(fid)); } catch { /* Account connection still works without feed preference storage. */ }
     renderIdentity();
     status.textContent = 'Checking for network confirmation…';
     relayAttempted = true;
@@ -700,12 +933,14 @@ async function authorizeSigner() {
     if (!relayed.hash) throw new Error('The node accepted no message hash. Check node health and try again.');
     const confirmed = await waitForSigner(fid, publicKey);
     state.signerReady = confirmed;
-    await fetchProfile(fid).catch(() => null);
+    if (confirmed) loadFlightLog(state.fid);
+    if (confirmed) await clearPendingRegistration();
+    if (confirmed) await fetchProfile(fid).catch(() => null);
     renderIdentity();
     if (confirmed) {
       setConnectionStatus('Approved and confirmed. This browser is ready to post, follow, and react.', { active: 'done', completed: ['sign', 'approve', 'done'] });
       setNotice('Gasless app key confirmed. This browser is ready to write.', 'success');
-      loadFeed(String(fid));
+      await loadFeed(fid);
       setTimeout(() => { if ($('#connect-dialog').open) $('#connect-dialog').close(); }, 2200);
     } else {
       setConnectionStatus('Snapchain accepted the request, but confirmation is still pending. Your key is saved here. Check again in a moment; posting stays paused until confirmation.', { active: 'approve', completed: ['sign'], canRetry: true });
@@ -720,6 +955,8 @@ async function authorizeSigner() {
     setNotice(error.message, 'error');
   } finally {
     connectButton.disabled = false;
+    if (recoveryButton) recoveryButton.disabled = false;
+    if (recoveryAccount) clearRecoveryImport();
   }
 }
 
@@ -739,12 +976,13 @@ async function checkSavedSigner() {
       confirmed = await waitForSigner(state.fid, state.publicKey);
     }
     state.signerReady = confirmed;
-    await fetchProfile(state.fid).catch(() => null);
+    if (confirmed) await clearPendingRegistration();
+    if (confirmed) await fetchProfile(state.fid).catch(() => null);
     renderIdentity();
     if (confirmed) {
       setConnectionStatus('Approved and confirmed. This browser is ready to post, follow, and react.', { active: 'done', completed: ['sign', 'approve', 'done'] });
       setNotice('App key confirmed. This browser is ready to write.', 'success');
-      loadFeed(String(state.fid));
+      await loadFeed(state.fid);
     } else {
       setConnectionStatus('Snapchain has not confirmed this key yet. Try again in a moment; do not create another key while this one is pending.', { active: 'approve', completed: ['sign'], canRetry: true });
     }
@@ -787,7 +1025,13 @@ async function signAndRelay(messageResult, successRoute, successParams, successT
 
 function renderIdentity() {
   const empty = $('#identity-empty'); const connected = $('#identity-connected');
+  const ready = !!state.fid && !!state.signerReady;
+  $('#portal-gate').hidden = ready;
+  $('#member-workspace').hidden = !ready;
   empty.hidden = !!state.fid; connected.hidden = !state.fid;
+  $('#portal-enter').textContent = state.fid && !ready ? 'Check account authorization ↻' : 'Connect account & launch ↗';
+  const portalStatus = $('#portal-status');
+  if (portalStatus) portalStatus.textContent = state.fid && !ready ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.' : 'Your identity and posting access unlock together.';
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
   const shownName = localProfileName(profile);
@@ -795,8 +1039,9 @@ function renderIdentity() {
   $('#profile-name').textContent = shownName;
   $('#profile-handle').textContent = `@${profile.username} · FID ${state.fid}`;
   $('#profile-avatar').textContent = profile.name.slice(0, 1).toUpperCase();
-  if (profile.avatar && /^https?:\/\//i.test(profile.avatar)) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.loading = 'lazy'; $('#profile-avatar').replaceChildren(image); }
-  $('#composer').hidden = false;
+  const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+  if (avatarUrl) $('#profile-avatar').replaceChildren(makeRemoteImage(avatarUrl));
+  $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log';
   $('#composer-context').textContent = state.signerReady ? 'Scoped key · stored in this browser' : 'App key is awaiting merge confirmation';
   $('#composer-text').disabled = !state.signerReady;
   $('#composer button[type="submit"]').disabled = !state.signerReady;
@@ -826,6 +1071,7 @@ async function restoreSession() {
     if (!/^[0-9a-f]{64}$/i.test(publicKeyHex) || !saved.privateKey.usages?.includes('sign')) throw new Error('Stored app key has an invalid format.');
     const publicKey = Uint8Array.from(publicKeyHex.match(/.{2}/g).map((byte) => Number.parseInt(byte, 16)));
     state.fid = Number(saved.fid);
+    loadFlightLog(state.fid);
     state.publicKey = String(saved.publicKey);
     state.signer = new BrowserEd25519Signer(saved.privateKey, publicKey);
     state.custodyAddress = saved.custodyAddress || '';
@@ -835,10 +1081,12 @@ async function restoreSession() {
   }
   renderIdentity();
   try {
-    await fetchProfile(state.fid);
     state.signerReady = await findSigner(state.fid, saved.publicKey);
+    if (state.signerReady) await clearPendingRegistration();
+    if (state.signerReady) await fetchProfile(state.fid);
     renderIdentity();
-    if (!state.signerReady) setNotice('This app key is not confirmed on the current node. Posting is paused.');
+    if (!state.signerReady) setNotice('This app key is not confirmed on the current node. Your station stays locked.');
+    else await loadFeed(state.fid);
   } catch (error) {
     state.signerReady = false;
     renderIdentity();
@@ -849,7 +1097,14 @@ async function restoreSession() {
 async function clearLocalSigner() {
   try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* Continue clearing the current session. */ }
   const cleared = await removeStoredSigner();
-  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = '';
+  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = ''; state.boardMode = 'signals';
+  state.feedRequest += 1; state.feedPending = null; state.casts = []; state.feedTargetFid = null; state.feedMode = 'following';
+  state.savedCasts = []; renderFlightLogCount();
+  $('#show-signals').classList.add('is-active'); $('#show-signals').setAttribute('aria-pressed', 'true');
+  $('#show-flight-log').classList.remove('is-active'); $('#show-flight-log').setAttribute('aria-pressed', 'false'); $('#page-label').textContent = 'SIGNALS';
+  $('#feed-title').textContent = 'Signals'; $('#feed-caption').textContent = 'Sign in to open your chronological following feed.';
+  $('#feed-filters').hidden = true; $('#feed-pulse').hidden = true; $('#profile-summary').hidden = true; $('#feed-count').textContent = '0 POSTS';
+  renderEmpty('Your station is locked.', 'Sign in with the wallet linked to your Farcaster account to continue.');
   renderIdentity();
   if (!cleared) { setNotice('This session is signed out, but browser storage could not delete the app key. Revoke it in Farcaster account settings and clear this site’s browser data.', 'error'); return; }
   setNotice('This browser forgot its signing key. The Farcaster signer remains active until you revoke it from account settings or it expires.', 'pending');
@@ -859,7 +1114,7 @@ function navigate(view) {
   const target = view === 'node' ? 'node' : 'desk';
   document.querySelectorAll('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== target; });
   document.querySelectorAll('[data-view]').forEach((link) => link.classList.toggle('active', link.dataset.view === target));
-  $('#page-label').textContent = target === 'node' ? 'ABOUT' : 'YOUR FEED';
+  $('#page-label').textContent = target === 'node' ? 'ABOUT' : state.boardMode === 'flight-log' ? 'FLIGHT LOG' : state.feedMode === 'profile' ? 'PROFILE' : 'SIGNALS';
   const expectedHash = target === 'node' ? '#about' : '#desk';
   if (location.hash !== expectedHash) history.replaceState(null, '', expectedHash);
   if (target === 'node') $('#node-view').scrollIntoView({ block: 'start' });
@@ -871,21 +1126,9 @@ function castBody(text, parent, protocol) {
   return body;
 }
 
-$('#fid-form').addEventListener('submit', (event) => { event.preventDefault(); loadFeed($('#fid-input').value, 'following'); });
-$('#forget-feed').addEventListener('click', () => {
-  try { localStorage.removeItem(FEED_STORAGE); } catch { /* The visible input can still be cleared. */ }
-  $('#fid-input').value = '';
-  $('#forget-feed').hidden = true;
-  $('#identity-copy-hint').textContent = 'Enter your numeric Farcaster ID (FID). Find it in your profile’s account details. No wallet needed to read.';
-  state.feedMode = 'following'; state.casts = [];
-  $('#feed-title').textContent = 'Your people';
-  $('#feed-caption').textContent = 'Enter your Farcaster ID to catch up with the accounts you follow.';
-  $('#profile-summary').hidden = true; $('#feed-pulse').hidden = true;
-  $('#feed-count').textContent = '0 POSTS'; $('#feed-end').hidden = true; $('#feed-filters').hidden = true;
-  renderEmpty('Your saved feed is cleared.', 'Enter a Farcaster ID above whenever you want to catch up.');
-  setNotice('Saved FID removed from this device.', 'success');
-});
-$('#feed-refresh').addEventListener('click', () => loadFeed());
+$('#feed-refresh').addEventListener('click', () => state.boardMode === 'flight-log' ? renderFeed() : loadFeed(state.feedTargetFid || state.fid));
+$('#show-signals').addEventListener('click', () => setBoardMode('signals'));
+$('#show-flight-log').addEventListener('click', () => setBoardMode('flight-log'));
 $('#refresh-node').addEventListener('click', checkNode);
 $('#refresh-node-large')?.addEventListener('click', checkNode);
 document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener('click', (event) => { event.preventDefault(); navigate(link.dataset.view); }));
@@ -894,23 +1137,45 @@ document.addEventListener('click', async (event) => {
   const deskButton = event.target.closest('[data-desk-fid]');
   if (!deskButton) return;
   const fid = Number(deskButton.dataset.deskFid);
-  $('#fid-input').value = String(fid);
   navigate('desk');
+  if (state.boardMode !== 'signals') setBoardMode('signals');
   await loadFeed(fid, 'profile');
 });
 $('#source-fid').addEventListener('input', renderFeed);
 $('#source-mode').addEventListener('change', renderFeed);
+$('#external-images').checked = state.remoteMediaEnabled;
+$('#external-images').addEventListener('change', (event) => {
+  state.remoteMediaEnabled = event.currentTarget.checked;
+  try { localStorage.setItem(REMOTE_MEDIA_STORAGE, String(state.remoteMediaEnabled)); } catch { /* Apply for this page even if preferences cannot be saved. */ }
+  renderFeed(); renderDesk(); renderProfileSummary(); renderIdentity();
+  setNotice(state.remoteMediaEnabled ? 'Remote images are on. Their hosts can see your IP address.' : 'Remote images are off. Your browser will not request profile or cast images.', state.remoteMediaEnabled ? 'pending' : 'success');
+});
 $('#open-account').addEventListener('click', openConnectDialog);
-$('#connect-button').addEventListener('click', openConnectDialog);
+$('#portal-enter').addEventListener('click', () => {
+  openConnectDialog();
+  if (state.signer && !state.signerReady) $('#check-signer').hidden = false;
+});
 $('#manage-key').addEventListener('click', () => { if (confirm('Delete Castonaut’s signing key from this browser? This pauses posting here, but does not revoke the Farcaster signer. Revoke it separately in Farcaster account settings.')) clearLocalSigner(); });
 $('#wallet-connect').addEventListener('click', () => authorizeSigner());
 $('#check-signer').addEventListener('click', () => checkSavedSigner());
+$('#recovery-lookup').addEventListener('click', () => lookupRecoveryAccount());
+$('#recovery-authorize').addEventListener('click', () => {
+  if (!pendingRecoveryAccount) { setConnectionStatus('Verify the test account again before authorizing a key.'); return; }
+  authorizeSigner(pendingRecoveryAccount);
+});
+function clearRecoveryImport() {
+  pendingRecoveryAccount = null;
+  const phraseField = $('#recovery-phrase'); if (phraseField) phraseField.value = '';
+  const accountPanel = $('#recovery-account'); if (accountPanel) accountPanel.hidden = true;
+}
+$('#recovery-import').addEventListener('toggle', (event) => { if (!event.currentTarget.open) clearRecoveryImport(); });
+$('#connect-dialog').addEventListener('close', clearRecoveryImport);
 $('#connect-dialog').addEventListener('click', (event) => { if (event.target === $('#connect-dialog')) $('#connect-dialog').close(); });
 $('#composer-text').addEventListener('input', () => { $('#char-count').textContent = `${[...$('#composer-text').value].length} / 320`; });
 $('#composer-text').addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && state.parent) {
     state.parent = null;
-    $('#composer-text').placeholder = 'Leave a note for the room…';
+    $('#composer-text').placeholder = 'Send a signal to the network…';
     setNotice('Reply cancelled.');
   }
 });
@@ -927,13 +1192,15 @@ $('#composer').addEventListener('submit', async (event) => {
     const signedMessage = resultOrThrow(message, 'Could not sign cast');
     const hash = postHash(signedMessage);
     await signAndRelay({ value: signedMessage }, 'castById', { fid: state.fid, hash }, 'Cast merged into Snapchain.');
-    $('#composer-text').value = ''; $('#char-count').textContent = '0 / 320'; state.parent = null; $('#composer-text').placeholder = 'Leave a note for the room…';
-    await loadFeed();
+    $('#composer-text').value = ''; $('#char-count').textContent = '0 / 320'; state.parent = null; $('#composer-text').placeholder = 'Send a signal to the network…';
+    await loadFeed(state.fid, 'following');
   } catch (error) { setNotice(error.message, 'error'); }
   finally { submit.disabled = !state.signerReady; }
 });
 
 document.addEventListener('click', async (event) => {
+  const flightButton = event.target.closest('[data-flight-log]');
+  if (flightButton) { toggleFlightLog(flightButton.dataset.fid, flightButton.dataset.hash); return; }
   const profilePin = event.target.closest('[data-profile-pin]');
   if (profilePin) {
     await toggleDeskPin(profilePin.dataset.profilePin, null);
@@ -945,7 +1212,7 @@ document.addEventListener('click', async (event) => {
   const profileButton = event.target.closest('[data-open-profile]');
   if (profileButton) {
     const fid = Number(profileButton.dataset.openProfile);
-    $('#fid-input').value = String(fid);
+    if (state.boardMode !== 'signals') setBoardMode('signals');
     await loadFeed(fid, 'profile');
     return;
   }
@@ -991,20 +1258,8 @@ $('#profile-edit-dialog').addEventListener('click', (event) => { if (event.targe
 
 if (location.hash === '#node' || location.hash === '#about') navigate('node');
 renderDesk();
-let lastFeed = '';
-try {
-  const savedFeed = localStorage.getItem(FEED_STORAGE) || '';
-  if (/^[1-9]\d*$/.test(savedFeed) && Number.isSafeInteger(Number(savedFeed))) {
-    lastFeed = savedFeed;
-    $('#fid-input').value = savedFeed;
-    $('#identity-copy-hint').textContent = 'Your last feed is remembered on this device.';
-    $('#forget-feed').hidden = false;
-  }
-} catch { /* Feed reading still works if browser storage is unavailable. */ }
-checkNode().then(async () => {
-  if (state.nodeInfo && state.deskPins.length) await mapLimit(state.deskPins, 6, fetchProfile);
-  renderDesk();
-  if (state.nodeInfo && lastFeed) loadFeed(lastFeed);
-});
+renderFlightLogCount();
+setBoardMode('signals');
+checkNode().then(() => renderDesk());
 restoreSession();
-setInterval(() => { if (!document.hidden) checkNode(); }, 60_000);
+setInterval(() => { if (!document.hidden) { setStationTone(); checkNode(); } }, 60_000);

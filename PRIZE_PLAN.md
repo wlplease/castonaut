@@ -1,10 +1,12 @@
-# Castonaut Snapchain prize plan
+Status (18 October 2026, 16:16 UTC): the client and guide build, and all five proxy security tests pass. The $25 gross-usage budget and required Google Cloud APIs were previously reported configured. The `us-central1-a` VM is running with a 2-TB data disk; I expanded the existing 1,792-GB disk online and verified the ext4 filesystem now reports about 1.8 TB free. At 16:13 UTC, Snapchain had completed 1,946 of 5,690 snapshot chunks (34%, estimated 2h43m remaining); `/v1/info` was not yet answering. The `systemd` auto-shutdown timer remains scheduled for 20:52 UTC. Disk storage remains billable after VM shutdown, at roughly $82/month until deleted. **Submission is not ready:** `wlplease/tvs` is private, the current changes are uncommitted, there is no verified public microsite URL, and the independent tester/voucher is outstanding. No Castonaut production URL has been verified. Confirm the original cast’s exact timestamp and submit the three required URLs within seven days; its current age display is rounded to `1d`.# Castonaut Snapchain prize plan
 
-Status (18 October 2026, 14:52 UTC last checked): Castonaut client and guide build successfully. The $25 gross-usage budget and required Google Cloud APIs are configured. The `us-central1-a` VM and 1.75-TiB data disk are active for a bounded test. Snapchain had downloaded 79 of 5,690 snapshot chunks (about 1%) and estimated about 5 hours 10 minutes remaining. `/v1/info` was not responding during the download, so feed and write behavior remain unverified. The VM is scheduled to shut down automatically at 20:52 UTC; the data disk and firewall rule remain afterward, and the disk alone is about $72/month until deleted (charged against eligible trial credit while trial billing is active). Health checks run on the VM over SSH rather than calling the public node API from the operator’s computer. Vercel Hobby includes serverless functions, but the account previously returned HTTP 402 because its team was suspended; verify account status before deployment. No billing plan changes were made. An independent tester and public voucher are still required. The live Farcaster page showed the original post as about 22 hours old on 18 October 2026, but that rounded age is not an exact deadline. The bounty says seven days **exactly** from the original cast timestamp; calculate the UTC cutoff from the post timestamp before submitting.
+Status (18 October 2026, 16:07 UTC): the client and guide build, and all five proxy security tests pass. The $25 gross-usage budget and required Google Cloud APIs were reported configured. The `us-central1-a` VM and 1.75-TiB data disk are active. A live SSH health check still cannot reach `/v1/info`; Snapchain is downloading snapshot chunk 1,790 of 5,690 (31%, estimated 2h50m remaining). A `systemd` auto-shutdown for 20:52 UTC was previously installed and verified. Stopping the VM does not delete its data disk or firewall rule; the disk is estimated around $72/month until deleted. **Submission is not ready:** `wlplease/tvs` is private, the current changes are uncommitted, there is no verified public microsite URL, and the independent tester/voucher is outstanding. Vercel CLI is authenticated, but no Castonaut project or deployment is listed. The post currently displays `1d`; confirm its exact timestamp and submit within seven days, expected by 24 October 2026.
 
 ## Aim
 
 Submit an MIT-licensed, independently repeatable three-command tutorial that provisions compute, runs a Snapchain read node with no third-party API key, and launches a client that reads from that node. A separate human must complete the tutorial on their own compute and publicly vouch for it on Farcaster. Submit the microsite, repository, and voucher URLs in a reply to the original cast.
+
+Balaji clarified in the original conversation that current read nodes can accept signed messages and relay them to validators, and gasless app keys require no Optimism transaction. The tutorial and client use that current flow. Wallet-mediated delegated signing remains the recommended route. To meet the post’s explicit seed-phrase-import requirement, the client also offers an advanced local derivation path for disposable test accounts only. It clears the field, stores or sends no phrase, and warns that the website code can read it while entered; JavaScript cannot guarantee zeroization from memory.
 
 The prize is competitive. Build a useful open-source project even if it does not win.
 
@@ -16,7 +18,7 @@ Differentiators for the entry:
 
 1. A visible step-by-step readiness panel: server provisioned, ports open, snapshot syncing, block delay healthy, client connected, account authorized, message relayed, message confirmed.
 2. A real “source lens” that includes or excludes casts by originating client when signer attribution is available. Resolve a cast's signer to the registering app FID where possible; show “unknown client” when attribution is absent. Do not imply the filter can identify every post's source.
-3. A safe account pathway: wallet-signed, scoped gasless app key for users. The client accepts no seed phrase or private key; never transmit one to the microsite or hosted app.
+3. A safe account pathway: wallet-signed, scoped gasless app key by default, with the requested local phrase derivation available only as an explicit test-account option. Never store or transmit a custody phrase; explain the browser-code risk and the reason to use a disposable account.
 4. An honest, visual guide to FIDs, custody, storage rent, app keys, Snapchain messages, read nodes, validators, and confirmation. Every command explains what it changes and how to undo it.
 5. Reproducible proof: pinned releases, idempotent setup scripts, clean-server test, phone/desktop tutorial QA, and a human tester's independent completion record.
 
@@ -46,7 +48,7 @@ The command syntax is implemented. A clean-server run and a second person's inde
 
 - New cloud node has enough memory, CPU, disk, public IP, and required peer ports; snapshot sync completes and block delay reaches healthy single digits.
 - Client reads a live feed from the self-run node with third-party API keys absent.
-- Existing account with storage can authorize a scoped gasless app key through its wallet. The client must never request custody keys or seed phrases.
+- Existing account with storage can authorize a scoped gasless app key through its linked wallet or the explicit local test-account import path. The phrase is used only in the browser to derive the custody signature; the field is cleared and it is not persisted or sent to the service. The website code still handles it, so the import is clearly marked for disposable test accounts only.
 - Client can cast, reply, follow, like/recast, and show/hide casts by source client where source metadata exists.
 - A submitted message is queried back or observed as merged; relay acceptance alone is not reported as publication.
 - A separate human starts from the public tutorial, provisions their own node, launches the client, completes a read and write, and publicly endorses the result.
@@ -57,7 +59,7 @@ The command syntax is implemented. A clean-server run and a second person's inde
 
 The user previously reported a $300 trial grant; verify the current remaining balance and end date in Billing before a test. Google's Free Trial ends when the credit is used or 90 days pass; resources stop at trial end unless the billing account is upgraded. A continuous node at the current estimate would use about $510 over 90 days, so a $300 grant would cover roughly 53 days at that rate, not a full 90-day always-on service. Keep the account in trial status for the contest test, and do not upgrade billing as part of setup.
 
-The current GCP setup uses an `e2-standard-4` (4 vCPUs, 16 GiB RAM), a 1.75-TiB standard persistent data disk (1792 GiB), and a 30-GiB balanced boot disk. The data disk exceeds Snapchain's published 1.5-TB free-storage minimum. At published Iowa prices, the resources total about **$0.24/hour, $17 for 72 hours, or $40 for seven days**, before network and external IP charges. The smaller data disk saves about $10/month over the 2-TiB version but leaves less growth headroom; watch disk use and resize before running a long-lived node. Disk storage remains billable while a VM is stopped.
+The current GCP test uses an `e2-standard-4` (4 vCPUs, 16 GiB RAM), a 2-TB standard persistent data disk, and a 30-GiB balanced boot disk. The disk was expanded online from 1,792 GB while Snapchain was syncing; the filesystem now reports about 1.8 TB free. The 2-TB configuration is estimated at about **$0.25/hour, $18 for 72 hours, or $42 for seven days**, before network and external IP charges. Disk storage remains billable while a VM is stopped.
 
 A $25 monthly project budget is now configured with 50%, 80%, and 100% thresholds and excludes credits from its spend calculation, so it tracks gross usage against the trial credit. It sends warning emails to billing-account administrators and users by default. It is alerts-only and does not stop use. Keep the billing account in free-trial status and delete the VM, disk, and firewall rule after each contest test; do not upgrade to paid billing for this test.
 
@@ -87,7 +89,8 @@ Other first-week costs: $0 for an MIT GitHub repository and a free static micros
 
 ## Sources
 
-- Bounty announcement and follow-up clarifications: user-provided pasted text; original cast URL and timestamp still need verification.
+- Bounty announcement: https://farcaster.xyz/balajis.eth/0x50184b62
+- Balaji's clarification that read nodes can relay writes and gasless signer keys need no Optimism transaction: https://farcaster.xyz/balajis.eth/0x0a05d5c8
 - Snapchain node requirements: https://github.com/farcasterxyz/snapchain
 - Snapchain node roles and write confirmation: https://snapchain.farcaster.xyz/node-types
 - Gasless signers and scoped keys: https://snapchain.farcaster.xyz/guides/writing-messages

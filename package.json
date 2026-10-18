@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "test": "node --test",
     "provision": "node scripts/provision-gcp.mjs",
     "node": "node scripts/start-node.mjs",
     "node:check": "node scripts/start-node.mjs --check",
