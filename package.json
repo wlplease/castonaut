@@ -1,8 +1,27 @@
 {
-  "name": "openroom",
-  "version": "0.1.0",
+  "name": "castonaut-client",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
   "engines": {
     "node": "22.x"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "provision": "node scripts/provision-gcp.mjs",
+    "node": "node scripts/start-node.mjs",
+    "client": "node scripts/client.mjs",
+    "destroy": "node scripts/destroy-gcp.mjs"
+  },
+  "dependencies": {
+    "@farcaster/core": "^0.20.0",
+    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource/dm-mono": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "viem": "^2.57.7"
+  },
+  "devDependencies": {
+    "vite": "^8.3.4"
   }
 }

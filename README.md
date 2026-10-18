@@ -1,45 +1,75 @@
-# Openroom
+# Castonaut
 
-Openroom is a responsive Farcaster web client for desktop and mobile. It includes public and following feeds, posting, replies, reactions, follows, profile lookup, people search, locally saved posts, and Free, Plus, and Founder membership entry points. It uses Farcaster through a server-side Neynar adapter and does not ask for wallet seed phrases.
+Castonaut is a working name for an independent Farcaster client with a friendly retro-PC feel. Read a public feed without a wallet, keep favorite people on your Desk, and connect an account only when you want to join in. The app team configures the shared feed service; using the client does not require cloud setup, API keys, or a personal node.
 
-## Features
+## Use Castonaut
 
-- Public channel feeds and a connected user's following feed.
-- Farcaster signer approval, session restore, disconnect, posting, replies, likes, recasts, and follows.
-- Profile lookup, user search, and conversation threads.
-- Saved posts stored locally in the browser.
-- Free, Plus, and Founder plan cards. The Founder offer includes 12 months of Plus.
-- Responsive desktop and mobile layouts with keyboard accessible controls.
+Open the hosted app, enter your Farcaster ID, and choose **Show my feed**. Connect an Optimism wallet only when you want to post, reply, follow, or react. The client creates a limited app key in your browser and never asks for a recovery phrase.
 
-## How someone starts using it
+## Develop the client
 
-On the deployed site, a visitor can open a public room and read casts immediately. The **People** view searches existing Farcaster profiles. **Connect Farcaster** starts signer approval in Farcaster; after approval, Openroom shows the user's following feed and enables casting, replies, reactions, and follows. The account menu disconnects this browser session. Saved posts remain on that device.
+Contributors need Node.js 22. The local preview needs the app team's shared Snapchain endpoint configured server-side.
 
-If the API credentials are missing, the home feed is visibly marked as an illustrative preview and live actions explain the missing configuration. A local static file preview cannot complete account connection.
+```sh
+npm install
+npm run dev
+```
 
-Paid membership checkout is prepared as a product entry point, but requires the Base contract address and ABI before it can accept payments or verify entitlements. Membership must not gate basic Farcaster read or write operations. Plus and Founder can unlock Openroom-specific features once checkout and entitlement checks are connected.
+Open `http://127.0.0.1:5175`. Set `SNAPCHAIN_URL` in a root `.env` file or the local server environment before using feeds; the Vite adapter proxies requests so the browser does not contact Snapchain directly. For Vercel, set `SNAPCHAIN_URL` in the project's server-side environment settings and deploy. Never put node credentials in browser variables. Optional proxy credentials belong in `SNAPCHAIN_HTTP_USER` and `SNAPCHAIN_HTTP_PASS`.
 
-**Hosting plan:** Vercel Hobby is for personal, noncommercial use under Vercel's current terms. Use it for a prototype with no paid sales. Move the paid launch to a commercial hosting plan before enabling Plus or Founder checkout. Neynar API usage and signer approvals may have separate costs.
+The client can read public state without connecting an account. To write, connect an Optimism wallet for an existing FID with storage. Castonaut creates an Ed25519 app key in the browser and asks the custody wallet to authorize a scoped, gasless `KEY_ADD`. The app key is kept in this browser’s local storage. It can cast, reply, follow, like, and recast. Successful relay is shown as pending until a read confirms the message in Snapchain.
+
+The disposable seed phrase import is available only on `localhost` for protocol testing. Never paste a valuable account phrase into a website. Review the local source and use a throwaway account; revoke its signer when finished.
+
+## Optional: run a personal test node
+
+Most people can skip this. The [builder guide](tutorial.html) explains the architecture, costs, account concepts, security boundaries, and a three-command Google Cloud path. Its local client command is for people testing their own node:
+
+The project has a **$25 monthly alert budget** with 50%, 80%, and 100% thresholds. It tracks gross usage before credits and emails billing admins/users; it is a warning, not a spending cap. The account currently reports $300 of trial credit and 90 days remaining. The test node is about $0.24/hour, so the credit would cover roughly 53 days at that rate. Run the node only during a planned test, keep the account in free-trial status, and run the cleanup command afterward. Google says trial usage is not billed unless you upgrade, and trial resources stop when the credit or 90-day period ends.
+
+```sh
+npm run provision -- us-central1-a
+npm run node -- us-central1-a
+npm run client -- http://YOUR-VM-IP:3381
+```
+
+When the test is over, remove the VM, its dedicated data disk, and the contest firewall rule:
+
+```sh
+npm run destroy -- us-central1-a
+```
+
+The cleanup script prints the active account/project and the resources, then waits for `DELETE`. Removing the node also removes its local database; a later test must sync again.
+
+Provisioning checks the active `gcloud` identity, project, and billing state. It prints an estimate and requires the word `CREATE` before making billable resources. The example configures a 4-vCPU, 16-GB VM and a 1.75-TiB persistent disk, which is above Snapchain's published storage minimum. Actual price and trial coverage depend on account, region, network usage, and current provider rates.
 
 ## Deploy to Vercel
 
-1. Import this repository into Vercel and leave the project root at the repository root. The included `vercel.json` selects the **Other** framework, serves `public/`, skips the build step, and creates Node functions from `api/`.
-2. Add `NEYNAR_API_KEY` as a server-side environment variable.
-3. Add `SESSION_SECRET` as a random secret of at least 32 characters. Keep both values in Vercel environment settings; never commit them or expose them in browser JavaScript.
-4. Deploy, then test the public feed and the signer approval flow on the production domain.
+Import the repository with the root directory selected. Vercel runs `npm run build` and serves `dist/`; the `/api/snapchain` function forwards allowlisted reads and binary message submissions to `SNAPCHAIN_URL`. Set `SNAPCHAIN_URL` to the node’s HTTP origin in Vercel’s server-side environment settings, then redeploy. Optional `SNAPCHAIN_HTTP_USER` and `SNAPCHAIN_HTTP_PASS` are sent only by the server function. Never add node credentials to `VITE_*` variables or browser code.
 
-The first deployment should serve `/` from `public/index.html`, `/app.js` from `public/app.js`, and `/api/feed?channel=farcaster` from a Node function. If the API key is missing, the last route intentionally returns `503` with a JSON configuration message. After setting environment variables, redeploy so the functions receive them.
+The API allows only specific Snapchain routes and parameter shapes, limits request size, checks same-origin writes, and adds basic per-instance rate limits. Serverless in-memory rate limits are best-effort, not a global abuse-control service. Do not treat a public Vercel endpoint or an open Snapchain HTTP port as private infrastructure. Review provider network controls and monitor usage before inviting broad traffic.
 
-The Neynar managed signer approval permits Openroom to post, react, recast, and follow on the user's behalf. Explain that permission clearly before connecting. Users can revoke the signer from their Farcaster account settings. Disconnecting here clears the Openroom browser session; it does not revoke the Neynar signer.
+## Development
 
-## Local preview
+```sh
+npm install
+npm run build
+npm run dev
+```
 
-Opening `public/index.html` directly supports the static preview only. The API routes need a Vercel-compatible serverless runtime and the two environment variables above. For local development, use Vercel's local development runtime after linking your own project, and do not commit a local `.env` file.
+`npm run dev` serves the UI on `127.0.0.1:5175`; the feed needs the shared service URL configured by the app operator. The `npm run client` command supplies the node URL to the local server-side adapter. No third-party read API credentials are needed.
 
-## Contract integration
+## Protocol and product limits
 
-When the Base contract is ready, add a small client-side wallet integration for `Plus` and `Founder`, with contract address and ABI supplied as configuration. Verify membership against the contract on the server or through a trusted read-only RPC before enabling Openroom-specific perks. Founder must receive the documented 12 months of Plus. Show the transaction network, amount, and contract before the wallet confirmation. Do not store private keys or wallet secrets.
+- An FID identifies a Farcaster account; it is not a secret.
+- The custody address controls signer authorization. An existing account needs protocol storage to publish.
+- A read node follows the network and serves APIs. It is not a validator.
+- A node accepting a message for relay does not prove the network merged it. Castonaut checks the message again through the service.
+- Source filtering works only when Snapchain exposes requester attribution for the signer. Unknown sources remain labeled unknown.
+- This client cannot reverse a protocol or application ban, guarantee account access, or promise future compatibility with protocol changes.
 
-## Important product boundary
+Read the [Snapchain node docs](https://snapchain.farcaster.xyz/node-types), [message-writing guide](https://snapchain.farcaster.xyz/guides/writing-messages), and [HTTP API reference](https://snapchain.farcaster.xyz/reference/httpapi). Snapchain releases and operational requirements change; verify them before provisioning.
 
-Openroom is an independent Farcaster client. It cannot reverse a protocol-level or app-level ban, guarantee access to a banned account, or promise that protocol owners will continue supporting a particular API. Signer approval, read access, and write access may differ by account. State those limits plainly and test with consenting accounts before making availability claims.
+## License
+
+MIT. See [LICENSE](LICENSE).

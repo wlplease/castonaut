@@ -96,7 +96,7 @@
     $$('.nav [data-nav]').forEach(button => button.classList.toggle('active', button.dataset.nav === name));
     if (name === 'saved') renderSaved();
   }
-  function openConnect() { $('#dialog-backdrop').hidden = false; $('#close-dialog').focus(); $('#start-connect').hidden = !!state.fid; $('#disconnect-account').hidden = !state.fid; $('#approval-link').hidden = !$('#approval-link').href || !!state.fid; $('#connect-status').textContent = state.fid ? `Connected as @${state.profile?.username || state.fid}. Disconnect whenever you like.` : state.pending ? 'An approval is in progress. Use the approval page, then return here.' : 'Approving a signer lets Openroom post, react, recast, and follow for you. You can revoke it in Farcaster settings.'; }
+  function openConnect() { $('#dialog-backdrop').hidden = false; $('#close-dialog').focus(); $('#start-connect').hidden = !!state.fid; $('#disconnect-account').hidden = !state.fid; $('#approval-link').hidden = !$('#approval-link').href || !!state.fid; $('#connect-status').textContent = state.fid ? `Connected as @${state.profile?.username || state.fid}. Disconnect whenever you like.` : state.pending ? 'An approval is in progress. Use the approval page, then return here.' : 'Approving a signer lets Castonaut post, react, recast, and follow for you. You can revoke it in Farcaster settings.'; }
   function closeConnect() { $('#dialog-backdrop').hidden = true; $('#connect-button').focus(); }
   async function setConnected(fid) {
     state.fid = Number(fid); localStorage.removeItem('openroom_pending_signer'); state.pending = '';

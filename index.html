@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#eee8f2" />
+    <meta name="description" content="Castonaut is an independent Farcaster social client for catching up with your people and keeping favorite profiles close." />
+    <title>Castonaut — A Farcaster social desktop</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to feed</a>
+    <div class="app-frame">
+      <aside class="sidebar" aria-label="Main navigation">
+        <a class="brand" href="/" aria-label="Castonaut home">
+          <span class="brand-mark"><i></i><i></i><i></i></span>
+          <span><strong>castonaut</strong><small>YOUR PEOPLE · FARCASTER</small></span>
+        </a>
+        <div class="rail-label">CASTONAUT</div>
+        <nav class="nav-list">
+          <a class="nav-item active" href="#desk" data-view="desk"><span class="nav-symbol">⌂</span><span>Home</span><kbd>1</kbd></a>
+          <a class="nav-item" href="#about" data-view="node"><span class="nav-symbol">▤</span><span>About</span><kbd>2</kbd></a>
+          <a class="nav-item" href="/tutorial.html"><span class="nav-symbol">▧</span><span>How it works</span><span class="nav-arrow">↗</span></a>
+        </nav>
+        <div class="sidebar-note">
+          <span class="note-led"></span>
+          <div><strong>Your corner of Farcaster</strong><small>Catch up with the people you follow.</small></div>
+        </div>
+        <div class="sidebar-foot"><span>OPEN SOURCE · MIT</span><span>BUILD 0.2</span></div>
+      </aside>
+
+      <div class="main-column">
+        <header class="topbar">
+          <div class="crumb"><span class="crumb-dot"></span><span>FARCASTER</span><span class="crumb-slash">/</span><span id="page-label">YOUR FEED</span></div>
+          <div class="top-actions">
+            <a class="top-link" href="/tutorial.html">How this works <span>↗</span></a>
+            <button class="avatar-button" id="open-account" aria-label="Account and signer settings"><span id="avatar-initial">?</span></button>
+          </div>
+        </header>
+
+        <main id="main">
+          <section class="view" id="desk-view" data-panel="desk">
+            <div class="room-heading">
+              <div>
+                <div class="overline"><span class="live-pip"></span> YOUR FARCASTER · YOUR WAY</div>
+                <h1>Your people.<br class="desktop-break" /> Right where you left them.</h1>
+                <p class="lead">A familiar, easy place to catch up and join in. Read first; connect your account when you’re ready to take part.</p>
+              </div>
+              <div class="window-stamp" aria-hidden="true"><span class="stamp-ring"></span><span>OWN<br />YOUR<br />VIEW</span><small>FC / 01</small></div>
+            </div>
+
+            <div class="node-ribbon" id="node-ribbon">
+              <div class="node-ribbon-left"><span class="node-led" id="node-led"></span><div><strong id="node-state">Checking the connection…</strong><small id="node-detail">The service that powers your feed is checking in.</small></div></div>
+              <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" hidden>Host setup ↗</a><span class="node-source"><span class="mini-lock">◈</span> APP STATUS</span><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
+            </div>
+
+            <div class="identity-bar">
+              <div class="identity-copy"><span class="identity-icon">⌁</span><div><strong>Open your feed</strong><small id="identity-copy-hint">Enter your numeric Farcaster ID (FID). Find it in your profile’s account details. No wallet needed to read.</small><small id="fid-help" class="fid-help">Your FID is a number, not your @username. <button type="button" class="text-button" id="forget-feed" hidden>Forget saved FID</button></small></div></div>
+              <form id="fid-form" class="fid-form"><label class="sr-only" for="fid-input">Your numeric Farcaster ID</label><span class="fid-prefix">FID</span><input id="fid-input" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="e.g. 12345" autocomplete="off" required aria-describedby="fid-help" /><button class="button button-dark" type="submit">Show my feed <span>→</span></button></form>
+            </div>
+
+            <section class="desk-strip" aria-labelledby="desk-title">
+              <div class="desk-strip-head"><div><span class="overline">YOUR DESK · SAVED ON THIS DEVICE</span><h2 id="desk-title">Keep your people close.</h2></div><p>Pin anyone from a post. Your list stays yours on this device.</p></div>
+              <div class="desk-pins" id="desk-pins"><span class="desk-empty">Your desk is ready. Pin a person from any post to keep them here.</span></div>
+            </section>
+
+            <div class="feed-layout">
+              <section class="feed-window" aria-labelledby="feed-title">
+                  <div class="window-titlebar"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><span>CASTONAUT / YOUR FEED</span><button class="window-menu" id="feed-refresh" aria-label="Refresh your feed">↻</button></div>
+                <div class="feed-toolbar">
+                  <div><div class="overline">YOUR FARCASTER</div><h2 id="feed-title">Your people</h2><p id="feed-caption">Enter your Farcaster ID to catch up with the accounts you follow.</p></div>
+                  <div class="feed-toolbar-actions"><span class="feed-count" id="feed-count">0 POSTS</span></div>
+                </div>
+                <form class="composer" id="composer" hidden>
+                  <label class="sr-only" for="composer-text">Write a cast</label>
+                  <textarea id="composer-text" maxlength="320" rows="3" placeholder="Leave a note for the room…"></textarea>
+                  <div class="composer-bottom"><span id="composer-context">Signed with your local app key</span><div><span id="char-count">0 / 320</span><button type="submit" class="button button-orange">Post to the network <span>↗</span></button></div></div>
+                </form>
+                <details class="feed-filters" id="feed-filters" hidden>
+                  <summary class="feed-filter-summary">Feed filters <span>OPTIONAL</span></summary>
+                  <div class="feed-filter-options"><span>POST SOURCE</span>
+                    <label class="source-control" for="source-fid"><span>App FID</span><input id="source-fid" type="number" min="1" placeholder="Any" /></label>
+                    <label class="source-control" for="source-mode"><span>Show</span><select id="source-mode" class="source-mode"><option value="include">Only this app</option><option value="exclude">Hide this app</option></select></label>
+                    <span class="source-note">Some posts do not include a source label.</span>
+                  </div>
+                </details>
+                <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">
+                  <div class="welcome-card" id="welcome-card">
+                    <div class="welcome-illustration" aria-hidden="true"><div class="mini-monitor"><span></span><i></i><b></b></div><div class="mini-cursor">↖</div></div>
+                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Pick up where your people are.</h3><p>1. Enter your numeric FID above. 2. Choose a name on any post to see that person’s recent posts. 3. Pin them to Your Desk, then connect only when you want to join in.</p><div class="welcome-foot"><span>READ FIRST</span><span>JOIN IN WHEN YOU’RE READY</span></div></div>
+                  </div>
+                </div>
+                <div class="feed-end" id="feed-end" hidden><span></span> THAT'S THE LATEST FROM YOUR PEOPLE <span></span></div>
+              </section>
+
+              <aside class="right-column" aria-label="Your account and connection details">
+                <section class="side-card identity-card">
+                  <div class="side-card-head"><span class="overline">YOUR ACCOUNT</span><span class="identity-mark">✳</span></div>
+                  <div id="identity-empty"><h3>Read first. Join in anytime.</h3><p>Connect your Farcaster account only when you want to post, follow, or react.</p><button class="button button-outline" id="connect-button">Connect account <span>↗</span></button></div>
+                  <div id="identity-connected" hidden><div class="connected-profile"><div class="profile-avatar" id="profile-avatar">?</div><div><strong id="profile-name">Connected</strong><small id="profile-handle">FID —</small></div></div><button class="button button-outline" id="manage-key">Manage connection</button></div>
+                  <div class="security-line"><span>⌑</span><span>Limited access. Remove it in your Farcaster account settings.</span></div>
+                </section>
+                <details class="side-card status-card" id="status-card">
+                  <summary class="connection-summary"><span>Connection details</span><span id="status-live">● CHECKING</span></summary>
+                  <div class="side-card-head sr-only"><span class="overline">SERVICE DETAILS</span></div>
+                  <div class="side-card-head"><span class="overline">SERVICE DETAILS</span><span class="status-live">LIVE CHECK</span></div>
+                  <div class="telemetry-display"><div><span class="telemetry-number" id="telemetry-delay">—</span><span class="telemetry-unit">SEC</span></div><div class="telemetry-label">MAX BLOCK DELAY</div><div class="meter"><span id="delay-meter"></span></div></div>
+                  <div class="telemetry-grid"><div><span>VERSION</span><strong id="node-version">Not connected</strong></div><div><span>SHARDS</span><strong id="node-shards">—</strong></div></div>
+                  <p class="telemetry-foot" id="telemetry-foot">A synced read node usually reports a block delay in the single digits.</p>
+                </details>
+              </aside>
+            </div>
+            <footer class="page-footer"><span>CASTONAUT · AN INDEPENDENT FARCASTER CLIENT</span><span>A FRIENDLY PLACE TO CATCH UP</span></footer>
+          </section>
+
+          <section class="view node-view" id="node-view" data-panel="node" hidden>
+            <div class="overline"><span class="live-pip"></span> ABOUT CASTONAUT</div>
+            <div class="node-page-heading"><div><h1>Your Farcaster.<br />Your own desk.</h1><p class="lead">Castonaut is a friendly, independent place to read the people you follow, keep favorite profiles close, and join the conversation when you’re ready.</p></div></div>
+            <div class="about-feature-grid"><article class="side-card"><span class="overline">A FEED THAT FLOWS</span><h3>Recent posts, in order.</h3><p>Catch up with the accounts you follow in one clear chronological feed.</p></article><article class="side-card"><span class="overline">A PLACE THAT FEELS YOURS</span><h3>Your people on your desk.</h3><p>Pin profiles you care about on this device and get back to them with one click.</p></article><article class="side-card"><span class="overline">EASY TO JOIN</span><h3>Read before connecting.</h3><p>Public feeds are open to read. Connect your account only when you want to post, follow, or react.</p></article></div>
+            <div class="node-page-grid"><section class="side-card"><span class="overline">BUILT FOR PEOPLE</span><h3>Open the app and feel at home.</h3><p>The app team maintains the shared network connection. There’s nothing to host, tune, or install before you can use your feed.</p></section><section class="side-card"><span class="overline">FOR CURIOUS BUILDERS</span><h3>Like to see how it works?</h3><p>The optional guide explains the service and has a test-node walk-through for builders.</p></section></div>
+            <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>Curious how it works?</strong><small>See the optional guide for the people who like the details.</small></span><span class="guide-arrow">↗</span></a>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <dialog class="connect-dialog" id="connect-dialog" aria-labelledby="connect-title">
+      <form method="dialog" class="dialog-top"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><button class="dialog-close" value="close" aria-label="Close dialog">×</button></form>
+      <div class="dialog-content"><span class="overline">CONNECT YOUR ACCOUNT</span><h2 id="connect-title">Join in with your Farcaster account.</h2><p class="dialog-intro">Connect your wallet to post, follow, and react from this browser. It approves a limited key for this app; we never ask for your recovery phrase or permission to move funds.</p>
+        <ol class="permission-list"><li><span>01</span><div><strong>Everyday social actions</strong><small>Post, react, follow, and remove access. No token transfers.</small></div></li><li><span>02</span><div><strong>Your wallet stays yours</strong><small>Castonaut never receives or stores your wallet recovery phrase.</small></div></li><li><span>03</span><div><strong>Remove access anytime</strong><small>Revoke from your Farcaster account settings. The key expires after 30 days of inactivity.</small></div></li></ol>
+        <div class="dialog-actions"><button type="button" class="button button-orange" id="wallet-connect">Connect wallet <span>↗</span></button><button type="button" class="button button-outline" id="seed-toggle" hidden>Developer test account</button></div>
+        <div class="seed-panel" id="seed-panel" hidden><div class="seed-warning"><strong>Local developer mode. Disposable account only.</strong><span>Never paste your valuable account’s phrase into a web client. This mode exists so the tutorial can be tested locally. The phrase stays in memory, is not saved, and is cleared after authorization.</span></div><label class="field-label" for="seed-input">Test account seed phrase</label><textarea id="seed-input" class="field-input seed-input" rows="2" autocomplete="off" spellcheck="false" placeholder="Type or paste a disposable test phrase"></textarea><button type="button" class="button button-outline" id="seed-connect">Authorize test account locally</button></div>
+        <p class="dialog-status" id="dialog-status" role="status"></p>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
