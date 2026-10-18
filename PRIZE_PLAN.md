@@ -1,6 +1,6 @@
 # Castonaut Snapchain prize plan
 
-Status: Castonaut client and guide implemented locally; the $25 gross-usage budget is configured and the Billing Budgets and Compute Engine APIs are enabled. No VM or firewall has been provisioned. Real-node and independent-tester verification are still required. The live Farcaster page showed the original post as about 22 hours old on 18 October 2026, but that rounded age is not an exact deadline. The bounty says seven days **exactly** from the original cast timestamp; calculate the UTC cutoff from the post timestamp before submitting.
+Status (18 October 2026): Castonaut client and guide build successfully. The $25 gross-usage budget and required Google Cloud APIs are configured. A short test VM and 1.75-TiB data disk are running in `us-central1-a`; Snapchain is downloading its initial 5,690 snapshot chunks. At 14:41 UTC it had downloaded 111 chunks (about 1%) and estimated another 3 hours 36 minutes. `/v1/info` and feed reads were not responding yet, so read/write behavior has not been verified against this node. The VM has a scheduled OS shutdown at 19:41 UTC as a five-hour cost guard; the data disk and firewall rule will remain until explicitly cleaned up. The Vercel account returned HTTP 402 because the account is suspended; project linking and deployment are blocked without account reactivation. No billing changes were made. An independent tester and public voucher are still required. The live Farcaster page showed the original post as about 22 hours old on 18 October 2026, but that rounded age is not an exact deadline. The bounty says seven days **exactly** from the original cast timestamp; calculate the UTC cutoff from the post timestamp before submitting.
 
 ## Aim
 
@@ -79,10 +79,10 @@ Other first-week costs: $0 for an MIT GitHub repository and a free static micros
 ## Sequence
 
 1. Locate the original cast URL and exact timestamp. Compute the submission cutoff in UTC. Find a human tester immediately.
-2. Review the cloud estimate, then provision only when ready to test. Keep the VM short-lived and delete it after the run.
+2. The bounded Google Cloud test is running. Monitor the initial snapshot and stop/delete the VM after the read/write verification window; run the cleanup command to remove its data disk and firewall rule too.
 3. Test Snapchain bootstrap, snapshot sync, and API reads on the actual VM. Verify firewall exposure and write a teardown guide.
 4. The contest client path is implemented with direct Snapchain reads/writes, source lens, scoped key flow, and merge confirmation. Test wallet authorization and disposable-account seed mode on a real node.
-5. Have a separate person follow the public guide on their own compute and account; revise it based on where they get stuck.
+5. After the public repository is available, have a separate person follow the public guide on their own compute and account; revise it based on where they get stuck.
 6. Obtain their public Farcaster voucher and submit the microsite, MIT repo, and voucher URLs before the exact cutoff.
 
 ## Sources

@@ -1,6 +1,6 @@
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { runGcloud } from './gcloud.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -9,35 +9,21 @@ const positional = args.find((arg, index) => !arg.startsWith('-') && args[index 
 const zone = valueAfter('--zone', positional || 'us-central1-a');
 const project = valueAfter('--project', '');
 const instance = 'castonaut-snapchain';
-const gcloud = process.platform === 'win32' ? 'gcloud.cmd' : 'gcloud';
-
-function gcloudCall(gcloudArgs, inherit = false) {
-  const result = spawnSync(gcloud, gcloudArgs, { cwd: root, encoding: 'utf8', shell: process.platform === 'win32', stdio: inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'] });
-  if (result.error) throw new Error(`Could not run gcloud: ${result.error.message}`);
-  if (!inherit && result.status !== 0) throw new Error((result.stderr || 'gcloud request failed').trim());
-  return result;
-}
-
 async function main() {
-  const activeProject = project || gcloudCall(['config', 'get-value', 'project']).stdout.trim();
-  const details = JSON.parse(gcloudCall(['compute', 'instances', 'describe', instance, `--project=${activeProject}`, `--zone=${zone}`, '--format=json']).stdout);
+  const activeProject = project || runGcloud(['config', 'get-value', 'project'], { capture: true, cwd: root }).stdout;
+  const details = JSON.parse(runGcloud(['compute', 'instances', 'describe', instance, `--project=${activeProject}`, `--zone=${zone}`, '--format=json'], { capture: true, cwd: root }).stdout);
   if (details.status !== 'RUNNING') throw new Error(`VM status is ${details.status}. Wait for startup to complete, then retry.`);
   const ip = details.networkInterfaces?.[0]?.accessConfigs?.[0]?.natIP;
   if (!ip) throw new Error('The VM has no public IP. Check its network interface in Cloud Console.');
 
-  const remote = [
-    'set -e',
-    'for attempt in $(seq 1 60); do mountpoint -q /mnt/disks/snapchain-data && break; sleep 5; done',
-    'mountpoint -q /mnt/disks/snapchain-data || { echo "Data disk is not mounted yet" >&2; exit 1; }',
-    'ln -sfn /mnt/disks/snapchain-data "$HOME/snapchain"',
-    'cd "$HOME/snapchain"',
-    'curl -fsSL https://raw.githubusercontent.com/farcasterxyz/snapchain/refs/heads/main/scripts/snapchain-bootstrap.sh | bash',
-  ].join(' && ');
+  const remoteScript = `${instance}:~/castonaut-node-bootstrap.sh`;
+  runGcloud(['compute', 'scp', resolve(root, 'scripts/node-bootstrap-remote.sh'), remoteScript, `--project=${activeProject}`, `--zone=${zone}`], { cwd: root });
 
-  console.log('Opening an SSH session. Snapchain’s installer will ask you to confirm its operator notice; read it and answer yourself.');
+  console.log('Opening an SSH session. Snapchain’s installer will ask you to confirm its operator notice and node settings.');
   console.log('The installer follows logs after starting the node. Press Ctrl+C once to return to the local setup script.\n');
-  const ssh = gcloudCall(['compute', 'ssh', instance, `--project=${activeProject}`, `--zone=${zone}`, `--ssh-flag=-t`, `--command=${remote}`], true);
-  if (ssh.status !== 0 && ssh.status !== 130) throw new Error(`SSH setup exited with code ${ssh.status}. Check the remote installer output and rerun this command.`);
+  const ssh = runGcloud(['compute', 'ssh', instance, `--project=${activeProject}`, `--zone=${zone}`, '--ssh-flag=-t', '--command=bash ~/castonaut-node-bootstrap.sh'], { allowFailure: true, cwd: root });
+  if (ssh.status !== 0 && ssh.status !== 130 && ssh.status !== 1) throw new Error(`SSH setup exited with code ${ssh.status}. Check the remote installer output and rerun this command.`);
+  if (ssh.status !== 0) console.log('SSH closed after the installer log session. Checking the node API now.');
 
   const endpoint = `http://${ip}:3381/v1/info`;
   console.log(`\nWaiting for the read node at ${endpoint}`);

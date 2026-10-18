@@ -1,6 +1,6 @@
-import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { runGcloud } from './gcloud.mjs';
 
 const args = process.argv.slice(2);
 const valueAfter = (flag, fallback) => {
@@ -18,18 +18,6 @@ if (args.includes('--help') || args.includes('-h')) {
 if (!/^[a-z0-9-]+-[a-z]$/.test(zone)) {
   console.error('Zone must look like us-central1-a.');
   process.exit(2);
-}
-
-const gcloud = process.platform === 'win32' ? 'gcloud.cmd' : 'gcloud';
-function runGcloud(gcloudArgs, { capture = false, allowFailure = false } = {}) {
-  const result = spawnSync(gcloud, gcloudArgs, {
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-    stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
-  });
-  if (result.error) throw new Error(`Could not run gcloud: ${result.error.message}. Install the Google Cloud CLI and authenticate first.`);
-  if (!allowFailure && result.status !== 0) throw new Error((result.stderr || 'gcloud request failed').trim());
-  return { status: result.status, stdout: result.stdout?.trim() || '', stderr: result.stderr?.trim() || '' };
 }
 
 try {
