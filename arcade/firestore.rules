@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function safeName(name) { return name is string && name.size() >= 2 && name.size() <= 18; }
+
+    match /scores/{uid} {
+      allow read: if true;
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'score', 'game', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && safeName(request.resource.data.name)
+        && request.resource.data.game == 'neon-rush'
+        && request.resource.data.score is int
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 1000000
+        && request.resource.data.updatedAt == request.time;
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'score', 'game', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && safeName(request.resource.data.name)
+        && request.resource.data.game == 'neon-rush'
+        && request.resource.data.score is int
+        && request.resource.data.score >= resource.data.score
+        && request.resource.data.score <= 1000000
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /chat/{messageId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'body', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && safeName(request.resource.data.name)
+        && request.resource.data.body is string
+        && request.resource.data.body.size() >= 1
+        && request.resource.data.body.size() <= 160
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read: if false;
+      allow create: if signedIn()
+        && reportId.matches('^' + request.auth.uid + '_.*$')
+        && request.resource.data.keys().hasOnly(['uid', 'messageId', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.messageId is string
+        && request.resource.data.messageId.size() > 0
+        && request.resource.data.messageId.size() <= 100
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /arcadeBalances/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
