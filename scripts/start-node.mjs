@@ -8,13 +8,31 @@ const valueAfter = (flag, fallback) => { const index = args.indexOf(flag); retur
 const positional = args.find((arg, index) => !arg.startsWith('-') && args[index - 1] !== '--project' && args[index - 1] !== '--zone');
 const zone = valueAfter('--zone', positional || 'us-central1-a');
 const project = valueAfter('--project', '');
+const checkOnly = args.includes('--check');
 const instance = 'castonaut-snapchain';
+
+function checkFromVm(activeProject) {
+  return runGcloud(['compute', 'ssh', instance, `--project=${activeProject}`, `--zone=${zone}`, '--command=curl -fsS --max-time 10 http://127.0.0.1:3381/v1/info'], { capture: true, allowFailure: true, cwd: root });
+}
+
 async function main() {
   const activeProject = project || runGcloud(['config', 'get-value', 'project'], { capture: true, cwd: root }).stdout;
   const details = JSON.parse(runGcloud(['compute', 'instances', 'describe', instance, `--project=${activeProject}`, `--zone=${zone}`, '--format=json'], { capture: true, cwd: root }).stdout);
   if (details.status !== 'RUNNING') throw new Error(`VM status is ${details.status}. Wait for startup to complete, then retry.`);
   const ip = details.networkInterfaces?.[0]?.accessConfigs?.[0]?.natIP;
   if (!ip) throw new Error('The VM has no public IP. Check its network interface in Cloud Console.');
+
+  if (checkOnly) {
+    const health = checkFromVm(activeProject);
+    if (health.status !== 0) throw new Error(`Snapchain is not answering on the VM yet. Check progress with gcloud compute ssh ${instance} --zone ${zone} --command="sudo docker logs --tail 30 snapchain-snapchain-1" and retry with npm run node:check -- ${zone} later.`);
+    const info = JSON.parse(health.stdout);
+    const delays = (info.shardInfos || []).filter((shard) => Number(shard.shardId) > 0).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
+    const maxDelay = delays.length ? Math.max(...delays) : null;
+    console.log(`Snapchain ${info.version || ''} is responding inside the VM. Latest message-shard delay: ${maxDelay === null ? 'unknown' : `${maxDelay}s`}.`);
+    console.log('This check runs on the Google VM over SSH; it does not send a request from this computer to the public node endpoint.');
+    console.log(`Vercel server-side URL for the hosted client: http://${ip}:3381`);
+    return;
+  }
 
   const remoteScript = `${instance}:~/castonaut-node-bootstrap.sh`;
   runGcloud(['compute', 'scp', resolve(root, 'scripts/node-bootstrap-remote.sh'), remoteScript, `--project=${activeProject}`, `--zone=${zone}`], { cwd: root });
@@ -23,27 +41,20 @@ async function main() {
   console.log('The installer follows logs after starting the node. Press Ctrl+C once to return to the local setup script.\n');
   const ssh = runGcloud(['compute', 'ssh', instance, `--project=${activeProject}`, `--zone=${zone}`, '--ssh-flag=-t', '--command=bash ~/castonaut-node-bootstrap.sh'], { allowFailure: true, cwd: root });
   if (ssh.status !== 0 && ssh.status !== 130 && ssh.status !== 1) throw new Error(`SSH setup exited with code ${ssh.status}. Check the remote installer output and rerun this command.`);
-  if (ssh.status !== 0) console.log('SSH closed after the installer log session. Checking the node API now.');
+  if (ssh.status !== 0) console.log('SSH closed after the installer log session. Checking the node from inside the VM.');
 
-  const endpoint = `http://${ip}:3381/v1/info`;
-  console.log(`\nWaiting for the read node at ${endpoint}`);
-  for (let attempt = 1; attempt <= 180; attempt++) {
-    try {
-      const response = await fetch(endpoint, { signal: AbortSignal.timeout(5000) });
-      if (response.ok) {
-        const info = await response.json();
-        const delays = (info.shardInfos || []).filter((shard) => Number(shard.shardId) > 0).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
-        const maxDelay = delays.length ? Math.max(...delays) : null;
-        console.log(`Snapchain ${info.version || ''} is responding. Latest message-shard delay: ${maxDelay === null ? 'unknown' : `${maxDelay}s`}.`);
-        console.log(`Use this node URL for the client: http://${ip}:3381`);
-        console.log('The read node is ready to answer requests; the initial snapshot may still be syncing.');
-        return;
-      }
-    } catch { /* Retry while systemd, Docker, and the snapshot loader start. */ }
-    if (attempt % 6 === 0) console.log(`Still waiting (${attempt * 5}s)…`);
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+  const health = checkFromVm(activeProject);
+  if (health.status !== 0) {
+    console.log('\nSnapchain is starting its first snapshot; this can take several hours. The VM will keep syncing after this command exits.');
+    console.log(`Check readiness later without sending a request from this computer: npm run node:check -- ${zone}`);
+    return;
   }
-  throw new Error('Timed out waiting for /v1/info. Check the startup script, firewall, and Snapchain logs with gcloud compute ssh.');
+  const info = JSON.parse(health.stdout);
+  const delays = (info.shardInfos || []).filter((shard) => Number(shard.shardId) > 0).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
+  const maxDelay = delays.length ? Math.max(...delays) : null;
+  console.log(`\nSnapchain ${info.version || ''} is responding inside the VM. Latest message-shard delay: ${maxDelay === null ? 'unknown' : `${maxDelay}s`}.`);
+  console.log(`Set the server-side Vercel variable SNAPCHAIN_URL to http://${ip}:3381`);
+  console.log('The health check runs on the Google VM over SSH; it does not send a request from this computer to the public node endpoint.');
 }
 
 main().catch((error) => { console.error(`Node setup stopped: ${error.message}`); process.exit(1); });

@@ -11,6 +11,7 @@
     "build": "vite build",
     "provision": "node scripts/provision-gcp.mjs",
     "node": "node scripts/start-node.mjs",
+    "node:check": "node scripts/start-node.mjs --check",
     "client": "node scripts/client.mjs",
     "destroy": "node scripts/destroy-gcp.mjs"
   },

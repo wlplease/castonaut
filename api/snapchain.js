@@ -65,6 +65,7 @@ async function readBody(req) {
 }
 
 export default async function snapchain(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
   const url = new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`);
   const routeName = url.searchParams.get('route');
   const route = ROUTES[routeName];

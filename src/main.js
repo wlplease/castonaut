@@ -5,12 +5,14 @@ import { optimism } from 'viem/chains';
 const $ = (selector) => document.querySelector(selector);
 const FARCASTER_EPOCH_MS = Date.UTC(2021, 0, 1);
 const KEY_TTL_SECONDS = 30 * 24 * 60 * 60;
-const KEY_STORAGE = 'openroom.snapchain.signer.v1';
+const LEGACY_KEY_STORAGE = 'openroom.snapchain.signer.v1';
+const SIGNER_DB = 'castonaut-security';
+const SIGNER_STORE = 'signers';
 const FEED_STORAGE = 'openroom.last-feed.v1';
 const DESK_STORAGE = 'packet-porch.desk-pins.v1';
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signerKey: null, signer: null, custodyAddress: '', signerReady: false, nodeInfo: null, casts: [], people: new Map(), sourceBySigner: new Map(), parent: null, feedBusy: false, feedMode: 'following', deskPins: [] };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, nodeInfo: null, casts: [], people: new Map(), sourceBySigner: new Map(), parent: null, feedBusy: false, feedPending: null, feedMode: 'following', deskPins: [] };
 
 try {
   const pins = JSON.parse(localStorage.getItem(DESK_STORAGE) || '[]');
@@ -20,6 +22,95 @@ try {
 function resultOrThrow(result, label) {
   if (!result || (typeof result.isErr === 'function' && result.isErr())) throw new Error(`${label}: ${result?.error || 'could not create protocol message'}`);
   return result.value ?? result;
+}
+
+function hubOk(value) { return { value, isErr: () => false }; }
+
+class BrowserEd25519Signer {
+  constructor(privateKey, publicKey) { this.privateKey = privateKey; this.publicKey = new Uint8Array(publicKey); }
+  async getSignerKey() { return hubOk(this.publicKey); }
+  async signMessageHash(hash) {
+    try { return hubOk(new Uint8Array(await crypto.subtle.sign({ name: 'Ed25519' }, this.privateKey, hash))); }
+    catch (error) { return { error, isErr: () => true }; }
+  }
+}
+
+function openSignerDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(SIGNER_DB, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(SIGNER_STORE, { keyPath: 'id' });
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Could not open protected browser key storage.'));
+  });
+}
+
+async function storeSigner(record) {
+  const db = await openSignerDb();
+  try {
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction(SIGNER_STORE, 'readwrite');
+      transaction.objectStore(SIGNER_STORE).put({ ...record, id: 'active' });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error || new Error('Could not save the app key in browser key storage.'));
+      transaction.onabort = () => reject(transaction.error || new Error('Saving the app key was cancelled by browser storage.'));
+    });
+  } finally { db.close(); }
+}
+
+async function loadSigner() {
+  const db = await openSignerDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = db.transaction(SIGNER_STORE, 'readonly').objectStore(SIGNER_STORE).get('active');
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error || new Error('Could not read browser key storage.'));
+    });
+  } finally { db.close(); }
+}
+
+async function removeStoredSigner() {
+  try {
+    const db = await openSignerDb();
+    try { await new Promise((resolve, reject) => {
+      const transaction = db.transaction(SIGNER_STORE, 'readwrite');
+      transaction.objectStore(SIGNER_STORE).delete('active');
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error || new Error('Could not delete the browser app key.'));
+      transaction.onabort = () => reject(transaction.error || new Error('Deleting the browser app key was cancelled.'));
+    }); } finally { db.close(); }
+    return true;
+  } catch { return false; }
+}
+
+async function createBrowserSigner() {
+  if (!globalThis.crypto?.subtle || !globalThis.indexedDB) throw new Error('This browser cannot securely store a signing key. Update your browser or use a current desktop browser.');
+  try {
+    const pair = await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign', 'verify']);
+    const publicKey = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
+    return { signer: new BrowserEd25519Signer(pair.privateKey, publicKey), publicKey, privateKey: pair.privateKey };
+  } catch (error) {
+    throw new Error(`Secure app-key support is unavailable in this browser: ${error.message}`);
+  }
+}
+
+async function importLegacySigner(saved) {
+  const bytes = fromBase64(saved.key);
+  if (bytes.length !== 32) throw new Error('Stored app key has an invalid length.');
+  // PKCS#8 Ed25519 wrapper around the legacy 32-byte seed. The import is explicitly non-extractable.
+  const prefix = Uint8Array.from([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20]);
+  const pkcs8 = new Uint8Array(prefix.length + bytes.length); pkcs8.set(prefix); pkcs8.set(bytes, prefix.length);
+  let privateKey;
+  try { privateKey = await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'Ed25519' }, false, ['sign']); }
+  finally { bytes.fill(0); pkcs8.fill(0); }
+  const { NobleEd25519Signer } = await import('./protocol.js');
+  const legacyBytes = fromBase64(saved.key);
+  let publicKey;
+  try {
+    const oldSigner = new NobleEd25519Signer(legacyBytes);
+    publicKey = new Uint8Array(resultOrThrow(await oldSigner.getSignerKey(), 'Could not verify the saved app key'));
+  } finally { legacyBytes.fill(0); }
+  if (bytesHex(publicKey).toLowerCase() !== String(saved.publicKey).toLowerCase()) throw new Error('Saved app key does not match its registered public key.');
+  return { privateKey, publicKey };
 }
 
 function setNotice(message, kind = 'info') {
@@ -73,7 +164,7 @@ function unwrapMessages(response) {
 
 function latestUserData(messages) {
   const fields = {};
-  const numericTypes = { 1: 'display', 2: 'pfp', 3: 'username' };
+  const numericTypes = { 1: 'pfp', 2: 'display', 3: 'bio', 5: 'url', 6: 'username' };
   for (const message of messages) {
     const body = message?.data?.userDataBody;
     if (!body) continue;
@@ -106,7 +197,19 @@ async function fetchProfile(fid) {
   for (const row of signerRows) {
     const keyBody = row?.data?.keyAddBody || row?.data?.signerAddBody || row;
     const signer = signerHex(keyBody.key || keyBody.signer);
-    const clientFid = Number(keyBody.requesterFid || keyBody.request_fid || keyBody.sourceFid || row.requesterFid || 0) || null;
+    let clientFid = Number(keyBody.requesterFid || keyBody.request_fid || keyBody.sourceFid || row.requesterFid || 0) || null;
+    if (!clientFid && keyBody.metadata) {
+      try {
+        const metadata = typeof keyBody.metadata === 'string'
+          ? (/^0x[0-9a-f]+$/i.test(keyBody.metadata)
+            ? Uint8Array.from(keyBody.metadata.slice(2).match(/.{2}/g).map((byte) => Number.parseInt(byte, 16)))
+            : fromBase64(keyBody.metadata))
+          : Uint8Array.from(keyBody.metadata);
+        const { decodeGaslessSignedKeyRequestMetadata } = await import('./protocol.js');
+        const decoded = decodeGaslessSignedKeyRequestMetadata(metadata);
+        if (!decoded.isErr()) clientFid = Number(decoded.value.requestFid) || null;
+      } catch { /* Older or incomplete signer metadata stays unattributed. */ }
+    }
     if (signer && clientFid && clientFid !== fid) state.sourceBySigner.set(signer, clientFid);
   }
   const profile = { fid, name: fields.display || fields.username || `Farcaster ${fid}`, username: fields.username || `fid-${fid}`, avatar: fields.pfp || '' };
@@ -150,7 +253,7 @@ async function checkNode() {
     if (list) list.replaceChildren();
     for (const shard of list ? (info.shardInfos || []) : []) {
       const row = document.createElement('div'); row.className = 'shard-row';
-      const label = document.createElement('span'); label.textContent = shard.shardId === 0 ? 'BLOCK SHARD' : `SHARD ${shard.shardId}`;
+      const label = document.createElement('span'); label.textContent = Number(shard.shardId) === 0 ? 'BLOCK SHARD' : `SHARD ${shard.shardId}`;
       const height = document.createElement('strong'); height.textContent = `HEIGHT ${Number(shard.maxHeight || 0).toLocaleString()}`;
       const delay = document.createElement('small'); delay.textContent = `${Number(shard.blockDelay || 0)}s delay`;
       row.append(label, height, delay); list.append(row);
@@ -161,27 +264,39 @@ async function checkNode() {
     const meter = $('#delay-meter'); if (meter) meter.style.width = '0%';
     const version = $('#node-version'); if (version) version.textContent = 'Not connected';
     const shardCount = $('#node-shards'); if (shardCount) shardCount.textContent = '—';
-    const list = $('#shard-list'); if (list) list.innerHTML = '<div class="empty-shards">App service is not connected.</div>';
+    const list = $('#shard-list');
+    if (list) { const empty = document.createElement('div'); empty.className = 'empty-shards'; empty.textContent = 'App service is not connected.'; list.replaceChildren(empty); }
     const needsSetup = /SNAPCHAIN_URL|not configured|not been configured/i.test(error.message);
     const setupLink = $('#node-setup-link'); if (setupLink) setupLink.hidden = !needsSetup;
-    setNodeState('bad', needsSetup ? 'Feed service needs setup' : 'Feed service unavailable', needsSetup ? 'The site host needs a Snapchain endpoint before feeds can load.' : 'The shared feed service is not responding right now. Try again shortly.');
-    const largeDetail = $('#node-detail-large'); if (largeDetail) largeDetail.textContent = error.message;
-    const foot = $('#telemetry-foot'); if (foot) foot.textContent = 'The app service is not connected. The app team can check the optional setup guide.';
+    if (setupLink && needsSetup) setupLink.textContent = 'See feed setup ↗';
+    const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const detail = needsSetup
+      ? localPreview
+        ? 'This local preview is not connected to a Snapchain node. Follow the feed setup guide to connect one. Visitors to the hosted app will not need to run a node.'
+        : 'The app’s server needs its Snapchain URL configured. Readers will not need a personal node or wallet.'
+      : 'The shared feed service is not responding right now. Try again shortly.';
+    const message = needsSetup ? (localPreview ? 'Local preview needs a node' : 'Feed service setup needed') : 'Feed service unavailable';
+    setNodeState('bad', message, detail);
+    const largeDetail = $('#node-detail-large'); if (largeDetail) largeDetail.textContent = needsSetup ? detail : error.message;
+    const foot = $('#telemetry-foot'); if (foot) foot.textContent = needsSetup ? 'No account or wallet setup is needed to read once the feed service is connected.' : 'The shared feed service is not responding right now.';
   } finally {
     if (small) small.disabled = false;
     if (large) large.disabled = false;
   }
 }
 
-function renderEmpty(title, copy, buttonText) {
+function renderEmpty(title, copy, action = null) {
   const box = document.createElement('div'); box.className = 'empty-message';
   const strong = document.createElement('strong'); strong.textContent = title;
   const p = document.createElement('p'); p.textContent = copy;
   box.append(strong, p);
-  if (buttonText) {
-    const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = buttonText;
-    button.addEventListener('click', () => buttonText.toLowerCase().startsWith('try') ? loadFeed($('#fid-input').value, state.feedMode) : $('#fid-input').focus());
+  if (action?.type === 'retry') {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
+    button.addEventListener('click', () => loadFeed($('#fid-input').value, state.feedMode));
     box.append(button);
+  } else if (action?.type === 'guide') {
+    const link = document.createElement('a'); link.className = 'button button-outline'; link.href = '/tutorial.html'; link.textContent = action.label;
+    box.append(link);
   }
   $('#feed-list').replaceChildren(box);
 }
@@ -230,7 +345,7 @@ function renderCast(message) {
 }
 
 async function loadFeed(fidValue = $('#fid-input').value, mode = state.feedMode) {
-  if (state.feedBusy) return;
+  if (state.feedBusy) { state.feedPending = [fidValue, mode]; return; }
   let fid;
   try { fid = asFid(fidValue); } catch (error) { setNotice(error.message); return; }
   try { localStorage.setItem(FEED_STORAGE, String(fid)); } catch { /* Feed reading still works if browser storage is unavailable. */ }
@@ -240,7 +355,7 @@ async function loadFeed(fidValue = $('#fid-input').value, mode = state.feedMode)
   const list = $('#feed-list'); list.setAttribute('aria-busy', 'true');
   $('#feed-title').textContent = state.feedMode === 'profile' ? 'Profile' : 'Following feed';
   $('#feed-caption').textContent = state.feedMode === 'profile' ? `Recent posts by FID ${fid}.` : `Recent posts from the people followed by FID ${fid}.`;
-  list.innerHTML = '<div class="empty-message"><strong>Gathering your people…</strong><p>Putting recent posts from the accounts you follow in one place.</p></div>';
+  renderEmpty('Gathering your people…', 'Putting recent posts from the accounts you follow in one place.');
   try {
     if (!state.nodeInfo) checkNode();
     const [followResponse, profile] = await Promise.all([
@@ -267,14 +382,25 @@ async function loadFeed(fidValue = $('#fid-input').value, mode = state.feedMode)
     if (followFids.length > 35) setNotice('Showing the 35 most recent follows so the node stays responsive.');
   } catch (error) {
     const needsSetup = /SNAPCHAIN_URL|not configured|not been configured/i.test(error.message);
+    const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
-      ? 'The site host needs to connect a Snapchain endpoint. Use the Host setup link above for the server steps.'
+      ? localPreview
+        ? 'This local preview is not connected to a Snapchain node. Visitors to the hosted app will not need to run one.'
+        : 'The app’s server needs its Snapchain URL configured. Readers will not need a personal node or wallet.'
       : error.message;
-    renderEmpty(needsSetup ? 'The feed service needs setup.' : 'Could not build this feed.', detail, needsSetup ? null : 'Try this FID again');
+    const action = needsSetup
+      ? (localPreview ? { type: 'guide', label: 'Open feed setup guide' } : null)
+      : { type: 'retry', label: 'Try this FID again' };
+    renderEmpty(needsSetup ? 'Feed service is not connected yet.' : 'Could not build this feed.', detail, action);
     $('#feed-count').textContent = '0 POSTS';
   } finally {
     state.feedBusy = false;
     list.setAttribute('aria-busy', 'false');
+    if (state.feedPending) {
+      const [pendingFid, pendingMode] = state.feedPending;
+      state.feedPending = null;
+      queueMicrotask(() => loadFeed(pendingFid, pendingMode));
+    }
   }
 }
 
@@ -282,7 +408,7 @@ function renderFeed() {
   const requestedSource = Number($('#source-fid').value) || null;
   const exclude = $('#source-mode').value === 'exclude';
   const messages = state.casts.filter((message) => {
-    const source = state.sourceBySigner.get(String(message.signer || '').toLowerCase()) || null;
+    const source = state.sourceBySigner.get(signerHex(message.signer)) || null;
     if (!requestedSource) return true;
     return exclude ? source !== requestedSource : source === requestedSource;
   });
@@ -331,52 +457,43 @@ async function toggleDeskPin(fidValue, button) {
   setNotice(state.deskPins.includes(fid) ? 'Pinned to your desk on this device.' : 'Removed from your desk.', 'success');
 }
 
-function base64(bytes) { let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }
 function fromBase64(value) { const binary = atob(value); return Uint8Array.from(binary, (char) => char.charCodeAt(0)); }
 function bytesHex(bytes) { return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`; }
 
-async function createCustodySigner(mode) {
+async function createCustodySigner() {
   const protocol = await import('./protocol.js');
-  let custodyAccount;
-  if (mode === 'seed') {
-    const phrase = $('#seed-input').value.trim().replace(/\s+/g, ' ');
-    if (phrase.split(' ').length < 12) throw new Error('Enter a complete disposable test phrase.');
-    $('#seed-input').value = '';
-    const { mnemonicToAccount } = await import('viem/accounts');
-    custodyAccount = mnemonicToAccount(phrase);
-    // Drop the local reference as soon as the wallet account has been derived.
-    // This mode is only exposed on localhost; no API request contains the phrase.
-  } else {
-    if (!window.ethereum) throw new Error('No Ethereum wallet was found. Install or open a wallet, then try again.');
-    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (Number.parseInt(chainId, 16) !== 10) await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xa' }] });
-    const addresses = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    const address = addresses?.[0];
-    if (!address || !isAddress(address)) throw new Error('The wallet did not return a valid address.');
-    custodyAccount = address;
+  if (!window.ethereum) throw new Error('No Ethereum wallet was found. Install or open a wallet, then try again.');
+  const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+  if (Number.parseInt(chainId, 16) !== optimism.id) {
+    try {
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: `0x${optimism.id.toString(16)}` }] });
+    } catch (error) {
+      if (error.code !== 4902) throw error;
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: `0x${optimism.id.toString(16)}`,
+          chainName: optimism.name,
+          nativeCurrency: optimism.nativeCurrency,
+          rpcUrls: optimism.rpcUrls.default.http,
+          blockExplorerUrls: [optimism.blockExplorers.default.url],
+        }],
+      });
+    }
   }
-
-  const custodyAddress = typeof custodyAccount === 'string' ? custodyAccount : custodyAccount.address;
+  const addresses = await window.ethereum.request({ method: 'eth_requestAccounts' });
+  const custodyAddress = addresses?.[0];
+  if (!custodyAddress || !isAddress(custodyAddress)) throw new Error('The wallet did not return a valid address.');
   let registeredFid;
   try {
-    if (typeof custodyAccount === 'string') {
-      const publicClient = createPublicClient({ chain: optimism, transport: custom(window.ethereum) });
-      registeredFid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [custodyAddress] });
-    } else {
-      // The development-only path never sends custody material to a service. It reads the public
-      // registry over the user's configured wallet RPC and signs the authorization locally.
-      const { createPublicClient, http } = await import('viem');
-      const publicClient = createPublicClient({ chain: optimism, transport: http('https://mainnet.optimism.io') });
-      registeredFid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [custodyAddress] });
-    }
+    const publicClient = createPublicClient({ chain: optimism, transport: custom(window.ethereum) });
+    registeredFid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [custodyAddress] });
   } catch (error) {
     throw new Error(`Could not verify this custody address on Optimism: ${error.message}`);
   }
   if (!registeredFid || BigInt(registeredFid) < 1n) throw new Error('This wallet is not connected to a Farcaster account yet. Connect the custody wallet for your account and try again.');
   const fid = asFid(registeredFid.toString());
-  const eip712Signer = typeof custodyAccount === 'string'
-    ? new protocol.ViemWalletEip712Signer(createWalletClient({ account: custodyAddress, chain: optimism, transport: custom(window.ethereum) }))
-    : new protocol.ViemLocalEip712Signer(custodyAccount);
+  const eip712Signer = new protocol.ViemWalletEip712Signer(createWalletClient({ account: custodyAddress, chain: optimism, transport: custom(window.ethereum) }));
   return { eip712Signer, custodyAddress, fid };
 }
 
@@ -402,36 +519,42 @@ async function waitForSigner(fid, publicKey, tries = 8) {
   return false;
 }
 
-async function authorizeSigner(mode) {
+async function authorizeSigner() {
   const protocol = await import('./protocol.js');
   const status = $('#dialog-status');
-  const connectButton = mode === 'seed' ? $('#seed-connect') : $('#wallet-connect');
+  const connectButton = $('#wallet-connect');
   connectButton.disabled = true;
+  let relayAttempted = false;
   try {
+    const saved = await loadSigner();
+    const legacy = localStorage.getItem(LEGACY_KEY_STORAGE);
+    if (state.signer || saved || legacy) throw new Error('This browser already has an app key saved. Reload to check its status, or use “Forget this browser” before creating another one.');
     status.textContent = 'Finding your Farcaster account and preparing a scoped key…';
-    const { eip712Signer, custodyAddress, fid } = await createCustodySigner(mode);
-    const signerKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-    const signer = new protocol.NobleEd25519Signer(signerKeyBytes);
-    const publicKey = bytesHex(resultOrThrow(await signer.getSignerKey(), 'Could not create app key'));
+    const { eip712Signer, custodyAddress, fid } = await createCustodySigner();
+    const { signer, publicKey: publicKeyBytes, privateKey } = await createBrowserSigner();
+    const publicKey = bytesHex(publicKeyBytes);
     const nonce = await readCurrentNonce(fid);
     const deadline = Number(resultOrThrow(protocol.getFarcasterTime(), 'Could not read Farcaster time')) + 60 * 60;
     status.textContent = 'Your wallet will authorize a 30-day gasless app key. No transaction or network fee is requested.';
     const scopes = [protocol.MessageType.CAST_ADD, protocol.MessageType.CAST_REMOVE, protocol.MessageType.REACTION_ADD, protocol.MessageType.REACTION_REMOVE, protocol.MessageType.LINK_ADD, protocol.MessageType.LINK_REMOVE];
     const keyBody = resultOrThrow(await protocol.makeKeyAddBody({ fid: BigInt(fid), key: protocol.hexStringToBytes(publicKey), scopes, ttl: KEY_TTL_SECONDS, nonce: nonce + 1, deadline }, eip712Signer), 'Could not authorize the app key');
     const message = resultOrThrow(await protocol.makeKeyAdd(keyBody, { fid, network: protocol.FarcasterNetwork.MAINNET }, signer), 'Could not sign key registration');
+    await storeSigner({ fid, publicKey, custodyAddress, privateKey });
+    state.fid = fid;
+    state.signer = signer;
+    state.publicKey = publicKey;
+    state.custodyAddress = custodyAddress;
+    state.signerReady = false;
+    $('#fid-input').value = String(fid);
+    try { localStorage.setItem(FEED_STORAGE, String(fid)); } catch { /* Account connection still works without feed preference storage. */ }
+    renderIdentity();
     status.textContent = 'Sending KEY_ADD through your read node…';
+    relayAttempted = true;
     const relayed = await submitMessage(message);
     if (!relayed.hash) throw new Error('The node accepted no message hash. Check node health and try again.');
     const confirmed = await waitForSigner(fid, publicKey);
-    state.fid = fid;
-    state.signerKey = signerKeyBytes;
-    state.signer = signer;
-    state.custodyAddress = custodyAddress;
     state.signerReady = confirmed;
-    $('#fid-input').value = String(fid);
-    try { localStorage.setItem(FEED_STORAGE, String(fid)); } catch { /* Account connection still works without feed preference storage. */ }
-    localStorage.setItem(KEY_STORAGE, JSON.stringify({ fid, key: base64(signerKeyBytes), publicKey, custodyAddress }));
-    await fetchProfile(fid);
+    await fetchProfile(fid).catch(() => null);
     renderIdentity();
     if (confirmed) {
       status.textContent = 'App key confirmed in Snapchain. This browser can now post, follow, and react.';
@@ -443,11 +566,14 @@ async function authorizeSigner(mode) {
       setNotice('Key relayed; merge is still pending. Writes stay locked until the node confirms it.', 'pending');
     }
   } catch (error) {
-    status.textContent = error.message;
+    if (relayAttempted) {
+      state.signerReady = false;
+      renderIdentity();
+      status.textContent = `Authorization could not be confirmed. The app key remains saved in this browser so it is not lost. Reload to check its network status before trying again. (${error.message})`;
+    } else status.textContent = error.message;
     setNotice(error.message, 'error');
   } finally {
     connectButton.disabled = false;
-    if (mode === 'seed') $('#seed-input').value = '';
   }
 }
 
@@ -465,10 +591,8 @@ async function waitForMerge(route, params, tries = 8) {
 }
 
 async function getActiveSigner() {
-  if (!state.fid || !state.signerKey) throw new Error('Connect a Farcaster signer before writing.');
-  if (state.signer) return state.signer;
-  const { NobleEd25519Signer } = await import('./protocol.js');
-  return new NobleEd25519Signer(state.signerKey);
+  if (!state.fid || !state.signer) throw new Error('Connect a Farcaster signer before writing.');
+  return state.signer;
 }
 
 async function signAndRelay(messageResult, successRoute, successParams, successText) {
@@ -492,7 +616,7 @@ function renderIdentity() {
   $('#profile-avatar').textContent = profile.name.slice(0, 1).toUpperCase();
   if (profile.avatar && /^https?:\/\//i.test(profile.avatar)) { const image = document.createElement('img'); image.src = profile.avatar; image.alt = ''; image.loading = 'lazy'; $('#profile-avatar').replaceChildren(image); }
   $('#composer').hidden = false;
-  $('#composer-context').textContent = state.signerReady ? 'Scoped gasless app key · local to this browser' : 'App key is awaiting merge confirmation';
+  $('#composer-context').textContent = state.signerReady ? 'Scoped key · stored in this browser' : 'App key is awaiting merge confirmation';
   $('#composer-text').disabled = !state.signerReady;
   $('#composer button[type="submit"]').disabled = !state.signerReady;
   document.querySelectorAll('.post-action:not(.pin-action)').forEach((button) => { button.disabled = !state.signerReady; });
@@ -501,22 +625,31 @@ function renderIdentity() {
 async function restoreSession() {
   let saved;
   try {
-    saved = JSON.parse(localStorage.getItem(KEY_STORAGE) || 'null');
-  } catch {
-    localStorage.removeItem(KEY_STORAGE);
+    saved = await loadSigner();
+    if (!saved) {
+      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY_STORAGE) || 'null');
+      if (legacy?.key && legacy?.publicKey && Number.isSafeInteger(Number(legacy.fid))) {
+        const imported = await importLegacySigner(legacy);
+        saved = { fid: Number(legacy.fid), publicKey: legacy.publicKey, custodyAddress: legacy.custodyAddress || '', ...imported };
+        await storeSigner(saved);
+      }
+      localStorage.removeItem(LEGACY_KEY_STORAGE);
+    }
+  } catch (error) {
+    setNotice(`Could not restore the browser app key. Reconnect your account to create a new one. ${error.message}`, 'error');
     return;
   }
-  if (!saved || !Number.isSafeInteger(Number(saved.fid)) || !saved.key || !saved.publicKey) return;
+  if (!saved || !Number.isSafeInteger(Number(saved.fid)) || !saved.privateKey || !saved.publicKey) return;
   try {
-    const signerKey = fromBase64(saved.key);
-    if (signerKey.length !== 32) throw new Error('Stored app key has an invalid length.');
-    const { NobleEd25519Signer } = await import('./protocol.js');
+    const publicKeyHex = String(saved.publicKey).replace(/^0x/i, '');
+    if (!/^[0-9a-f]{64}$/i.test(publicKeyHex) || !saved.privateKey.usages?.includes('sign')) throw new Error('Stored app key has an invalid format.');
+    const publicKey = Uint8Array.from(publicKeyHex.match(/.{2}/g).map((byte) => Number.parseInt(byte, 16)));
     state.fid = Number(saved.fid);
-    state.signerKey = signerKey;
-    state.signer = new NobleEd25519Signer(signerKey);
+    state.publicKey = String(saved.publicKey);
+    state.signer = new BrowserEd25519Signer(saved.privateKey, publicKey);
     state.custodyAddress = saved.custodyAddress || '';
   } catch {
-    localStorage.removeItem(KEY_STORAGE);
+    await removeStoredSigner();
     return;
   }
   renderIdentity();
@@ -533,10 +666,12 @@ async function restoreSession() {
 }
 
 async function clearLocalSigner() {
-  localStorage.removeItem(KEY_STORAGE);
-  state.fid = null; state.signerKey = null; state.signer = null; state.signerReady = false; state.custodyAddress = '';
+  try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* Continue clearing the current session. */ }
+  const cleared = await removeStoredSigner();
+  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = '';
   renderIdentity();
-  setNotice('This browser forgot its app key. Revoke signer access from custody if you no longer need it.');
+  if (!cleared) { setNotice('This session is signed out, but browser storage could not delete the app key. Revoke it in Farcaster account settings and clear this site’s browser data.', 'error'); return; }
+  setNotice('This browser forgot its signing key. The Farcaster signer remains active until you revoke it from account settings or it expires.', 'pending');
 }
 
 function navigate(view) {
@@ -585,11 +720,8 @@ $('#source-fid').addEventListener('input', renderFeed);
 $('#source-mode').addEventListener('change', renderFeed);
 $('#open-account').addEventListener('click', () => $('#connect-dialog').showModal());
 $('#connect-button').addEventListener('click', () => $('#connect-dialog').showModal());
-$('#manage-key').addEventListener('click', () => { if (confirm('Forget this browser’s app key? You must reauthorize before posting. To fully remove access, revoke the signer from your custody account.')) clearLocalSigner(); });
-$('#wallet-connect').addEventListener('click', () => authorizeSigner('wallet'));
-$('#seed-toggle').hidden = !['localhost', '127.0.0.1'].includes(location.hostname);
-$('#seed-toggle').addEventListener('click', () => { $('#seed-panel').hidden = !$('#seed-panel').hidden; });
-$('#seed-connect').addEventListener('click', () => authorizeSigner('seed'));
+$('#manage-key').addEventListener('click', () => { if (confirm('Delete Castonaut’s signing key from this browser? This pauses posting here, but does not revoke the Farcaster signer. Revoke it separately in Farcaster account settings.')) clearLocalSigner(); });
+$('#wallet-connect').addEventListener('click', () => authorizeSigner());
 $('#connect-dialog').addEventListener('click', (event) => { if (event.target === $('#connect-dialog')) $('#connect-dialog').close(); });
 $('#composer-text').addEventListener('input', () => { $('#char-count').textContent = `${[...$('#composer-text').value].length} / 320`; });
 

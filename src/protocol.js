@@ -1,5 +1,6 @@
 export {
   CastType,
+  decodeGaslessSignedKeyRequestMetadata,
   FarcasterNetwork,
   Message,
   MessageType,

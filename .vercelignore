@@ -1,14 +1,1 @@
-archive/afterhours-arcade/**
-
-# Retired Openroom prototype. Castonaut ships the Vite app and only the
-# Snapchain serverless adapter; do not deploy the old Neynar-backed routes.
-public/**
-api/cast.js
-api/conversation.js
-api/feed.js
-api/follow.js
-api/reaction.js
-api/search.js
-api/signer.js
-api/user.js
-lib/**
+archive/**
