@@ -13,5 +13,7 @@ export {
   makeKeyAdd,
   makeKeyAddBody,
   makeLinkAdd,
+  makeLinkRemove,
   makeReactionAdd,
+  makeReactionRemove,
 } from '@farcaster/core';

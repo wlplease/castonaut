@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 .vercel/
+.chrome-preview/
 node_modules/
 dist/
 arcade/preview*.png

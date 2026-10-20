@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 const ROUTES = {
   info: { path: '/v1/info', method: 'GET', params: [] },
   casts: { path: '/v1/castsByFid', method: 'GET', params: ['fid', 'pageSize', 'pageToken', 'reverse', 'startTimestamp', 'stopTimestamp'] },
+  replies: { path: '/v1/castsByParent', method: 'GET', params: ['fid', 'hash', 'pageSize', 'pageToken', 'reverse'] },
+  username: { path: '/v1/userNameProofByName', method: 'GET', params: ['name'] },
   links: { path: '/v1/linksByFid', method: 'GET', params: ['fid', 'link_type', 'pageSize', 'pageToken', 'reverse'] },
   userData: { path: '/v1/userDataByFid', method: 'GET', params: ['fid', 'user_data_type', 'pageSize', 'pageToken', 'reverse'] },
   signers: { path: '/v1/signersByFid', method: 'GET', params: ['fid', 'requesterFids', 'pageSize', 'pageToken'] },
@@ -15,6 +17,7 @@ const ROUTES = {
 
 function validParam(name, value) {
   if (name === 'fid' || name === 'target_fid') return /^[1-9]\d{0,14}$/.test(value);
+  if (name === 'name') return /^[\p{L}\p{N}._-]{1,64}$/u.test(value);
   if (name === 'pageSize') return /^\d{1,3}$/.test(value) && Number(value) >= 1 && Number(value) <= 100;
   if (name === 'reverse') return ['true', 'false', '1', '0'].includes(value);
   if (name === 'startTimestamp' || name === 'stopTimestamp') return /^\d{1,12}$/.test(value);
@@ -93,6 +96,7 @@ function localSnapchainAdapter(serverEnv) {
             target.searchParams.set(key, value);
           }
           if (route.params.includes('fid') && !target.searchParams.has('fid')) return sendJson(res, 400, { error: 'fid is required' });
+          if (requestUrl.searchParams.get('route') === 'replies' && (!target.searchParams.has('fid') || !target.searchParams.has('hash'))) return sendJson(res, 400, { error: 'parent fid and hash are required' });
           if (requestUrl.searchParams.getAll('route').length !== 1) return sendJson(res, 400, { error: 'Exactly one Snapchain route is required' });
           const params = [...requestUrl.searchParams.keys()].filter((key) => key !== 'route');
           if (new Set(params).size !== params.length) return sendJson(res, 400, { error: 'Duplicate query parameters are not allowed' });
@@ -138,7 +142,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: [{ find: /^@faker-js\/faker$/, replacement: resolve(process.cwd(), 'src/faker-compat.js') }],
     },
-    publicDir: false,
+    publicDir: 'public',
     build: {
       outDir: 'dist',
       emptyOutDir: true,
@@ -146,6 +150,8 @@ export default defineConfig(({ mode }) => {
         input: {
           main: resolve(process.cwd(), 'index.html'),
           tutorial: resolve(process.cwd(), 'tutorial.html'),
+          privacy: resolve(process.cwd(), 'privacy.html'),
+          terms: resolve(process.cwd(), 'terms.html'),
         },
       },
     },

@@ -10,9 +10,11 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "test": "node --test",
+    "audio:generate": "node --env-file-if-exists=.env scripts/generate-station-audio.mjs",
     "provision": "node scripts/provision-gcp.mjs",
     "node": "node scripts/start-node.mjs",
     "node:check": "node scripts/start-node.mjs --check",
+    "node:status": "node scripts/node-status.mjs",
     "client": "node scripts/client.mjs",
     "destroy": "node scripts/destroy-gcp.mjs"
   },
@@ -21,6 +23,7 @@
     "@fontsource-variable/dm-sans": "^5.3.0",
     "@fontsource/dm-mono": "^5.3.0",
     "@fontsource/space-grotesk": "^5.3.0",
+    "@vercel/analytics": "^2.0.1",
     "viem": "^2.57.7"
   },
   "overrides": {

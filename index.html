@@ -2,37 +2,58 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#eee8f2" />
-    <meta name="description" content="Castonaut is your old-school Farcaster waystation: your signals, your orbit, and a flight log of posts worth keeping." />
-    <title>Castonaut — A Farcaster waystation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#f7f3e9" />
+    <meta name="description" content="A personal field guide to Farcaster. Catch up in time order, keep your people close, and save the signals you want to find again." />
+    <meta name="application-name" content="Castonaut" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Castonaut" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#624dc3" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Castonaut" />
+    <meta property="og:title" content="Castonaut — A personal Farcaster atlas" />
+    <meta property="og:description" content="A personal field guide to Farcaster: catch up in time order, keep your people close, and return to signals worth saving." />
+    <meta property="og:image" content="/og-castonaut.png" />
+    <meta property="og:image:alt" content="Castonaut's retro station console under an orbiting planet, on a warm lilac background." />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Castonaut — A personal Farcaster atlas" />
+    <meta name="twitter:description" content="A personal field guide to Farcaster: signals in order, your people close, and posts worth saving." />
+    <meta name="twitter:image" content="/og-castonaut.png" />
+    <meta name="twitter:image:alt" content="Castonaut's retro station console under an orbiting planet." />
+    <title>Castonaut — A personal Farcaster atlas</title>
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to the station</a>
+    <a class="skip-link" href="#main">Skip to the atlas</a>
     <div class="app-frame">
       <aside class="sidebar" aria-label="Main navigation">
         <a class="brand" href="/" aria-label="Castonaut home">
-          <span class="brand-mark"><i></i><i></i><i></i></span>
-          <span><strong>castonaut</strong><small>FARCASTER WAYSTATION · 37</small></span>
+          <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />
+          <span><strong>castonaut</strong><small>FIELD JOURNAL · FARCASTER</small></span>
         </a>
-        <div class="rail-label">CASTONAUT</div>
         <nav class="nav-list">
-          <a class="nav-item active" href="#desk" data-view="desk"><span class="nav-symbol">⌂</span><span>Home</span><kbd>1</kbd></a>
-          <a class="nav-item" href="#about" data-view="node"><span class="nav-symbol">▤</span><span>About</span><kbd>2</kbd></a>
+          <a class="nav-item active" href="#desk" data-view="desk" aria-label="Home"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Home</span></a>
+          <a class="nav-item" href="#about" data-view="node" aria-label="About"><span class="nav-symbol" aria-hidden="true">▤</span><span>About</span></a>
               <a class="nav-item" href="/tutorial.html" aria-label="How it works"><span class="nav-symbol">▧</span><span>Guide</span><span class="nav-arrow">↗</span></a>
         </nav>
-        <div class="sidebar-note">
-          <span class="note-led"></span>
-          <div><strong>Your station, your pace</strong><small>Signals · Orbit · Flight Log</small></div>
-        </div>
-        <div class="sidebar-foot"><span>OPEN SOURCE · MIT</span><span>BUILD 0.2</span></div>
       </aside>
 
       <div class="main-column">
         <header class="topbar">
-          <div class="crumb"><span class="crumb-dot"></span><span>CASTONAUT STATION</span><span class="crumb-slash">/</span><span id="page-label">SIGNALS</span></div>
+          <a class="mobile-brand" href="/" aria-label="Castonaut home"><img src="/favicon.svg" alt="" /><span><strong>castonaut</strong><small>FIELD JOURNAL · FARCASTER</small></span></a>
+          <div class="crumb"><span class="crumb-dot"></span><span>FIELD JOURNAL</span><span class="crumb-slash">/</span><span id="page-label">SIGNALS</span></div>
           <div class="top-actions">
-            <a class="top-link" href="/tutorial.html">How this works <span>↗</span></a>
+            <a class="top-link" href="/tutorial.html">Guide <span>↗</span></a>
+            <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Field Journal · daylight</option><option value="night-radio">Field Journal · after dark</option></select></label>
             <button class="avatar-button" id="open-account" aria-label="Account and signer settings"><span id="avatar-initial">?</span></button>
           </div>
         </header>
@@ -41,11 +62,11 @@
           <section class="view" id="desk-view" data-panel="desk">
             <div class="room-heading">
               <div>
-                <div class="overline"><span class="live-pip"></span> FARCASTER · WAYSTATION 37</div>
-                <h1>Your corner<br class="desktop-break" /> of the cosmos.</h1>
-                <p class="lead">Your orbit, with the latest posts first.</p>
+                <div class="overline"><span class="live-pip"></span> YOUR PERSONAL ATLAS</div>
+                <h1>Your Farcaster,<br class="desktop-break" /> drawn around you.</h1>
+                <p class="lead">Catch up in time order. Keep your people close. Save the signals you want to find again.</p>
               </div>
-              <div class="window-stamp" aria-hidden="true"><span class="stamp-ring"></span><span>WAY<br />STATION<br />37</span><small>FC / 01</small></div>
+              <div class="atlas-signet" aria-hidden="true"><svg viewBox="0 0 140 140" focusable="false"><ellipse class="atlas-orbit atlas-orbit-a" cx="70" cy="70" rx="58" ry="23"/><ellipse class="atlas-orbit atlas-orbit-b" cx="70" cy="70" rx="47" ry="37" transform="rotate(-48 70 70)"/><circle class="atlas-world" cx="70" cy="70" r="18"/><path class="atlas-star" d="M70 2v10M70 128v10M2 70h10M128 70h10"/><circle class="atlas-satellite" cx="23" cy="51" r="3"/><circle class="atlas-satellite atlas-satellite-b" cx="108" cy="32" r="2"/></svg><span>37</span></div>
             </div>
 
             <div class="node-ribbon" id="node-ribbon">
@@ -54,47 +75,115 @@
             </div>
 
             <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title">
-              <div class="portal-art" aria-hidden="true"><div class="portal-screen"><span>CASTONAUT / WAYSTATION 37</span><b></b><i>WAITING FOR YOUR ACCOUNT</i><small>FARCASTER · DEEP SPACE</small></div><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span></div>
-              <div class="portal-copy"><span class="overline">YOUR FARCASTER ACCOUNT</span><h2 id="portal-title">Come aboard.</h2><p>Verify your account and add a limited social key. A linked wallet is easiest; a local test-account option is available.</p><button class="button button-orange" id="portal-enter">Connect account &amp; launch <span>↗</span></button><small id="portal-status" role="status">Your feed and posting access open together.</small><small>Never use a recovery phrase from an account holding funds.</small></div>
+              <div class="portal-art" aria-hidden="true"><img class="portal-illustration" src="/astral-atlas-art.webp" alt="" /><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span><span class="portal-art-caption">PLATE 037 <i>·</i> YOUR CORNER OF THE NETWORK</span></div>
+              <div class="portal-copy">
+                <span class="overline">YOUR FARCASTER ACCOUNT</span>
+                <h2 id="portal-title">Come aboard.</h2>
+                <p>Verify the Farcaster account you own, then approve one limited key for social actions.</p>
+                <div class="portal-pass-preview" aria-label="Station pass preview"><strong>$3.70</strong><span><b>30-day station pass</b><small>Planned price · free preview · checkout not live</small></span></div>
+                <button class="button button-orange" id="portal-enter">Sign in <span>↗</span></button>
+                <small id="portal-status" role="status">Approve once; this browser remembers you on this device.</small>
+                <small class="portal-security-note">Recovery phrase safety: this page can read a phrase while entered; it is not saved or sent by the app.</small>
+                <details class="portal-extras">
+                  <summary>Station orientation &amp; account details</summary>
+                  <div class="portal-extras-content">
+                    <small>Farcaster verification does not need a wallet. The station pass uses a separate Base wallet, 3.70 USDC, and a little ETH for network fees.</small>
+                    <div class="station-voice"><label for="voice-profile">Listen <span>·</span></label><select id="voice-profile" aria-label="Choose a station voice"><option value="navigator">Mae · Navigator</option><option value="radio">Quinn · Radio host</option><option value="archivist">Jules · Archivist</option></select><button type="button" id="voice-play" aria-label="Listen to the station introduction">▶</button><audio id="station-audio" preload="none"></audio></div>
+                  </div>
+                </details>
+              </div>
               <div class="portal-footer"><span>ACCOUNT CHECK · OPTIMISM</span><span>APP KEY · THIS DEVICE</span></div>
             </section>
 
+            <section class="pass-gate" id="pass-gate" aria-labelledby="pass-title" hidden>
+              <div class="pass-art" aria-hidden="true"><span class="pass-orbit pass-orbit-a"></span><span class="pass-orbit pass-orbit-b"></span><strong>37</strong><small>TIME / PASS</small></div>
+              <div class="pass-copy"><span class="overline">CASTONAUT · THE SIGNAL ROOM</span><h2 id="pass-title">Your time here is yours.</h2><p>One prepaid pass opens the full station for 30 days. No auto-renewal. The pass follows your payment wallet, so bring that same wallet when you return.</p><div class="pass-offer"><strong>$3.70</strong><span>USDC on Base<br />30 days · one-time</span></div><p class="pass-status" id="pass-status" role="status" aria-live="polite">Connect a wallet to check your pass or get started.</p><div class="pass-actions"><button type="button" class="button button-outline" id="pass-check">Connect wallet / check pass</button><button type="button" class="button button-orange" id="pass-buy">Get a 30-day pass</button></div><small class="pass-note">Two wallet confirmations: exact USDC approval, then purchase. You also need a little Base ETH for network fees. Payments go directly to the published contract’s treasury.</small><details class="pass-setup" id="pass-setup"><summary>Pass checkout details</summary><p>Checkout is locked until a CastonautTimePass contract is deployed and its public address is set as <code>VITE_PASS_CONTRACT_ADDRESS</code> in the site build.</p></details></div>
+              <div class="pass-footer"><span>NO RECURRING CHARGE</span><span>VERIFIABLE ON BASE</span></div>
+            </section>
+
             <div id="member-workspace" hidden>
+            <div class="pass-status-strip" id="pass-status-strip"><span class="pass-status-mark" aria-hidden="true">◷</span><span><small>YOUR TIME PASS</small><strong id="pass-countdown">Checking…</strong></span><span class="pass-wallet-label" id="pass-wallet-label"></span><button type="button" id="pass-extend" class="pass-extend">Add 30 days · $3.70</button></div>
             <section class="desk-strip" aria-labelledby="desk-title">
-              <div class="desk-strip-head"><div><span class="overline">YOUR ORBIT · STORED ON THIS DEVICE</span><h2 id="desk-title">Your people, in orbit.</h2></div><p>Pin a crew member from any post. Their place in your orbit is yours.</p></div>
+              <div class="desk-strip-head"><div><span class="overline">YOUR CONSTELLATION</span><h2 id="desk-title">Keep your people close.</h2></div><p>Pin people, posts, or topics from any signal’s ••• menu.</p></div>
               <div class="desk-pins" id="desk-pins"><span class="desk-empty">Your orbit is open. Pin a person from any signal to bring them aboard.</span></div>
+              <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Pinned signals and topics"><div class="desk-saved-signals" id="desk-casts"></div><div class="desk-topic-list" id="desk-topics"></div></div>
+              <p class="desk-active-topic" id="desk-active-topic" hidden></p>
+              <details class="time-capsule" aria-labelledby="capsule-title">
+                <summary class="capsule-heading"><span class="overline">TIME CAPSULE</span><span class="capsule-heading-title" id="capsule-title">Return to a day you saved</span><span class="capsule-count">14-day archive</span></summary>
+                <div class="capsule-tools"><p>Saved on this device. Keep up to 14 days of moments.</p><button type="button" class="button button-outline" id="capsule-seal" disabled>Save today’s feed</button></div>
+                <div class="capsule-shelf" id="capsule-shelf" aria-label="Saved time capsules"><span class="capsule-empty">Your first capsule will appear here.</span></div>
+                <section class="capsule-replay" id="capsule-replay" aria-live="polite" hidden><div class="capsule-replay-head"><span><small>LOOKING BACK</small><strong id="capsule-replay-title"></strong></span><button type="button" id="capsule-replay-close" aria-label="Close capsule replay">×</button></div><div class="capsule-replay-list" id="capsule-replay-list"></div></section>
+              </details>
+            </section>
+
+            <section class="local-backup" aria-labelledby="local-backup-title">
+              <div><span class="overline">YOUR FIELD NOTES</span><h2 id="local-backup-title">Take your atlas with you.</h2><p>Export or restore your Desk, Flight Log, capsules, and appearance/feed preferences. Signers, wallet details, drafts, and recovery phrases are never included.</p></div>
+              <div class="local-backup-actions"><button type="button" class="button button-outline" id="backup-export">Export backup</button><button type="button" class="button button-outline" id="backup-import-trigger">Restore backup</button><input id="backup-file" type="file" accept="application/json,.json" hidden aria-label="Choose a Castonaut backup file" /></div>
+              <p class="backup-status" id="backup-status" role="status" aria-live="polite"></p>
             </section>
 
             <div class="feed-layout">
                 <section class="feed-window" aria-labelledby="feed-title">
-                  <div class="window-titlebar"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><span>CASTONAUT / FLIGHT CONSOLE</span><button class="window-menu" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
+                  <div class="window-titlebar"><span class="feed-edition"><span class="feed-edition-mark" aria-hidden="true">✳</span> THE LIVE ATLAS <span>·</span> IN CHRONOLOGICAL ORDER</span><button class="window-menu" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
                 <div class="feed-toolbar">
-                  <div><div class="overline">FOLLOWING FEED</div><h2 id="feed-title">Signals</h2><p id="feed-caption">Newest posts first.</p></div>
-                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose signal view"><button type="button" class="board-tab is-active" id="show-signals" aria-pressed="true">Signals</button><button type="button" class="board-tab" id="show-flight-log" aria-pressed="false">Flight Log <span id="flight-log-count">0</span></button></div><span class="feed-count" id="feed-count">0 POSTS</span></div>
+                  <div><div class="overline">YOUR TIMELINE</div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
+                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Friends <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Crew <span id="crew-count">0</span></button></div><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Flight Log <span id="flight-log-count">0</span></button><span class="feed-count" id="feed-count">0 POSTS</span></div>
                 </div>
-                <section class="profile-summary" id="profile-summary" aria-live="polite" hidden></section>
+                <section class="profile-summary" id="profile-summary" aria-live="polite" tabindex="-1" hidden></section>
+                <form class="people-search" id="people-search" role="search">
+                  <label class="sr-only" for="people-query">Find a Farcaster profile by username or FID</label>
+                  <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="64" placeholder="Find a person by username or FID" autocomplete="off" />
+                  <button type="submit" class="button button-outline">Find person</button>
+                  <p id="people-search-status" role="status" aria-live="polite" hidden></p>
+                </form>
+                <section class="conversation-view" id="conversation-view" aria-labelledby="conversation-title" hidden>
+                  <div class="conversation-head"><div><span class="overline">IN CONTEXT</span><h2 id="conversation-title" tabindex="-1">Conversation</h2><p id="conversation-status" role="status" aria-live="polite"></p></div><button type="button" class="button button-outline" id="conversation-close">Back to feed</button></div>
+                  <div class="conversation-root" id="conversation-root"></div>
+                  <div class="conversation-replies" id="conversation-replies"></div>
+                </section>
                 <details class="feed-pulse" id="feed-pulse" hidden>
-                  <summary><span><strong>Mission Brief</strong><small>A quick scan of this signal window</small></span><span class="pulse-local">ON THIS DEVICE</span></summary>
+                  <summary><span><strong>Orbit Pulse</strong><small>A quick read on this feed and your pinned people</small></span><span class="pulse-local">ON THIS DEVICE</span></summary>
                   <div class="pulse-content"><div class="pulse-stats" id="pulse-stats"></div><p class="pulse-insight" id="pulse-insight"></p></div>
                 </details>
+                <section class="ai-catch-up" id="ai-catch-up" aria-labelledby="ai-catch-up-title" hidden>
+                  <div><span class="overline">OPTIONAL · AI</span><h3 id="ai-catch-up-title">Catch up with Gemini.</h3><p>On request, up to 20 visible post texts go to Google Gemini. The digest stays on this device; Gemini cannot post or take account actions.</p></div>
+                  <button type="button" class="button button-outline" id="generate-digest">Summarize posts</button>
+                  <p id="ai-catch-up-result" role="status" aria-live="polite" hidden></p>
+                </section>
                 <form class="composer" id="composer" hidden>
                   <label class="sr-only" for="composer-text">Write a cast</label>
                   <textarea id="composer-text" maxlength="320" rows="3" placeholder="Send a signal to the network…"></textarea>
-                  <div class="composer-bottom"><span id="composer-context">Signed with your local app key</span><div><span id="char-count">0 / 320</span><button type="submit" class="button button-orange">Post to the network <span>↗</span></button></div></div>
+                  <section class="composer-media" id="composer-media" hidden>
+                    <div class="media-url-field"><label for="composer-media-url">Attach a direct image or GIF</label><input id="composer-media-url" type="url" inputmode="url" maxlength="2048" placeholder="Paste a direct https://…gif link" autocomplete="url" /><p id="composer-media-note">Castonaut does not upload media. Remote previews stay off until you enable them.</p></div>
+                    <button type="button" id="composer-media-clear" class="media-clear">Remove attachment</button>
+                    <div class="gif-picker" aria-labelledby="gif-picker-title"><div class="gif-picker-heading"><strong id="gif-picker-title">Find a GIF</strong><span>Powered by GIPHY · searches run only when you ask</span></div><div id="gif-search-form" class="gif-search" role="search"><label class="sr-only" for="gif-search-query">Search GIPHY</label><input id="gif-search-query" type="search" maxlength="50" placeholder="Search a moment, mood, or phrase" autocomplete="off" /><button class="button button-dark" type="button" id="gif-search-submit">Search GIFs</button></div><p class="gif-search-note" id="gif-search-note" role="status" aria-live="polite">Press Search to send your query to GIPHY. Search thumbnails load from GIPHY; a selected GIF attaches its link to your cast.</p><div class="gif-results" id="gif-results" aria-label="GIF search results"></div></div>
+                  </section>
+                  <div class="composer-bottom"><span><span id="composer-context">Scoped key · stored in this browser</span><small id="draft-status" role="status" aria-live="polite">Drafts stay on this device.</small></span><div><details class="emoji-picker"><summary class="button button-outline" aria-label="Add emoji">Emoji</summary><div class="emoji-picker-grid" aria-label="Choose an emoji"><button type="button" data-emoji="✨" aria-label="Sparkles">✨</button><button type="button" data-emoji="🌙" aria-label="Moon">🌙</button><button type="button" data-emoji="🚀" aria-label="Rocket">🚀</button><button type="button" data-emoji="💫" aria-label="Dizzy star">💫</button><button type="button" data-emoji="🪐" aria-label="Ringed planet">🪐</button><button type="button" data-emoji="🌌" aria-label="Milky Way">🌌</button><button type="button" data-emoji="💜" aria-label="Purple heart">💜</button><button type="button" data-emoji="🛰️" aria-label="Satellite">🛰️</button><button type="button" data-emoji="😄" aria-label="Grinning face">😄</button><button type="button" data-emoji="🔥" aria-label="Fire">🔥</button><button type="button" data-emoji="🎉" aria-label="Party popper">🎉</button><button type="button" data-emoji="❤️" aria-label="Red heart">❤️</button></div></details><button type="button" class="button button-outline" id="composer-media-toggle">GIFs &amp; images</button><button type="button" class="button button-outline thread-add" id="thread-add">Add to thread</button><span id="char-count">0 / 320</span><button type="submit" class="button button-orange" id="composer-submit">Post</button></div></div>
+                  <section class="thread-draft" id="thread-draft" aria-labelledby="thread-draft-title" hidden><div class="thread-draft-head"><strong id="thread-draft-title">Thread draft</strong><span id="thread-draft-count"></span></div><ol id="thread-draft-items"></ol><p id="thread-draft-status" role="status" aria-live="polite"></p><button type="button" class="button button-orange" id="thread-publish">Publish thread</button></section>
+                  <button type="button" class="draft-discard" id="draft-discard" hidden>Discard this draft</button>
                 </form>
                 <details class="feed-filters" id="feed-filters" hidden>
-                  <summary class="feed-filter-summary">Feed filters <span>OPTIONAL</span></summary>
-                  <div class="feed-filter-options"><span>POST SOURCE</span>
-                    <label class="source-control" for="source-fid"><span>App FID</span><input id="source-fid" type="number" min="1" placeholder="Any" /></label>
-                    <label class="source-control" for="source-mode"><span>Show</span><select id="source-mode" class="source-mode"><option value="include">Only this app</option><option value="exclude">Hide this app</option></select></label>
-                    <label class="external-media-option" for="external-images"><input id="external-images" type="checkbox" /><span>Load remote images<small>Image hosts can see your IP</small></span></label>
-                    <span class="source-note">Some posts do not include a source label.</span>
+                  <summary class="feed-filter-summary">View options <span>FILTERS · LOCAL</span></summary>
+                  <div class="feed-filter-options">
+                    <label class="feed-option-control"><input id="filter-replies" type="checkbox" /><span>Replies only</span></label>
+                    <label class="feed-option-control"><input id="filter-media" type="checkbox" /><span>Media only</span></label>
+                    <label class="feed-option-control" title="Mini Apps appear as URL embeds in cast data; regular website links may match too."><input id="filter-apps" type="checkbox" /><span>App &amp; link embeds</span></label>
+                    <label class="feed-option-control"><input id="compact-mode" type="checkbox" /><span>Compact view</span></label>
+                    <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" type="checkbox" checked /><span>Group repeats</span></label>
+                    <label class="feed-option-control" id="orbit-only-control"><input id="orbit-only" type="checkbox" /><span>Orbit Lens · pinned people</span></label>
+                    <label class="source-control" for="source-fid"><span>Source FID</span><input id="source-fid" type="number" min="1" placeholder="Any" /></label>
+                    <label class="source-control" for="source-mode"><span>Show</span><select id="source-mode" class="source-mode"><option value="include">Only source</option><option value="exclude">Hide source</option></select></label>
+                    <label class="source-control crew-name-control" for="crew-name"><span>Crew name</span><input id="crew-name" type="text" maxlength="20" placeholder="Crew" /></label>
+                    <label class="external-media-option" for="external-images"><input id="external-images" type="checkbox" /><span>Load remote media<small>Media hosts can see your IP</small></span></label>
+                    <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>
+                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Friends <kbd>3</kbd> Crew <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
+                    <span class="source-note">Preferences stay on this device.</span>
                   </div>
                 </details>
                 <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">
                   <div class="welcome-card" id="welcome-card">
                     <div class="welcome-illustration" aria-hidden="true"><div class="mini-monitor"><span></span><i></i><b></b></div><div class="mini-cursor">↖</div></div>
-                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Your account is the key.</h3><p>Connect the wallet linked to your Farcaster account to open your feed and posting tools.</p><div class="welcome-foot"><span>WALLET SIGN-IN · TEST-ONLY LOCAL IMPORT</span></div></div>
+                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Your account is the key.</h3><p>Sign in with your Farcaster recovery phrase or a linked wallet. The phrase route works in this browser without a wallet extension.</p><div class="welcome-foot"><span>FARCASTER SIGN-IN · APP KEY ON THIS DEVICE</span></div></div>
                   </div>
                 </div>
                 <div class="feed-end" id="feed-end" hidden><span></span> END OF TRANSMISSION <span></span></div>
@@ -103,30 +192,31 @@
               <aside class="right-column" aria-label="Your account and connection details">
                 <section class="side-card identity-card">
                   <div class="side-card-head"><span class="overline">YOUR FLIGHT ID</span><span class="identity-mark">✳</span></div>
-                  <div id="identity-empty"><h3>Account not connected</h3><p>Connect the wallet linked to your Farcaster account to open your station.</p></div>
+                  <div id="identity-empty"><h3>Account not connected</h3><p>Sign in with your Farcaster recovery phrase to open your station.</p></div>
                   <div id="identity-connected" hidden><div class="connected-profile"><div class="profile-avatar" id="profile-avatar">?</div><div><strong id="profile-name">Connected</strong><small id="profile-handle">FID —</small></div></div><button class="button button-outline" id="manage-key">Forget this browser</button></div>
                   <div class="security-line"><span>⌑</span><span>Limited access. Remove it in your Farcaster account settings.</span></div>
                 </section>
                 <details class="side-card status-card" id="status-card">
                   <summary class="connection-summary"><span>Connection details</span><span id="status-live">● CHECKING</span></summary>
                   <div class="side-card-head sr-only"><span class="overline">SERVICE DETAILS</span></div>
-                  <div class="telemetry-display"><div><span class="telemetry-number" id="telemetry-delay">—</span><span class="telemetry-unit">SEC</span></div><div class="telemetry-label">MAX BLOCK DELAY</div><div class="meter"><span id="delay-meter"></span></div></div>
+                  <div class="telemetry-display"><div><span class="telemetry-number" id="telemetry-delay">—</span><span class="telemetry-unit">SEC</span></div><div class="telemetry-label">MAX BLOCK DELAY</div><progress class="meter" id="delay-meter" max="100" value="0" aria-label="Maximum block delay status"></progress></div>
                   <div class="telemetry-grid"><div><span>VERSION</span><strong id="node-version">Not connected</strong></div><div><span>SHARDS</span><strong id="node-shards">—</strong></div></div>
                   <p class="telemetry-foot" id="telemetry-foot">A synced read node usually reports a block delay in the single digits.</p>
                 </details>
               </aside>
             </div>
             </div>
-            <footer class="page-footer"><span>CASTONAUT · AN INDEPENDENT FARCASTER CLIENT</span><span>YOUR ORBIT · YOUR FLIGHT LOG</span></footer>
+            <footer class="page-footer"><span>CASTONAUT · FARCASTER CLIENT</span><span class="legal-links"><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
 
           <section class="view node-view" id="node-view" data-panel="node" hidden>
             <div class="overline"><span class="live-pip"></span> ABOUT CASTONAUT</div>
             <div class="node-page-heading"><div><h1>Your own little<br />waystation.</h1><p class="lead">A personal station for Farcaster: follow your orbit, scan the latest signals, and keep the posts you want to find again.</p></div></div>
-            <div class="about-feature-grid"><article class="side-card"><span class="overline">SIGNALS</span><h3>A timeline you control.</h3><p>See the latest posts from your people in time order, with a source lens when you want to inspect where a cast came from.</p></article><article class="side-card"><span class="overline">ORBIT</span><h3>Your chosen crew.</h3><p>Pin profiles into your orbit and return to them with one tap.</p></article><article class="side-card"><span class="overline">FLIGHT LOG</span><h3>Keep a signal for later.</h3><p>Save casts on this device and revisit them without hunting through the timeline.</p></article></div>
-            <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Personal space, kept personal.</h2><p>Saved casts, profile nicknames, and notes stay in this browser. Mission Brief counts only posts loaded here. Remote profile and cast images are off by default; turn them on under Feed filters if you accept that image hosts can see your IP.</p></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
-            <section class="plus-preview"><div><span class="overline">OPTIONAL · PLANNED AFTER THE CONTEST</span><h2>Plus should earn its place.</h2><p>The free client stays useful on its own. A small prepaid upgrade could add more Desk layouts, saved views, and extra themes.</p></div><div class="plus-price"><strong>$1</strong><span>per 30 days</span><small>One-time prepay · no auto-renew</small></div><p class="plus-footnote">Not available yet. Any on-device AI recap would be a separate opt-in download; the basic feed and local insights stay free.</p></section>
-            <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>Curious how the network works?</strong><small>The builder guide covers Snapchain, hosting, and signer safety.</small></span><span class="guide-arrow">↗</span></a>
+            <div class="about-feature-grid"><article class="side-card"><span class="overline">SIGNALS</span><h3>A timeline you control.</h3><p>See the latest posts from your people in time order, with distinct Following, Friends, and Crew feeds.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Your own corner.</h3><p>Keep people, useful posts, and topic shortcuts close. Your Desk is saved on this device.</p></article><article class="side-card"><span class="overline">FLIGHT LOG</span><h3>Keep a signal for later.</h3><p>Save casts on this device and revisit them without hunting through the timeline.</p></article></div>
+            <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Personal space, kept personal.</h2><p>Saved casts, profile nicknames, and notes stay in this browser. Orbit Pulse counts only posts loaded here; Orbit Lens filters locally to people pinned on your Desk. Remote profile and cast images are off by default; turn them on under Feed filters if you accept that image hosts can see your IP. Production page analytics are off unless you opt in below.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share basic visit statistics</strong><small>Optional Vercel page analytics. Your choice is saved in this browser; page paths are sent without query strings or fragments.</small></span></label><a class="legal-inline-link" href="/privacy.html">Read the Privacy Notice</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
+            <section class="plus-preview"><div><span class="overline">CASTONAUT TIME PASS</span><h2>A month in your own signal room.</h2><p>One pass opens the full client: your Desk, the live timeline, GIF posts, and the Time Capsule replay.</p></div><div class="plus-price"><strong>$3.70</strong><span>30 days</span><small>One-time · no auto-renew</small></div><p class="plus-footnote">Paid once in native USDC on Base. The pass follows its payment wallet and counts down on-chain. You need a little Base ETH for network fees. Checkout remains locked until the contract is deployed and configured.</p></section>
+            <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>How Castonaut works</strong><small>Feeds, account safety, and the network in one short guide.</small></span><span class="guide-arrow">↗</span></a>
+            <footer class="page-footer"><span>CASTONAUT · ABOUT</span><span class="legal-links"><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
         </main>
       </div>
@@ -135,18 +225,17 @@
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <dialog class="connect-dialog" id="connect-dialog" aria-labelledby="connect-title">
       <form method="dialog" class="dialog-top"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><button class="dialog-close" value="close" aria-label="Close dialog">×</button></form>
-      <div class="dialog-content"><span class="overline">WAYSTATION ACCESS</span><h2 id="connect-title">Connect your account.</h2><p class="dialog-intro">Use the wallet already linked to your Farcaster account. Once verified, Castonaut saves a limited signing key in this browser so you can post, follow, and react.</p>
+      <div class="dialog-content"><span class="overline">WAYSTATION ACCESS</span><h2 id="connect-title" tabindex="-1">Sign in to Farcaster.</h2><p class="dialog-intro">Read-only browsing does not need a recovery phrase. To post, use a linked wallet when possible or choose the phrase route below. We verify your account before requesting a limited app key.</p>
+        <p class="dialog-status" id="dialog-status" role="status" tabindex="-1"></p>
         <ol class="connect-steps" id="connect-steps" aria-label="Account connection steps">
-          <li class="connect-step is-current" data-connect-step="sign"><span class="step-number">1</span><span class="step-copy"><strong>Verify your account</strong><small>Connect the wallet linked to your Farcaster account.</small></span><span class="step-state" aria-hidden="true">NOW</span></li>
-          <li class="connect-step" data-connect-step="approve"><span class="step-number">2</span><span class="step-copy"><strong>Approve this browser</strong><small>Review a gasless authorization for a limited app key. It cannot move funds.</small></span><span class="step-state" aria-hidden="true">NEXT</span></li>
-          <li class="connect-step" data-connect-step="done"><span class="step-number">3</span><span class="step-copy"><strong>You’re in</strong><small>The app key is saved on this device. Revoke it anytime in your Farcaster signer controls.</small></span><span class="step-state" aria-hidden="true">NEXT</span></li>
+          <li class="connect-step is-current" data-connect-step="sign"><span class="step-number">1</span><span class="step-copy"><strong>Verify your account</strong><small>Use a linked wallet or the optional recovery phrase below.</small></span><span class="step-state" aria-hidden="true">NOW</span></li>
+          <li class="connect-step" data-connect-step="approve"><span class="step-number">2</span><span class="step-copy"><strong>Review and authorize</strong><small>Confirm your FID. The key can post and delete casts, follow, like, and recast. It cannot move funds.</small></span><span class="step-state" aria-hidden="true">NEXT</span></li>
+          <li class="connect-step" data-connect-step="done"><span class="step-number">3</span><span class="step-copy"><strong>You’re in</strong><small>Castonaut saves the key in this browser, so you can return without approving again. Clearing site data or changing browsers means setting it up again. Revoke it in Farcaster signer controls.</small></span><span class="step-state" aria-hidden="true">NEXT</span></li>
         </ol>
-        <div class="connect-requirements"><strong>Use your recovery phrase only for a disposable test account</strong><span>This page can read a phrase while you type it. Castonaut clears the field after lookup and never saves or sends the phrase. The account must already have a Farcaster ID and storage.</span></div>
-        <details class="recovery-import" id="recovery-import"><summary>Testing? Use a disposable account</summary><div class="recovery-import-body"><label for="recovery-phrase">Test account recovery phrase · first account (index 0)</label><textarea id="recovery-phrase" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" aria-describedby="recovery-warning" placeholder="12, 15, 18, 21, or 24 words"></textarea><p id="recovery-warning">Only use a test account with no funds. Website code can read these words while entered. The field is cleared after lookup; never use a phrase on a site you don’t trust.</p><button type="button" class="button button-outline" id="recovery-lookup">Check test account</button><div class="recovery-account" id="recovery-account" hidden><strong id="recovery-account-fid"></strong><span id="recovery-account-address"></span><button type="button" class="button button-orange" id="recovery-authorize">Authorize this browser key</button></div></div></details>
+        <div class="wallet-review" id="wallet-review" hidden><span class="overline">CHECK THIS IS YOUR ACCOUNT</span><strong id="wallet-review-fid"></strong><code id="wallet-review-address"></code><small>Next, your wallet will show one gasless app-key authorization to review.</small></div>
+        <div class="dialog-actions"><button type="button" class="button button-outline" id="wallet-connect">Use a linked wallet instead <span>↗</span></button><button type="button" class="button button-orange" id="wallet-authorize" hidden>Authorize this browser key</button><button type="button" class="button button-outline" id="wallet-change" hidden>Use a different wallet</button><button type="button" class="button button-outline" id="check-signer" hidden>Check connection again <span>↻</span></button></div>
+        <section class="recovery-import" id="recovery-import" aria-labelledby="recovery-title"><div class="recovery-import-body"><aside class="recovery-warning" id="recovery-warning" role="note"><strong>Only continue on a deployment you control, using a trusted device and browser.</strong><span>Read-only browsing never needs your recovery phrase. This page’s code can read what you type. A linked wallet is safer if you cannot verify this exact deployment and its source.</span></aside><label id="recovery-title" for="recovery-phrase">Farcaster recovery phrase · first account (index 0)</label><input id="recovery-phrase" type="password" name="recovery-input" maxlength="240" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="done" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" aria-describedby="recovery-warning" placeholder="12, 15, 18, 21, or 24 words" /><button type="button" class="button button-outline" id="recovery-lookup">Check my Farcaster account</button><div class="recovery-account" id="recovery-account" hidden><strong id="recovery-account-fid"></strong><span id="recovery-account-address"></span><button type="button" class="button button-orange" id="recovery-authorize">Authorize this browser key</button></div></div></section>
         <details class="connect-security"><summary>What can the app key do?</summary><ul><li><strong>Social actions:</strong> post and delete your casts, follow or unfollow, like or remove likes, and recast or undo recasts.</li><li><strong>Cannot:</strong> move funds or change account custody.</li><li><strong>Stored here:</strong> a separate app key in this browser’s IndexedDB. The server gets signed messages, never your private key or phrase.</li><li><strong>Your control:</strong> a compromised page or extension could request social actions. Revoke the signer in Farcaster settings; “Forget this browser” only deletes its local key.</li></ul></details>
-        <div class="dialog-actions"><button type="button" class="button button-orange" id="wallet-connect">Connect with wallet <span>↗</span></button><button type="button" class="button button-outline" id="check-signer" hidden>Check connection again <span>↻</span></button></div>
-        <p class="dialog-status" id="dialog-status" role="status"></p>
-        <button class="text-button test-account-shortcut" id="open-test-account" type="button" hidden>Use a disposable test account</button>
       </div>
     </dialog>
 

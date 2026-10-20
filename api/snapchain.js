@@ -3,6 +3,8 @@ import { isIP } from 'node:net';
 const ROUTES = {
   info: { path: '/v1/info', method: 'GET', params: [] },
   casts: { path: '/v1/castsByFid', method: 'GET', params: ['fid', 'pageSize', 'pageToken', 'reverse', 'startTimestamp', 'stopTimestamp'] },
+  replies: { path: '/v1/castsByParent', method: 'GET', params: ['fid', 'hash', 'pageSize', 'pageToken', 'reverse'] },
+  username: { path: '/v1/userNameProofByName', method: 'GET', params: ['name'] },
   links: { path: '/v1/linksByFid', method: 'GET', params: ['fid', 'link_type', 'pageSize', 'pageToken', 'reverse'] },
   userData: { path: '/v1/userDataByFid', method: 'GET', params: ['fid', 'user_data_type', 'pageSize', 'pageToken', 'reverse'] },
   signers: { path: '/v1/signersByFid', method: 'GET', params: ['fid', 'requesterFids', 'pageSize', 'pageToken'] },
@@ -16,6 +18,7 @@ const hits = new Map();
 const WINDOW_MS = 60_000;
 const MAX_READS_PER_WINDOW = 240;
 const MAX_WRITES_PER_WINDOW = 20;
+const MAX_SIGNER_CHECKS_PER_WINDOW = 12;
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_RATE_LIMIT_ENTRIES = 4096;
@@ -44,6 +47,7 @@ function isSameOrigin(req) {
 
 function validateParam(name, value) {
   if (name === 'fid' || name === 'target_fid') return /^[1-9]\d{0,14}$/.test(value);
+  if (name === 'name') return /^[\p{L}\p{N}._-]{1,64}$/u.test(value);
   if (name === 'pageSize') return /^\d{1,3}$/.test(value) && Number(value) >= 1 && Number(value) <= 100;
   if (name === 'reverse') return value === 'true' || value === 'false' || value === '1' || value === '0';
   if (name === 'startTimestamp' || name === 'stopTimestamp') return /^\d{1,12}$/.test(value);
@@ -56,8 +60,9 @@ function validateParam(name, value) {
   return false;
 }
 
-function rateLimit(req, write) {
-  const key = `${write ? 'w' : 'r'}:${rateLimitKey(req)}`;
+function rateLimit(req, write, routeName) {
+  const authCheck = !write && routeName === 'signers';
+  const key = `${authCheck ? 'a' : write ? 'w' : 'r'}:${rateLimitKey(req)}`;
   const now = Date.now();
   const current = hits.get(key);
   if (!current || now - current.start >= WINDOW_MS) {
@@ -70,7 +75,7 @@ function rateLimit(req, write) {
     }
     hits.set(key, { start: now, count: 1 }); return true;
   }
-  const max = write ? MAX_WRITES_PER_WINDOW : MAX_READS_PER_WINDOW;
+  const max = authCheck ? MAX_SIGNER_CHECKS_PER_WINDOW : write ? MAX_WRITES_PER_WINDOW : MAX_READS_PER_WINDOW;
   if (current.count >= max) return false;
   current.count += 1;
   return true;
@@ -124,7 +129,7 @@ export default async function snapchain(req, res) {
     if (!isSameOrigin(req)) return res.status(403).json({ error: 'Write request origin could not be verified' });
     if (req.headers['content-type']?.split(';')[0].trim() !== 'application/octet-stream') return res.status(415).json({ error: 'Snapchain messages must use application/octet-stream' });
   }
-  if (!rateLimit(req, route.method === 'POST')) return res.status(429).json({ error: 'Too many requests. Wait a minute and try again.' });
+  if (!rateLimit(req, route.method === 'POST', routeName)) return res.status(429).json({ error: 'Too many requests. Wait a minute and try again.' });
 
   const base = process.env.SNAPCHAIN_URL;
   if (!base) return res.status(503).json({ error: 'Snapchain is not configured. Set SNAPCHAIN_URL to your read node HTTP URL.' });
@@ -149,6 +154,7 @@ export default async function snapchain(req, res) {
   }
   if (route.params.includes('fid') && !target.searchParams.has('fid')) return res.status(400).json({ error: 'fid is required' });
   if (routeName === 'castById' && !target.searchParams.has('hash')) return res.status(400).json({ error: 'hash is required' });
+  if (routeName === 'replies' && (!target.searchParams.has('fid') || !target.searchParams.has('hash'))) return res.status(400).json({ error: 'parent fid and hash are required' });
   if (routeName === 'linkById' && !target.searchParams.has('target_fid')) return res.status(400).json({ error: 'target_fid is required' });
   if (routeName === 'reactionById' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return res.status(400).json({ error: 'reaction target and type are required' });
   if ((process.env.SNAPCHAIN_HTTP_USER || process.env.SNAPCHAIN_HTTP_PASS) && target.protocol !== 'https:') {

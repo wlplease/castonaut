@@ -6,6 +6,9 @@
   "functions": {
     "api/snapchain.js": {
       "maxDuration": 30
+    },
+    "api/digest.js": {
+      "maxDuration": 30
     }
   },
   "headers": [
@@ -17,7 +20,7 @@
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Strict-Transport-Security", "value": "max-age=31536000" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://mainnet.optimism.io; img-src 'self' data: https:; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" }
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; connect-src 'self' https://mainnet.optimism.io https://mainnet.base.org https://api.giphy.com; img-src 'self' data: https:; media-src 'self' https:; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" }
       ]
     }
   ]

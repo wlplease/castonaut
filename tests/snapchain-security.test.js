@@ -98,3 +98,13 @@ test('read rate limit is enforced per client address', async () => {
   const limited = await callApi(makeRequest({ url: '/api/snapchain?route=info', ip: '203.0.113.45' }));
   assert.equal(limited.statusCode, 429);
 });
+
+test('signer status checks have a tighter per-address login throttle', async () => {
+  globalThis.fetch = async () => new Response('{"messages":[]}', { status: 200, headers: { 'content-type': 'application/json' } });
+  for (let i = 0; i < 12; i++) {
+    const response = await callApi(makeRequest({ url: '/api/snapchain?route=signers&fid=987654', ip: '203.0.113.46' }));
+    assert.notEqual(response.statusCode, 429);
+  }
+  const limited = await callApi(makeRequest({ url: '/api/snapchain?route=signers&fid=987654', ip: '203.0.113.46' }));
+  assert.equal(limited.statusCode, 429);
+});

@@ -1,6 +1,3 @@
-import './styles.css';
-import './guide.css';
-
 const toast = document.querySelector('#guide-toast');
 let toastTimer;
 

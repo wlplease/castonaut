@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Castonaut — A personal Farcaster atlas",
+  "short_name": "Castonaut",
+  "description": "A personal atlas for Farcaster: signals in order, people close, and posts worth saving.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f3e9",
+  "theme_color": "#f7f3e9",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
