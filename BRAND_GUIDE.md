@@ -2,18 +2,20 @@
 
 ## The feeling
 
-Castonaut should feel like a personal atlas for the Farcaster network: clear enough to disappear while reading, with a celestial-cartography identity that feels unmistakably its own. Use astronomy as a visual language, not a layer of space-console decoration. The interface should stay calm even as the product grows.
+Castonaut is a personal social journal for Farcaster: follow your people at your own pace, keep the signals you care about, and return to them later. It borrows the care of a Japanese pocket notebook, the clarity of classic personal computing, and the wonder of an atlas. The result should feel warm and distinctly Castonaut, never like a generic social dashboard or a themed copy of another client.
 
 The soundtrack follows the same balance. Make it a modern, catchy indie-electronic pop song first. Add one small old-computer sound as a recognizable motif, then keep the rest human, melodic, and clear. The song should welcome people who never owned a PC in the 1990s as much as people who remember modem tones and late-night chat rooms.
 
 ## Visual system
 
-- **Default: Astral Field Journal.** Warm paper, ink-plum text, a clear violet signal color, and a small solar-coral accent. The timeline is the primary surface; the Desk reads as a personal constellation; saved history opens on demand.
-- **Appearance:** one visual identity with two atmospheres: Field Journal daylight and Field Journal after dark. Keep the selector small and the typography, orbital mark, spacing, and reading surfaces consistent across both.
-- **Daylight:** warm paper, ink-plum text, a clear violet signal color, and a small solar-coral accent.
-- **After dark:** blue-black sky, mint signal, amber status lights, and quiet star grain. Keep the feed calm and legible; the glow belongs on signal marks, not paragraphs.
+- **Default: Pocket Atlas.** Washed paper, sumi ink, a measured indigo signal color, and a vermilion accent used like a small hanko. The chronological feed is the main event; the Desk keeps people and saved casts close; Field Notes makes the day easy to revisit.
+- **Appearance:** one identity with two atmospheres: Pocket Atlas daylight and Pocket Atlas after dark. Keep the selector small and the typography, orbital mark, spacing, and reading surfaces consistent across both.
+- **Daylight:** warm off-white paper, charcoal ink, quiet indigo, and a sparing vermilion mark. Use texture so lightly that it never competes with text.
+- **After dark:** deep ink-blue, moonlit paper text, muted indigo surfaces, and a tiny vermilion signal. Avoid neon glows behind paragraphs.
 - **Type:** Space Grotesk for expressive headings, DM Sans for reading, and DM Mono for short instrument labels and timestamps.
-- **Shapes:** calm editorial spacing, fine atlas lines, a distinctive orbital signet, restrained panels, and near-invisible shadows. Avoid fake windows, decorative status copy, stacked cards, and repeated console labels.
+- **Shapes:** calm editorial spacing, fine atlas lines, one distinctive orbital signet, restrained paper panels, and near-invisible shadows. Use Japanese printmaking and manga as subtle craft references—composition, negative space, a tiny stamped mark, or original spot illustrations—not borrowed characters or decorative Japanese text. Avoid fake windows, decorative status copy, stacked cards, and repeated console labels.
+- **Product promise:** “Your people, your pace, your memory.” Read in time order, shape a personal Desk, and save a page from today on this device. Self-hosting is a meaningful option, not a prerequisite for understanding or using the client.
+- **Hierarchy:** feed first for returning members; a welcoming, plain-language orientation for first visits; node status and advanced settings stay secondary. Keep essential social actions easy to find and seldom-used controls tucked away.
 - **Motion:** brief and purposeful. Respect reduced-motion preferences.
 - **Accessibility:** retain strong contrast, visible keyboard focus, touch-sized controls, semantic headings, and screen-reader labels across every theme.
 - **Sound:** optional, user-started, paused by default, and never required to use the client. Never autoplay.

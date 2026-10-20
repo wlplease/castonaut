@@ -13,6 +13,7 @@
     <meta name="apple-mobile-web-app-title" content="Castonaut" />
     <link rel="stylesheet" href="/src/styles.css" />
     <link rel="stylesheet" href="/src/guide.css" />
+    <link rel="stylesheet" href="/src/guide-refresh.css" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -41,6 +42,7 @@
       <div class="main-column">
         <header class="topbar"><div class="crumb"><span class="crumb-dot"></span><span>CASTONAUT GUIDE</span><span class="crumb-slash">/</span><span>FOR CURIOUS BUILDERS</span></div><div class="top-actions"><a class="avatar-button home-avatar" href="/" aria-label="Return to the client">↗</a></div></header>
         <main id="guide-main" class="guide-main">
+          <section class="guide-hero"><div class="overline"><span class="live-pip"></span> CASTONAUT / YOUR NODE, YOUR VIEW</div><h1>Own the route<br />behind your feed.</h1><p class="lead">Castonaut is an independent Farcaster client. Read in time order, keep a local signal desk, and—if you want—run the Snapchain node that serves your own client session.</p><div class="hero-meta"><span><i>01</i> YOUR NODE</span><b>→</b><span><i>02</i> YOUR CLIENT</span><b>→</b><span><i>03</i> CONFIRMED FEED</span></div><a class="button button-orange" href="#quickstart">See the honest setup <span>↓</span></a><p class="guide-hero-note">Optional builder path · 4 vCPU · 2 TB disk · first sync can take many hours · costs and cleanup below.</p></section>
           <section class="guide-section quickstart-section" id="quickstart">
             <div class="section-kicker"><span>01</span><span>QUICKSTART</span><span class="section-rule"></span><span>THREE COMMANDS · ALLOW SEVERAL HOURS FOR FIRST SYNC</span></div>
             <div class="section-intro"><h2>For builders:<br />run a test node.</h2><p>These optional steps provision Google Compute Engine, install Snapchain on the VM, and run the client locally. A new node downloads a historical snapshot first. A first sync can take many hours, and the API may remain unavailable during snapshot restore. Check live node readiness before proceeding. Timing varies with the machine, snapshot, and network.</p></div>
@@ -53,8 +55,6 @@
             <div class="cost-note"><span class="cost-mark">$</span><div><strong>Know what can cost money.</strong><p>Vercel Hobby can run this static client and its small serverless proxy within free usage limits. Eligible Google Cloud trial credits can cover eligible node usage without charging the payment method, but still consume the grant. Confirm your account eligibility, remaining credit, and expiry before testing; this guide cannot verify them for you. The 4-vCPU VM, 2-TB data disk, and 30-GB boot disk are estimated around $0.25/hour, about $42 for seven days, before network and IP charges. Stopping the VM stops compute charges, but the data disk still costs about $82/month until deleted. The project’s $25 monthly budget sends 50%, 80%, and 100% warning emails; it does not stop usage. Keep the account in trial status, monitor the credit, and run <code>npm run destroy -- us-central1-a</code> after the test if you want to stop all node charges.</p></div></div>
             <div class="cost-note"><span class="cost-mark">!</span><div><strong>Ready means synced and reachable.</strong><p>Run <code>npm run node:check -- us-central1-a</code>. It checks Snapchain on the VM and the public HTTP endpoint from your computer. It exits successfully only when the maximum active-shard delay is 10 seconds or less and the public endpoint responds. A running VM or responding API alone is not ready. A valid trial grant closes at its credit limit or after 90 days, but this project’s $25 budget is an alert, not a $200 cap. Confirm account type, remaining credit, and end date in Cloud Billing before extending any run; never upgrade paid billing just to keep syncing.</p></div></div>
           </section>
-
-          <section class="guide-hero"><div class="overline"><span class="live-pip"></span> CASTONAUT / FOR CURIOUS BUILDERS</div><h1>How your feed<br />gets here.</h1><p class="lead">Castonaut is ready to use without running anything. This optional guide shows how its shared service works, with a test-node walk-through for builders.</p><div class="hero-meta"><span><i>01</i> APP</span><b>→</b><span><i>02</i> SNAPCHAIN</span><b>→</b><span><i>03</i> YOUR FEED</span></div><a class="button button-orange" href="#concepts">See how it works <span>↓</span></a></section>
 
           <section class="guide-section concept-section" id="concepts">
             <div class="section-kicker"><span>02</span><span>PROTOCOL BASICS</span><span class="section-rule"></span><span>THE PIECES BEHIND THE WINDOW</span></div>

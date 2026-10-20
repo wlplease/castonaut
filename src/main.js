@@ -61,6 +61,7 @@ const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
 const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, passWallet: '', passWalletConnected: false, passExpiry: 0, passBusy: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, feedBusy: false, feedPending: null, feedRequest: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
+let pendingRecoveryAccount = null;
 let feedScrollSaved = false;
 const profileRequests = new Map();
 const signerSourceRequests = new Map();
@@ -71,6 +72,13 @@ let timePassModulePromise;
 function optimismToolkit() {
   if (!optimismToolkitPromise) optimismToolkitPromise = import('./optimism-toolkit.js');
   return optimismToolkitPromise;
+}
+
+function optimismReadTransport(fallback, http) {
+  return fallback([
+    http('https://mainnet.optimism.io', { retryCount: 1, timeout: 8000 }),
+    http('https://optimism-rpc.publicnode.com', { retryCount: 1, timeout: 8000 }),
+  ]);
 }
 function timePassModule() { if (!timePassModulePromise) timePassModulePromise = import('./time-pass.js'); return timePassModulePromise; }
 function isAddress(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value); }
@@ -915,11 +923,12 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   state.conversation = null;
   $('#conversation-view').hidden = true;
   $('#feed-list').hidden = false;
-  if (!state.fid || !state.signerReady) {
-    renderEmpty('Sign in to open your station.', 'Use your Farcaster recovery phrase or a linked wallet. Your identity and posting access are verified together.');
+  const publicProfileRequest = mode === 'profile' && Number.isSafeInteger(Number(fidValue)) && Number(fidValue) > 0;
+  if ((!state.fid || !state.signerReady) && !publicProfileRequest) {
+    renderEmpty('Connect an account for your personal feed.', 'You can explore public profiles without signing in.');
     return;
   }
-  if (!hasStationAccess()) { renderIdentity(); return; }
+  if (!hasStationAccess() && !publicProfileRequest) { renderIdentity(); return; }
   if (state.feedBusy) { state.feedPending = [fidValue, mode]; feedScrollSaved = false; return; }
   if (!feedScrollSaved) saveFeedScroll();
   feedScrollSaved = false;
@@ -935,6 +944,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   }
   state.feedMode = ['profile', 'friends', 'crew'].includes(mode) ? mode : 'following';
   state.feedTargetFid = state.feedMode === 'profile' ? fid : Number(state.fid);
+  renderIdentity();
   if (state.feedMode === 'profile' && fid !== Number(state.fid)) refreshFollowState(fid);
   updateFeedTabs();
   $('#page-label').textContent = state.feedMode === 'profile' ? 'PROFILE' : state.feedMode === 'crew' ? state.crewName.toUpperCase() : state.feedMode.toUpperCase();
@@ -972,13 +982,13 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
       renderFeed();
       $('#feed-filters').hidden = false;
       restoreFeedScroll();
-      return;
+      return true;
     }
     const castGroups = await mapLimit(limitedFids, 8, async (target) => {
       const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize: 12, reverse: true }), fetchProfile(target)]);
       return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
     });
-    if (requestId !== state.feedRequest) return;
+    if (requestId !== state.feedRequest) return false;
     const messages = castGroups.flat().sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0)).slice(0, 60);
     state.casts = messages;
     if (Number($('#source-fid').value) > 0) await loadSignerSources(messages);
@@ -994,8 +1004,9 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     if (!messages.length) $('#feed-count').textContent = '0 POSTS';
     if (followFids.length > 35) setNotice('Showing the 35 most recent follows so the node stays responsive.');
     restoreFeedScroll();
+    return true;
   } catch (error) {
-    if (requestId !== state.feedRequest) return;
+    if (requestId !== state.feedRequest) return false;
     const needsSetup = /SNAPCHAIN_URL|not configured|not been configured/i.test(error.message);
     const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
@@ -1009,6 +1020,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     renderEmpty(needsSetup ? 'Feed service is not connected yet.' : 'Could not build this feed.', detail, action);
     $('#feed-count').textContent = '0 POSTS';
     restoreFeedScroll();
+    return false;
   } finally {
     state.feedBusy = false;
     list.setAttribute('aria-busy', 'false');
@@ -1221,9 +1233,21 @@ function setProfileRoute(fid) {
 
 async function searchProfile(rawQuery) {
   const status = $('#people-search-status');
+  const form = $('#people-search');
+  const submit = form.querySelector('button[type="submit"]');
   const query = String(rawQuery || '').trim().replace(/^@/, '');
   status.hidden = false;
-  if (!query) { status.textContent = 'Enter a username or Farcaster ID.'; return; }
+  status.dataset.state = 'idle';
+  if (!query) {
+    status.dataset.state = 'error';
+    status.textContent = 'Enter a username or Farcaster ID.';
+    $('#people-query').focus();
+    return;
+  }
+  form.setAttribute('aria-busy', 'true');
+  submit.disabled = true;
+  $('#people-query').disabled = true;
+  status.dataset.state = 'loading';
   status.textContent = 'Looking up profile…';
   try {
     let fid;
@@ -1237,11 +1261,22 @@ async function searchProfile(rawQuery) {
     status.textContent = `Opening @${state.people.get(fid)?.username || `fid-${fid}`} · FID ${fid}.`;
     if (state.boardMode !== 'signals') setBoardMode('signals');
     setProfileRoute(fid);
-    await loadFeed(fid, 'profile');
+    const feedLoaded = await loadFeed(fid, 'profile');
+    status.dataset.state = feedLoaded ? 'success' : 'error';
+    if (!feedLoaded) status.textContent = `Found @${state.people.get(fid)?.username || `fid-${fid}`} · the profile is open, but its posts could not be loaded.`;
     $('#profile-summary').focus({ preventScroll: true });
     window.setTimeout(() => { status.hidden = true; }, 2200);
   } catch (error) {
-    status.textContent = /\(404\)/.test(error.message) ? 'No Farcaster profile found for that username.' : error.message;
+    status.dataset.state = 'error';
+    const message = String(error?.message || '');
+    if (/\(404\)/.test(message)) status.textContent = 'No Farcaster profile found. Check the spelling or try its FID.';
+    else if (/SNAPCHAIN_URL|not configured|not been configured/i.test(message)) status.textContent = 'Public search is waiting for the feed service to be connected.';
+    else if (/failed to fetch|network|timed out|timeout/i.test(message)) status.textContent = 'Could not reach the feed service. Check your connection and try again.';
+    else status.textContent = 'Could not find that profile. Please check the username or FID and try again.';
+  } finally {
+    form.removeAttribute('aria-busy');
+    submit.disabled = false;
+    $('#people-query').disabled = false;
   }
 }
 
@@ -1368,7 +1403,17 @@ function renderCapsuleShelf() {
   const shelf = $('#capsule-shelf');
   const seal = $('#capsule-seal');
   if (!shelf || !seal) return;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const savedToday = state.capsules.some((capsule) => capsule.date === today);
   seal.disabled = !state.signerReady || !state.visibleCasts.length || state.boardMode !== 'signals';
+  seal.textContent = savedToday ? 'Update today’s page' : 'Save today’s page';
+  const saveNote = $('#capsule-save-note');
+  if (saveNote) saveNote.textContent = savedToday
+    ? 'Today’s page is saved on this device. Update it with the feed currently in view.'
+    : state.boardMode === 'flight-log'
+      ? 'Open a live feed to save a page from today.'
+      : 'Save this feed to revisit the people and signals from today.';
   shelf.replaceChildren();
   if (!state.capsules.length) {
     const empty = document.createElement('span'); empty.className = 'capsule-empty'; empty.textContent = 'Your first capsule will appear here.'; shelf.append(empty);
@@ -1596,12 +1641,12 @@ function bytesHex(bytes) { return `0x${Array.from(bytes, (byte) => byte.toString
 
 async function createCustodySigner(recoveryAccount = null) {
   const protocol = await import('./protocol.js');
-  const { createPublicClient, createWalletClient, custom, http, optimism } = await optimismToolkit();
+  const { createPublicClient, createWalletClient, custom, fallback, http, optimism } = await optimismToolkit();
   if (recoveryAccount) {
     const custodyAddress = recoveryAccount.address;
     let registeredFid;
     try {
-      const publicClient = createPublicClient({ chain: optimism, transport: http() });
+      const publicClient = createPublicClient({ chain: optimism, transport: optimismReadTransport(fallback, http) });
       registeredFid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [custodyAddress] });
     } catch {
       throw new Error('Could not verify this account on Optimism. Please try again.');
@@ -1676,12 +1721,12 @@ async function lookupRecoveryAccount() {
   setConnectionStatus('Deriving the first account in this tab and checking its Farcaster ID…', { active: 'sign' });
   try {
     const { mnemonicToAccount } = await import('viem/accounts');
-    const { createPublicClient, http, optimism } = await optimismToolkit();
+    const { createPublicClient, fallback, http, optimism } = await optimismToolkit();
     let account;
     try { account = mnemonicToAccount(phrase); }
     catch { throw new Error('That phrase could not be imported. Check the words and try again.'); }
     phrase = '';
-    const publicClient = createPublicClient({ chain: optimism, transport: http() });
+    const publicClient = createPublicClient({ chain: optimism, transport: optimismReadTransport(fallback, http) });
     let fid;
     try {
       fid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [account.address] });
@@ -1925,9 +1970,12 @@ function renderIdentity() {
   const empty = $('#identity-empty'); const connected = $('#identity-connected');
   const accountReady = !!state.fid && !!state.signerReady;
   const ready = accountReady && hasStationAccess();
+  const publicProfilePreview = !state.fid && state.feedMode === 'profile' && !!state.feedTargetFid;
+  document.body.dataset.accountView = ready ? 'member' : publicProfilePreview ? 'visitor-profile' : accountReady ? 'pending' : 'visitor';
   $('#portal-gate').hidden = accountReady;
   $('#pass-gate').hidden = !accountReady || ready;
-  $('#member-workspace').hidden = !ready;
+  $('#member-workspace').hidden = !ready && !publicProfilePreview;
+  $('#public-browse-note').hidden = ready || accountReady;
   $('#pass-status-strip').hidden = !ready || CONTEST_ACCESS;
   const passPreview = $('.portal-pass-preview');
   if (passPreview) {
@@ -1940,7 +1988,9 @@ function renderIdentity() {
   empty.hidden = !!state.fid; connected.hidden = !state.fid;
   $('#portal-enter').textContent = state.fid && !ready ? 'Check key status ↻' : 'Sign in ↗';
   const portalStatus = $('#portal-status');
-  if (portalStatus) portalStatus.textContent = state.fid && !ready ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.' : 'Approve once; this browser remembers you on this device.';
+  if (portalStatus) portalStatus.textContent = state.fid && !ready
+    ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.'
+    : 'Connect your account to open a personal feed and social actions. A linked wallet is an option if you prefer not to enter a recovery phrase.';
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
   const shownName = localProfileName(profile);
@@ -2127,7 +2177,7 @@ function applyLocationRoute() {
   if (location.hash === '#node' || location.hash === '#about') { navigate('node', { preserveHash: true }); return; }
   navigate('desk', { preserveHash: true });
   const profile = location.hash.match(/^#profile=(\d{1,15})$/);
-  if (profile && state.signerReady) { if (state.boardMode !== 'signals') setBoardMode('signals'); loadFeed(Number(profile[1]), 'profile'); return; }
+  if (profile) { if (state.boardMode !== 'signals') setBoardMode('signals'); loadFeed(Number(profile[1]), 'profile'); return; }
   const cast = location.hash.match(/^#cast=(\d{1,15})\/(0x[\da-f]{40,64})$/i);
   if (cast && state.signerReady) openConversation(Number(cast[1]), cast[2], { updateRoute: false });
   else if ((!location.hash || location.hash === '#desk') && state.signerReady && (state.feedMode !== 'following' || state.boardMode !== 'signals')) {
@@ -2366,6 +2416,13 @@ document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener
     loadFeed(state.fid, 'following');
   }
 }));
+document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventListener('click', (event) => {
+  event.preventDefault();
+  navigate('desk');
+  const target = document.getElementById(link.dataset.scrollTo);
+  target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  if (link.dataset.scrollTo === 'people-search') $('#people-query').focus({ preventScroll: true });
+}));
 window.addEventListener('hashchange', applyLocationRoute);
 if (window.ethereum?.on) window.ethereum.on('accountsChanged', (accounts) => {
   const next = Array.isArray(accounts) && isAddress(accounts[0]) ? accounts[0] : '';
@@ -2498,6 +2555,21 @@ $('#wallet-change').addEventListener('click', () => {
 });
 $('#check-signer').addEventListener('click', () => checkSavedSigner());
 $('#recovery-lookup').addEventListener('click', () => lookupRecoveryAccount());
+$('#recovery-phrase').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    lookupRecoveryAccount();
+  }
+});
+$('#recovery-reveal').addEventListener('click', (event) => {
+  const field = $('#recovery-phrase');
+  const button = event.currentTarget;
+  const reveal = field.type === 'password';
+  field.type = reveal ? 'text' : 'password';
+  button.textContent = reveal ? 'Hide' : 'Show';
+  button.setAttribute('aria-pressed', String(reveal));
+  field.focus({ preventScroll: true });
+});
 $('#recovery-authorize').addEventListener('click', () => {
   if (!pendingRecoveryAccount) { setConnectionStatus('Verify your Farcaster account again before authorizing a key.'); return; }
   authorizeSigner(pendingRecoveryAccount);
@@ -2510,6 +2582,9 @@ function clearRecoveryImport() {
 function clearRecoveryPhraseField() {
   const phraseField = $('#recovery-phrase');
   if (phraseField) phraseField.value = '';
+  phraseField.type = 'password';
+  const revealButton = $('#recovery-reveal');
+  if (revealButton) { revealButton.textContent = 'Show'; revealButton.setAttribute('aria-pressed', 'false'); }
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') clearRecoveryImport(); });
 window.addEventListener('pagehide', clearRecoveryImport);
