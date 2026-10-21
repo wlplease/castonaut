@@ -3,6 +3,7 @@ import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, top
 import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
 import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-capsules.js';
 import { isStationAccessAllowed } from './station-access.js';
+import { isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -1813,12 +1814,17 @@ async function lookupRecoveryAccount() {
   if (!phrase) { setConnectionStatus('Enter your Farcaster recovery phrase, or use a linked wallet below.'); return; }
   if (!isSupportedRecoveryPhraseLength(phrase)) { phrase = ''; setConnectionStatus('Use a standard 12, 15, 18, 21, or 24-word phrase. The field has been cleared.'); return; }
   lookupButton.disabled = true;
-  setConnectionStatus('Deriving the first account in this tab and checking its Farcaster ID…', { active: 'sign' });
+  const originalLabel = lookupButton.textContent;
+  lookupButton.textContent = 'Checking…';
+  lookupButton.setAttribute('aria-busy', 'true');
+  setConnectionStatus('Checking account…', { active: 'sign', busy: true });
   try {
     const { mnemonicToAccount } = await import('viem/accounts');
     const { createPublicClient, fallback, http, optimism } = await optimismToolkit();
     let account;
-    try { account = mnemonicToAccount(phrase); }
+    const accountIndex = Number.parseInt($('#recovery-account-index')?.value || '0', 10);
+    if (!Number.isInteger(accountIndex) || accountIndex < 0 || accountIndex > 4) throw new Error('Choose an account index from 0 to 4.');
+    try { account = mnemonicToAccount(phrase, { accountIndex }); }
     catch { throw new Error('That phrase could not be imported. Check the words and try again.'); }
     phrase = '';
     const publicClient = createPublicClient({ chain: optimism, transport: optimismReadTransport(fallback, http) });
@@ -1826,25 +1832,28 @@ async function lookupRecoveryAccount() {
     try {
       fid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [account.address] });
     } catch {
-      throw new Error('Could not check the account on Optimism. Please try again or use a linked wallet.');
+      throw new Error('Could not reach the Optimism account registry. Check your connection or try a linked wallet.');
     }
-    if (!fid || BigInt(fid) < 1n) throw new Error('The first account from this phrase is not linked to a Farcaster ID. Check that this is the phrase for your Farcaster account, or try a linked wallet.');
+    if (!fid || BigInt(fid) < 1n) throw new Error(`Account ${accountIndex} is not linked to a Farcaster ID. Check the account index, or use a linked wallet.`);
     pendingRecoveryAccount = { account, address: account.address, fid: asFid(fid.toString()) };
     $('#recovery-account-fid').textContent = `Farcaster account · FID ${pendingRecoveryAccount.fid}`;
-    $('#recovery-account-address').textContent = `Custody address · ${account.address}`;
+    $('#recovery-account-address').textContent = `Custody address · ${account.address} · index ${accountIndex}`;
     $('#recovery-authorize').textContent = `Authorize key for FID ${pendingRecoveryAccount.fid}`;
     accountPanel.hidden = false;
     setConnectionStatus('Account found. Check the FID and custody address, then explicitly authorize this browser key.', { active: 'approve', completed: ['sign'] });
   } catch (error) {
     const safeMessage = error?.message === 'That phrase could not be imported. Check the words and try again.'
-      || error?.message === 'Could not check the account on Optimism. Please try again or use a linked wallet.'
-      || error?.message === 'The first account from this phrase is not linked to a Farcaster ID. Check that this is the phrase for your Farcaster account, or try a linked wallet.'
+      || error?.message === 'Could not reach the Optimism account registry. Check your connection or try a linked wallet.'
+      || /^Account [0-4] is not linked to a Farcaster ID\./.test(error?.message || '')
+      || error?.message === 'Choose an account index from 0 to 4.'
       ? error.message
       : 'Could not verify this account. Please try again or use a linked wallet.';
     setConnectionStatus(`${safeMessage} The phrase field has been cleared.`, { active: 'sign' });
   } finally {
     phrase = '';
     lookupButton.disabled = false;
+    lookupButton.textContent = originalLabel;
+    lookupButton.removeAttribute('aria-busy');
   }
 }
 

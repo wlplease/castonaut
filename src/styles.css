@@ -571,6 +571,7 @@ html[data-station-tone="night"]{--station-accent:#5d4c7b;--station-soft:#f0edf7;
 .recovery-import[open]>summary{border-bottom:1px solid #e2dbe7}
 .recovery-import-body{display:grid;gap:9px;padding:13px}
 .recovery-import-body label{color:#554b5e;font-size:10px;font-weight:700}
+.recovery-index-row{display:grid;grid-template-columns:minmax(180px,.85fr) 1.15fr;align-items:center;gap:10px}.recovery-index-row select{min-height:42px;border:1px solid #d4c9dc;border-radius:6px;background:#fffdfb;color:#30263d;padding:8px;font:11px var(--mono)}.recovery-index-row small{color:#756a7e;font-size:9px;line-height:1.4}
 .recovery-phrase-entry{display:flex;align-items:stretch;gap:7px;min-width:0}
 .recovery-import-body input[type="password"],.recovery-import-body input[type="text"]{width:100%;min-width:0;min-height:48px;border:1px solid #d4c9dc;border-radius:6px;background:#fffdfb;color:#30263d;padding:10px;font:12px/1.5 var(--mono);letter-spacing:.08em}
 .recovery-phrase-entry input{flex:1}
@@ -586,7 +587,7 @@ html[data-station-tone="night"]{--station-accent:#5d4c7b;--station-soft:#f0edf7;
 .recovery-account strong{color:#493b5a;font-size:11px}
 .recovery-account span{color:#655b6c;font:9px/1.5 var(--mono);overflow-wrap:anywhere}
 .recovery-account .button{margin-top:3px}
-@media(max-width:620px){.recovery-import-body{padding:11px}.recovery-account span{font-size:8px}}
+@media(max-width:620px){.recovery-import-body{padding:11px}.recovery-account span{font-size:8px}.recovery-index-row{grid-template-columns:1fr;gap:5px}}
 
 /* Native progress keeps the node meter compatible with a no-inline-style CSP. */
 .meter{appearance:none;display:block;width:100%;height:4px;margin-top:13px;border:0;border-radius:3px;overflow:hidden;background:#e4dce9}

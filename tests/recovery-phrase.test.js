@@ -18,6 +18,7 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const headers = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  assert.match(source, /import \{ isSupportedRecoveryPhraseLength, takeRecoveryPhrase \} from '\.\/recovery-phrase\.js';/);
   assert.match(source, /let phrase = takeRecoveryPhrase\(phraseField\);/);
   assert.match(source, /function optimismReadTransport\(fallback, http\)[\s\S]*?https:\/\/mainnet\.optimism\.io[\s\S]*?https:\/\/optimism-rpc\.publicnode\.com/);
   assert.match(source, /phrase = '';/);
@@ -44,8 +45,11 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(html.slice(fieldIndex - 100, fieldIndex + 1000), /type="password"[\s\S]*autocomplete="off"[\s\S]*id="recovery-reveal"/);
   assert.match(source, /recovery-phrase'\)\.addEventListener\('keydown',[\s\S]*?event\.key === 'Enter'[\s\S]*?lookupRecoveryAccount\(\)/);
   assert.match(source, /recovery-reveal'\)\.addEventListener\('click'/);
-  assert.match(html, /Type or paste the words separated by spaces, then tap Check \(or press Enter\)/);
-  assert.match(html, /Read-only browsing never needs a recovery phrase/);
+  assert.match(html, /Cleared as soon as you check/);
+  assert.match(html, /Browsing needs no phrase/);
+  assert.match(html, /id="recovery-account-index"[\s\S]*?value="4"/);
+  assert.match(source, /mnemonicToAccount\(phrase, \{ accountIndex \}\)/);
+  assert.match(source, /lookupButton\.textContent = 'Checking…'/);
   assert.doesNotMatch(html, /<script[^>]+src="https?:\/\//i, 'setup page has no remote script tags');
   const csp = headers.headers.flatMap((entry) => entry.headers).find((header) => header.key === 'Content-Security-Policy')?.value || '';
   assert.match(csp, /script-src 'self'; script-src-attr 'none'/);
