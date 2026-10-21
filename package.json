@@ -15,6 +15,7 @@
     "node": "node scripts/start-node.mjs",
     "node:check": "node scripts/start-node.mjs --check",
     "node:status": "node scripts/node-status.mjs",
+    "node:status:once": "node scripts/node-status.mjs --once",
     "client": "node scripts/client.mjs",
     "destroy": "node scripts/destroy-gcp.mjs"
   },

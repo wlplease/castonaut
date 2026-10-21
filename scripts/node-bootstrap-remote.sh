@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# Keep Docker Compose on one stable network even when the data directory is
+# reached through the persistent-disk symlink under a different physical path.
+export COMPOSE_PROJECT_NAME=snapchain
+
 DATA_MOUNT="/mnt/disks/snapchain-data"
 
 for attempt in $(seq 1 60); do

@@ -59,7 +59,7 @@ const PASS_CONTRACT_ADDRESS = String(import.meta.env.VITE_PASS_CONTRACT_ADDRESS 
 const CONTEST_ACCESS = String(import.meta.env.VITE_CONTEST_ACCESS || '').toLowerCase() === 'true';
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, passWallet: '', passWalletConnected: false, passExpiry: 0, passBusy: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, feedBusy: false, feedPending: null, feedRequest: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, passWallet: '', passWalletConnected: false, passExpiry: 0, passBusy: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let feedScrollSaved = false;
@@ -469,6 +469,9 @@ function setNodeState(kind, title, detail) {
   const largeState = $('#node-state-large'); if (largeState) largeState.textContent = title;
   const largeDetail = $('#node-detail-large'); if (largeDetail) largeDetail.textContent = detail;
   $('#status-live').textContent = kind === 'good' ? '● READY' : kind === 'bad' ? '● UNAVAILABLE' : '● CHECKING';
+  const journeyLed = $('#node-journey-led'); if (journeyLed) journeyLed.className = `node-led${kind ? ` ${kind}` : ''}`;
+  const journeyState = $('#node-journey-state'); if (journeyState) journeyState.textContent = title;
+  const journeyDetail = $('#node-journey-detail'); if (journeyDetail) journeyDetail.textContent = detail;
 }
 
 function readPortableData() {
@@ -623,8 +626,8 @@ async function checkNode() {
     const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
       ? localPreview
-        ? 'This preview needs a Snapchain endpoint. The hosted app connects for you.'
-        : 'The app’s server needs its Snapchain URL configured before account desks can open.'
+        ? 'This local preview has no Snapchain endpoint, so profile search and feeds cannot load yet.'
+        : 'The app’s Snapchain endpoint needs configuration before profile search and feeds can load.'
       : 'Feed service unavailable. Try again shortly.';
     const message = needsSetup ? (localPreview ? 'Local preview needs a node' : 'Feed service setup needed') : 'Feed service unavailable';
     setNodeState('bad', message, detail);
@@ -944,6 +947,12 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   }
   state.feedMode = ['profile', 'friends', 'crew'].includes(mode) ? mode : 'following';
   state.feedTargetFid = state.feedMode === 'profile' ? fid : Number(state.fid);
+  state.feedSources = [];
+  state.feedSourceOffset = 0;
+  state.feedQuery = '';
+  const loadedSearch = $('#loaded-search');
+  if (loadedSearch) loadedSearch.value = '';
+  renderFeedMore();
   renderIdentity();
   if (state.feedMode === 'profile' && fid !== Number(state.fid)) refreshFollowState(fid);
   updateFeedTabs();
@@ -967,12 +976,15 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
       state.feedMode === 'following' ? nodeRequest('links', { fid, link_type: 'follow', pageSize: 100, reverse: true }) : Promise.resolve({ messages: [] }),
       fetchProfile(state.feedMode === 'profile' ? fid : Number(state.fid)),
     ]);
-    const followFids = unwrapMessages(followResponse).map((message) => Number(message?.data?.linkBody?.targetFid)).filter((target) => Number.isSafeInteger(target) && target > 0 && target !== fid);
+    const followFids = [...new Set(unwrapMessages(followResponse).map((message) => Number(message?.data?.linkBody?.targetFid)).filter((target) => Number.isSafeInteger(target) && target > 0 && target !== fid))];
     const uniqueFids = state.feedMode === 'profile' ? [fid]
       : state.feedMode === 'friends' ? [...state.friendFids]
         : state.feedMode === 'crew' ? [...state.crewFids]
-          : [fid, ...new Set(followFids)].slice(0, 36);
-    const limitedFids = [...new Set(uniqueFids)].filter((target) => Number.isSafeInteger(target) && target > 0).slice(0, 36);
+          : [fid, ...new Set(followFids)].slice(0, 25);
+    const limitedFids = [...new Set(uniqueFids)].filter((target) => Number.isSafeInteger(target) && target > 0).slice(0, 25);
+    state.feedSources = state.feedMode === 'following' ? limitedFids : [];
+    state.feedSourceOffset = state.feedMode === 'following' ? Math.min(6, limitedFids.length) : 0;
+    state.feedFollowTotal = state.feedMode === 'following' ? followFids.length : 0;
     if (state.boardMode === 'signals') {
       $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
       $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · FID ${fid}` : 'Newest first.';
@@ -984,7 +996,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
       restoreFeedScroll();
       return true;
     }
-    const castGroups = await mapLimit(limitedFids, 8, async (target) => {
+    const firstPageFids = state.feedMode === 'following' ? limitedFids.slice(0, 6) : limitedFids;
+    const castGroups = await mapLimit(firstPageFids, 6, async (target) => {
       const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize: 12, reverse: true }), fetchProfile(target)]);
       return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
     });
@@ -1002,7 +1015,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     $('#feed-filters').hidden = state.boardMode === 'flight-log' || !state.casts.length;
     if (state.feedMode === 'profile') renderProfileSummary();
     if (!messages.length) $('#feed-count').textContent = '0 POSTS';
-    if (followFids.length > 35) setNotice('Showing the 35 most recent follows so the node stays responsive.');
+    renderFeedMore();
+    updateFollowingCoverage();
     restoreFeedScroll();
     return true;
   } catch (error) {
@@ -1011,8 +1025,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
       ? localPreview
-        ? 'This local preview is not connected to a Snapchain node. Visitors to the hosted app will not need to run one.'
-        : 'The app’s server needs its Snapchain URL configured before your station can load.'
+        ? 'This local preview has no Snapchain endpoint, so profiles and posts cannot load yet. Use the node guide to connect one.'
+        : 'The app’s Snapchain endpoint needs configuration before profiles and posts can load.'
       : error.message;
     const action = needsSetup
       ? (localPreview ? { type: 'guide', label: 'Open feed setup guide' } : null)
@@ -1032,11 +1046,78 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   }
 }
 
+function renderFeedMore() {
+  const footer = $('#feed-end');
+  const button = $('#feed-more');
+  const label = $('.feed-end-label');
+  if (!footer || !button) return false;
+  const hasMore = state.boardMode === 'signals' && state.feedMode === 'following' && state.feedSourceOffset < state.feedSources.length;
+  button.hidden = !hasMore;
+  button.disabled = state.feedMoreBusy;
+  const moreCount = Math.min(6, state.feedSources.length - state.feedSourceOffset);
+  button.textContent = state.feedMoreBusy ? 'Loading more people…' : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
+  if (label) {
+    label.hidden = hasMore;
+    label.textContent = state.feedMode === 'following' && state.feedFollowTotal > Math.max(0, state.feedSources.length - 1)
+      ? `FIRST ${Math.max(0, state.feedSources.length - 1)} OF ${state.feedFollowTotal} RETURNED FOLLOWS CHECKED`
+      : 'END OF TRANSMISSION';
+  }
+  footer.hidden = !hasMore && state.casts.length === 0;
+  return hasMore;
+}
+
+function updateFollowingCoverage() {
+  const caption = $('#feed-caption');
+  if (!caption || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
+  const loaded = Math.max(0, Math.min(state.feedFollowTotal, state.feedSourceOffset - (state.feedSources.length ? 1 : 0)));
+  const available = Math.min(state.feedFollowTotal, Math.max(0, state.feedSources.length - 1));
+  const capNote = state.feedFollowTotal > available ? ` · first ${available} of ${state.feedFollowTotal} returned` : '';
+  caption.textContent = `Newest first · ${loaded} of ${available} follows checked in this lookup${capNote}.`;
+}
+
+async function loadMoreFollowed() {
+  if (state.feedMoreBusy || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
+  const requestId = state.feedRequest;
+  const start = state.feedSourceOffset;
+  const batch = state.feedSources.slice(start, start + 6);
+  if (!batch.length) return;
+  state.feedMoreBusy = true;
+  renderFeedMore();
+  try {
+    const groups = await mapLimit(batch, 6, async (target) => {
+      const [response] = await Promise.all([
+        nodeRequest('casts', { fid: target, pageSize: 12, reverse: true }),
+        fetchProfile(target),
+      ]);
+      return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
+    });
+    if (requestId !== state.feedRequest) return;
+    const existing = new Set(state.casts.map((message) => `${Number(message?.data?.fid)}:${postHash(message)}`));
+    for (const message of groups.flat()) {
+      const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
+      if (!existing.has(key)) { existing.add(key); state.casts.push(message); }
+    }
+    state.casts.sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
+    state.feedSourceOffset = start + batch.length;
+    await mapLimit([...new Set(state.casts.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0 && !state.people.has(fid)))], 6, fetchProfile);
+    if (requestId !== state.feedRequest) return;
+    renderFeed();
+    updateFollowingCoverage();
+    setNotice(`Loaded posts from ${batch.length} more ${batch.length === 1 ? 'person' : 'people'}.`, 'success');
+  } catch (error) {
+    if (requestId === state.feedRequest) setNotice(`Could not load more of your Following feed. ${error.message}`, 'error');
+  } finally {
+    state.feedMoreBusy = false;
+    renderFeedMore();
+  }
+}
+
 function renderFeed() {
   const requestedSource = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
   const exclude = $('#source-mode').value === 'exclude';
   const sourceMessages = state.boardMode === 'flight-log' ? state.savedCasts.map(savedCastMessage) : state.casts;
   const mutedTopics = new Set(state.mutedTopics);
+  const query = state.feedQuery.trim().toLocaleLowerCase();
   const messages = sourceMessages.filter((message) => {
     if (state.boardMode === 'signals' && state.mutedAuthors.includes(Number(message?.data?.fid))) return false;
     if (state.boardMode === 'signals' && state.feedMode !== 'profile' && state.orbitOnly && !state.deskPins.includes(Number(message?.data?.fid))) return false;
@@ -1050,6 +1131,12 @@ function renderFeed() {
       appsOnly: state.appsOnly,
       mutedTopics,
     })) return false;
+    if (query) {
+      const profile = state.people.get(Number(message?.data?.fid));
+      const body = message?.data?.castAddBody || {};
+      const searchable = [body.text, profile?.username, profile?.name, ...((body.embeds || []).map((embed) => embed?.url || embed?.castId?.hash || ''))].join(' ').toLocaleLowerCase();
+      if (!searchable.includes(query)) return false;
+    }
     const source = state.sourceBySigner.get(signerHex(message.signer)) || null;
     if (!requestedSource) return true;
     return exclude ? source !== requestedSource : source === requestedSource;
@@ -1072,6 +1159,10 @@ function renderFeed() {
     const sourceFilter = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
     if (state.boardMode === 'flight-log') {
       renderEmpty('Flight Log is empty.', 'Save a post from any feed to keep it here.');
+    } else if (state.feedMode === 'following' && !state.casts.length && state.feedSourceOffset < state.feedSources.length) {
+      renderEmpty('Your first group is quiet.', 'Load a wider group of people to check more of your follows.');
+    } else if (query) {
+      renderEmpty('No loaded posts match.', 'Search checks posts currently loaded in this view. Load more people first to widen the results.');
     } else if (state.casts.length && sourceFilter) {
       renderEmpty('No posts match this source.', 'Clear the source filter to see more posts.', { type: 'clear-source', label: 'Clear source' });
     } else if (state.feedMode === 'profile') {
@@ -1094,7 +1185,8 @@ function renderFeed() {
       renderEmpty('Your feed is quiet.', 'Follow people on Farcaster to see their posts here.', { type: 'profile', label: 'View your posts' });
     }
     $('#feed-count').textContent = state.boardMode === 'flight-log' ? '0 SAVED' : '0 POSTS';
-    $('#feed-end').hidden = true;
+    const morePeople = renderFeedMore();
+    if (!morePeople) $('#feed-end').hidden = true;
     return;
   }
   $('#feed-count').textContent = state.boardMode === 'flight-log'
@@ -1118,6 +1210,7 @@ function renderFeed() {
     more.append(summary, others); cluster.append(more); fragment.append(cluster);
   });
   list.replaceChildren(fragment);
+  renderFeedMore();
 }
 
 function localProfileName(profile) {
@@ -1270,7 +1363,9 @@ async function searchProfile(rawQuery) {
     status.dataset.state = 'error';
     const message = String(error?.message || '');
     if (/\(404\)/.test(message)) status.textContent = 'No Farcaster profile found. Check the spelling or try its FID.';
-    else if (/SNAPCHAIN_URL|not configured|not been configured/i.test(message)) status.textContent = 'Public search is waiting for the feed service to be connected.';
+    else if (/SNAPCHAIN_URL|not configured|not been configured/i.test(message)) status.textContent = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+      ? 'This local preview needs a Snapchain endpoint before search can work.'
+      : 'The app’s Snapchain endpoint needs configuration before search can work.';
     else if (/failed to fetch|network|timed out|timeout/i.test(message)) status.textContent = 'Could not reach the feed service. Check your connection and try again.';
     else status.textContent = 'Could not find that profile. Please check the username or FID and try again.';
   } finally {
@@ -1950,7 +2045,26 @@ async function getActiveSigner() {
 
 async function signAndRelay(messageResult, successRoute, successParams, successText) {
   const message = resultOrThrow(messageResult, 'Could not create message');
-  const accepted = await submitMessage(message);
+  // Check the signed message's final state before relaying it. If an earlier
+  // request reached Snapchain but the browser lost its response, retrying the
+  // same signed message must not make the user guess whether it was published.
+  try {
+    await nodeRequest(successRoute, successParams);
+    setNotice(successText, 'success');
+    return { alreadyMerged: true };
+  } catch (error) {
+    if (!/\(404\)/.test(error.message)) throw error;
+  }
+  let accepted;
+  try {
+    accepted = await submitMessage(message);
+  } catch (error) {
+    if (await waitForMerge(successRoute, successParams, 3)) {
+      setNotice(successText, 'success');
+      return { alreadyMerged: true };
+    }
+    throw error;
+  }
   setNotice('The app service accepted your message for relay. Waiting for network confirmation…', 'pending');
   const confirmed = await waitForMerge(successRoute, successParams);
   if (!confirmed) throw new Error('The node accepted the message for relay, but merge is not confirmed yet. Try refresh in a moment.');
@@ -1960,7 +2074,24 @@ async function signAndRelay(messageResult, successRoute, successParams, successT
 
 async function signAndRelayRemoval(messageResult, route, params, successText) {
   const message = resultOrThrow(messageResult, 'Could not create removal message');
-  await submitMessage(message);
+  try {
+    await nodeRequest(route, params);
+  } catch (error) {
+    if (/\(404\)/.test(error.message)) {
+      setNotice(successText, 'success');
+      return { alreadyRemoved: true };
+    }
+    throw error;
+  }
+  try {
+    await submitMessage(message);
+  } catch (error) {
+    if (await waitForRemoval(route, params, 3)) {
+      setNotice(successText, 'success');
+      return { alreadyRemoved: true };
+    }
+    throw error;
+  }
   setNotice('Removal relayed. Waiting for Snapchain confirmation…', 'pending');
   if (!await waitForRemoval(route, params)) throw new Error('Removal was relayed but the node has not confirmed it yet. Check again before retrying.');
   setNotice(successText, 'success');
@@ -1990,7 +2121,7 @@ function renderIdentity() {
   const portalStatus = $('#portal-status');
   if (portalStatus) portalStatus.textContent = state.fid && !ready
     ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.'
-    : 'Connect your account to open a personal feed and social actions. A linked wallet is an option if you prefer not to enter a recovery phrase.';
+    : 'Sign in to follow, post, and save. A linked wallet avoids typing your recovery phrase into the page.';
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
   const shownName = localProfileName(profile);
@@ -2228,16 +2359,19 @@ function saveComposerDraft() {
     root: state.threadRoot && { fid: Number(state.threadRoot.fid), hash: String(state.threadRoot.hash).slice(0, 66) },
     items: state.threadItems.slice(0, 10).map((text) => String(text).slice(0, 320)),
     pending: state.threadPending && state.threadPending.encoded.length <= 100_000 ? state.threadPending : null,
+    pendingCast: state.pendingCast && state.pendingCast.encoded.length <= 100_000 ? state.pendingCast : null,
   };
   try {
     localStorage.setItem(`${COMPOSE_STORAGE}:${state.fid}`, JSON.stringify(draft));
-    $('#draft-discard').hidden = !(draft.text.trim() || draft.mediaUrl);
-    if (status) status.textContent = 'Draft saved on this device.';
+    $('#draft-discard').hidden = !(draft.text.trim() || draft.mediaUrl || draft.pendingCast);
+    if (status) status.textContent = draft.pendingCast ? 'Signed post saved on this device; resume it to confirm.' : 'Draft saved on this device.';
   } catch { if (status) status.textContent = 'Draft could not be saved in this browser.'; }
 }
 
 function restoreComposerDraft(fid) {
-  state.parent = null; state.threadRoot = null; state.threadItems = []; state.threadPending = null;
+  state.parent = null; state.threadRoot = null; state.threadItems = []; state.threadPending = null; state.pendingCast = null;
+  setPendingCastControls(false);
+  $('#composer-submit').textContent = 'Post';
   try {
     const saved = JSON.parse(localStorage.getItem(`${COMPOSE_STORAGE}:${fid}`) || 'null');
     if (saved && typeof saved === 'object') {
@@ -2251,11 +2385,24 @@ function restoreComposerDraft(fid) {
         state.threadPending = { hash: saved.pending.hash, encoded: saved.pending.encoded, text: saved.pending.text.slice(0, 320) };
         if (!state.threadItems.length) { state.threadItems = [state.threadPending.text]; state.threadRoot = state.parent; }
       }
+      if (saved.pendingCast && typeof saved.pendingCast === 'object' && /^0x[\da-f]{40,64}$/i.test(saved.pendingCast.hash) && typeof saved.pendingCast.encoded === 'string' && /^[A-Za-z0-9+/]+=*$/.test(saved.pendingCast.encoded) && saved.pendingCast.encoded.length > 0 && saved.pendingCast.encoded.length <= 100_000 && typeof saved.pendingCast.text === 'string' && saved.pendingCast.text.length <= 320 && typeof saved.pendingCast.mediaUrl === 'string' && saved.pendingCast.mediaUrl.length <= 2048) {
+        try {
+          if (toBase64(fromBase64(saved.pendingCast.encoded)) === saved.pendingCast.encoded) state.pendingCast = { hash: saved.pendingCast.hash, encoded: saved.pendingCast.encoded, text: saved.pendingCast.text, mediaUrl: safeExternalUrl(saved.pendingCast.mediaUrl)?.href || '' };
+        } catch { /* Corrupt pending data is ignored; keep the editable draft text. */ }
+      }
     }
   } catch { /* An invalid or unavailable local draft never blocks sign-in. */ }
   $('#char-count').textContent = `${[...$('#composer-text').value].length} / 320`;
   $('#composer-text').placeholder = state.parent ? `Replying to FID ${state.parent.fid}…` : 'Send a signal to the network…';
-  $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value);
+  $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.pendingCast);
+  if (state.pendingCast) {
+    $('#composer-text').value = state.pendingCast.text;
+    $('#composer-media-url').value = state.pendingCast.mediaUrl;
+    $('#composer-media').hidden = !state.pendingCast.mediaUrl;
+    setPendingCastControls(true);
+    $('#composer-submit').textContent = 'Resume saved post';
+    $('#draft-status').textContent = 'A signed post is waiting for confirmation. Resume it to avoid creating a duplicate.';
+  }
   renderThreadDraft();
 }
 
@@ -2263,13 +2410,45 @@ function clearCurrentDraft() {
   $('#composer-text').value = '';
   $('#composer-media-url').value = '';
   $('#composer-media').hidden = true;
+  setPendingCastControls(false);
   $('#gif-results')?.replaceChildren();
   $('#gif-search-query').value = '';
   $('#char-count').textContent = '0 / 320';
   state.parent = null;
+  state.pendingCast = null;
   $('#composer-text').placeholder = 'Send a signal to the network…';
   $('#draft-discard').hidden = true;
   saveComposerDraft();
+}
+
+function setPendingCastControls(pending) {
+  $('#composer-text').readOnly = pending;
+  $('#composer-media-url').disabled = pending;
+  $('#composer')?.querySelectorAll('button').forEach((button) => {
+    if (button.type === 'submit' || button.id === 'draft-discard') return;
+    button.disabled = pending;
+  });
+  const submit = $('#composer-submit');
+  if (submit && !pending) submit.disabled = !state.signerReady;
+}
+
+async function publishPendingCast(pending) {
+  const params = { fid: state.fid, hash: pending.hash };
+  try {
+    await nodeRequest('castById', params);
+  } catch (error) {
+    if (!/\(404\)/.test(error.message)) throw error;
+    const { Message } = await import('./protocol.js');
+    const encoded = fromBase64(pending.encoded);
+    const decoded = Message.decode(encoded);
+    if (postHash(decoded).toLowerCase() !== pending.hash.toLowerCase() || Number(decoded?.data?.fid) !== Number(state.fid) || !decoded?.data?.castAddBody) {
+      throw new Error('The saved post could not be verified against this account. It was not sent. Discard it and review your draft.');
+    }
+    await submitEncodedMessage(encoded);
+    setNotice('Post relayed. Waiting for confirmation. This exact signed post is saved on this device if you need to resume it.', 'pending');
+    if (!await waitForMerge('castById', params)) throw new Error('The post is still unconfirmed. Resume this saved post to check or relay the same signed message safely.');
+  }
+  setNotice('Post confirmed on Snapchain.', 'success');
 }
 
 async function publishThread() {
@@ -2327,9 +2506,17 @@ $('#feed-refresh').addEventListener('click', () => {
     : state.boardMode === 'flight-log' ? Promise.resolve(renderFeed()) : loadFeed(state.feedTargetFid || state.fid);
   Promise.resolve(task).finally(() => { button.disabled = false; });
 });
+$('#feed-more')?.addEventListener('click', loadMoreFollowed);
 $('#backup-export').addEventListener('click', exportLocalBackup);
 $('#backup-import-trigger').addEventListener('click', () => $('#backup-file').click());
 $('#backup-file').addEventListener('change', (event) => importLocalBackup(event.currentTarget.files?.[0]));
+$('#desk-backup-open')?.addEventListener('click', () => {
+  const drawer = $('.local-backup-drawer');
+  if (!drawer) return;
+  drawer.open = true;
+  drawer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#backup-export')?.focus({ preventScroll: true });
+});
 $('#people-search').addEventListener('submit', (event) => { event.preventDefault(); searchProfile($('#people-query').value); });
 $('#conversation-close').addEventListener('click', closeConversation);
 $('#theme-select').addEventListener('change', (event) => {
@@ -2408,6 +2595,13 @@ document.querySelectorAll('[data-feed-tab]').forEach((button) => button.addEvent
 $('#show-flight-log').addEventListener('click', () => setBoardMode('flight-log'));
 $('#refresh-node').addEventListener('click', checkNode);
 $('#refresh-node-large')?.addEventListener('click', checkNode);
+$('#node-journey-check')?.addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.textContent = 'Checking…';
+  try { await checkNode(); }
+  finally { button.disabled = false; button.textContent = 'Check configured node'; }
+});
 document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener('click', (event) => {
   event.preventDefault();
   navigate(link.dataset.view);
@@ -2447,6 +2641,10 @@ async function refreshSourceFilter() {
 }
 $('#source-fid').addEventListener('input', refreshSourceFilter);
 $('#source-mode').addEventListener('change', refreshSourceFilter);
+$('#loaded-search')?.addEventListener('input', (event) => {
+  state.feedQuery = event.currentTarget.value.slice(0, 100);
+  renderFeed();
+});
 $('#group-repeats').checked = state.groupRepeats;
 $('#group-repeats').addEventListener('change', (event) => {
   state.groupRepeats = event.currentTarget.checked;
@@ -2698,7 +2896,10 @@ $('#composer-text').addEventListener('keydown', (event) => {
   }
 });
 
-$('#draft-discard').addEventListener('click', () => { clearCurrentDraft(); setNotice('Current draft discarded.'); });
+$('#draft-discard').addEventListener('click', () => {
+  if (state.pendingCast && !window.confirm('This signed post may already have reached Farcaster. Discarding it can make it easier to accidentally publish a duplicate. Discard it anyway?')) return;
+  clearCurrentDraft(); setNotice('Current draft discarded.');
+});
 $('#thread-add').addEventListener('click', () => {
   if ($('#composer-media-url').value.trim()) { setNotice('Remove the GIF or image before adding this post to a text thread.'); return; }
   const text = $('#composer-text').value.trim();
@@ -2722,16 +2923,35 @@ $('#composer').addEventListener('submit', async (event) => {
   if (!text && !mediaUrl) return;
   const submit = $('#composer button[type="submit"]'); submit.disabled = true;
   try {
-    const protocol = await import('./protocol.js');
-    const signer = await getActiveSigner();
-    const message = await protocol.makeCastAdd(castBody(text, state.parent, protocol, mediaUrl ? [mediaUrl.href] : []), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
-    const signedMessage = resultOrThrow(message, 'Could not sign cast');
-    const hash = postHash(signedMessage);
-    await signAndRelay({ value: signedMessage }, 'castById', { fid: state.fid, hash }, 'Cast merged into Snapchain.');
+    let pending = state.pendingCast;
+    if (!pending) {
+      submit.textContent = 'Preparing…';
+      const protocol = await import('./protocol.js');
+      const signer = await getActiveSigner();
+      const message = await protocol.makeCastAdd(castBody(text, state.parent, protocol, mediaUrl ? [mediaUrl.href] : []), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
+      const signedMessage = resultOrThrow(message, 'Could not sign cast');
+      const hash = postHash(signedMessage);
+      if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. Your draft remains saved.');
+      pending = { hash, encoded: toBase64((await import('./protocol.js')).Message.encode(signedMessage).finish()), text, mediaUrl: mediaUrl?.href || '' };
+      state.pendingCast = pending;
+      setPendingCastControls(true);
+      $('#draft-discard').hidden = false;
+      $('#draft-status').textContent = 'Signed post saved on this device. Checking network status…';
+      saveComposerDraft();
+    }
+    submit.textContent = 'Checking post…';
+    await publishPendingCast(pending);
+    state.pendingCast = null;
     clearCurrentDraft();
     await loadFeed(state.fid, 'following');
-  } catch (error) { setNotice(error.message, 'error'); }
-  finally { submit.disabled = !state.signerReady; }
+  } catch (error) {
+    if (state.pendingCast) {
+      saveComposerDraft();
+      $('#draft-status').textContent = 'Post status is not confirmed. Submit again to safely check or resume the same signed post.';
+    }
+    setNotice(error.message, 'error');
+  }
+  finally { submit.textContent = state.pendingCast ? 'Resume saved post' : 'Post'; submit.disabled = !state.signerReady; }
 });
 
 $('#generate-digest').addEventListener('click', async () => {

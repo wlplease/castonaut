@@ -12,6 +12,8 @@ The name nods to casts without putting Farcaster in the product name. A first-pa
 
 ## What exists now
 
+**Current experience details:** Following is intentionally staged to bound initial requests: it starts with the user and a small group, then exposes a “load more” action, and caps the available set at 24 followed accounts. It is not yet a complete all-following timeline. View options can search text, profile names, and links only among posts already loaded in the current view; this is local filtering, not global cast search. Standard cast posts now keep the exact signed message in a device-local pending outbox after a timeout and verify the same hash before resuming, to reduce accidental duplicate posts. The outbox entry contains a signed public message, not the private app key.
+
 The active web app has a Snapchain-backed chronological feed, a personal Desk and Flight Log, Orbit Lens for pinned people, Orbit Pulse for local feed counts, and a Time Capsule that saves up to 30 visible posts per day for 14 days on this device. Posts can attach a direct HTTPS GIF or image URL; remote media is off by default. Following, Friends, and Crew keep separate scroll positions. Username/FID lookup opens profiles, which can be shared with profile links; cast links open an in-app conversation view with replies. Feed actions include follow/unfollow, like/unlike, recast/unrecast, reply, one-tap save to Desk, and save to Flight Log. A user-triggered local backup can export or restore Desk data, saved posts, capsules, and selected appearance/feed preferences. Backup files exclude signers, wallet details, drafts, and recovery phrases. A Farcaster recovery phrase or linked wallet can verify an existing identity and authorize the scoped browser signer. Contest/tutorial builds use free access via `VITE_CONTEST_ACCESS=true`, so an independent tester can complete the node/client workflow. A paid build can require an active wallet-linked Time Pass after the signer is confirmed. The initial pass is 3.70 native USDC on Base for 30 days, prepaid once with no auto-renewal; its contract is provided in `contracts/CastonautTimePass.sol`. `VITE_PASS_CONTRACT_ADDRESS` must be set to a deployed contract before checkout works. Orbit Pulse and Time Capsule do not send feed text to an AI service. Desk items, capsules, and payment-wallet address are stored locally in this browser.
 
 It does not yet have global cast search, conversation rooms, synced preferences, native apps, a deployed/verified Time Pass contract, or verified write access for users affected by other client restrictions. Profile lookup is by username/FID rather than fuzzy search. Validate profile routes, replies, reactions, and follow-state toggles against a caught-up node before calling them production-verified. The hosted app needs `SNAPCHAIN_URL` and a deployed contract address configured before users can enter a paid build.
@@ -30,6 +32,8 @@ It does not yet have global cast search, conversation rooms, synced preferences,
 ### Now: reliable launch client
 
 - Smooth first run with an identity check, clearly scoped signer approval, useful empty/loading/error states, and one route into the account’s desk.
+- Replace staged Following account batches with a coherent, cursor-based newest-first timeline, or keep the partial model explicit until the node/API can support this efficiently.
+- Add a real block/report path with clear operator ownership and response expectations; local mute remains a personal feed filter and is not a safety report or protocol block.
 - Verify chronological ordering, profile loading, each write action, signer revocation, and read-after-write confirmation against the configured service.
 - Verify the shareable profile/cast routes, replies, and follow/reaction toggles against the caught-up service.
 - Make the mobile header/navigation, post actions, feed filters, and wallet dialog comfortable at 320–430 px widths and accessible by keyboard/screen reader.
@@ -38,6 +42,7 @@ It does not yet have global cast search, conversation rooms, synced preferences,
 ### Next: the distinctive social desktop
 
 - **The station:** observe whether the current Desk shortcuts and named Crew feed are useful before adding more groups or layouts. Add optional encrypted sync only after the local model proves useful.
+- Add global cast search only when a supported index/query path can return accurate results and state its coverage; do not present loaded-view filtering as network search.
 - **Rooms:** start with a small number of readable, curated topic rooms built from public conversations. Add clear hosts/rules, mute/block/report, and moderation appeals before room creation is open.
 - **Conversation view:** open a post and follow its replies in context; reply without losing the feed position.
 - **Desktop workspace:** let users arrange a feed, buddy list, and one room in familiar windows; save a few named layouts. Do not start with a complicated customizable dashboard.
