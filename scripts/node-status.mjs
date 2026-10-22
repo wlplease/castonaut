@@ -215,7 +215,9 @@ async function poll(activeProject) {
 async function main() {
   const activeProject = project || gcloud(['config', 'get-value', 'project'], '').stdout.trim();
   if (!activeProject || activeProject === '(unset)') throw new Error('No active Google Cloud project. Set one with gcloud config set project PROJECT_ID or pass --project PROJECT_ID.');
-  console.log(`Castonaut node monitor — polling every ${intervalSeconds}s. Press Ctrl+C to stop.`);
+  console.log(once
+    ? 'Castonaut node status — one read-only check.'
+    : `Castonaut node monitor — polling every ${intervalSeconds}s. Press Ctrl+C to stop.`);
   console.log('This monitor only reads VM status, Snapchain health, and recent logs; it does not start/stop resources.');
 
   while (!stopped) {
