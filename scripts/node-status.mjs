@@ -14,6 +14,7 @@ const container = 'snapchain-snapchain-1';
 const once = args.includes('--once');
 let stopped = false;
 let previousChunk = null;
+let previousDiskSample = null;
 const previousHeights = new Map();
 
 function formatDelay(seconds) {
@@ -28,6 +29,46 @@ function formatDelay(seconds) {
   if (value >= 3_600) return `${Math.floor(value / 3_600)}h`;
   if (value >= 60) return `${Math.floor(value / 60)}m`;
   return `${value}s`;
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value < 0) return 'unknown';
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+  let scaled = value;
+  let unit = 0;
+  while (scaled >= 1024 && unit < units.length - 1) { scaled /= 1024; unit += 1; }
+  return `${scaled.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function summarizeResources(output) {
+  const [diskLine, statsLine] = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (diskLine) {
+    const [size, used, available, percent] = diskLine.split(/\s+/);
+    const total = Number(size);
+    const usedBytes = Number(used);
+    const freeBytes = Number(available);
+    if ([total, usedBytes, freeBytes].every(Number.isFinite)) {
+      console.log(`Data disk: ${formatBytes(usedBytes)} / ${formatBytes(total)} used (${percent || 'unknown'}) · ${formatBytes(freeBytes)} free`);
+      const usage = Number.parseInt(percent, 10);
+      if (Number.isFinite(usage) && usage >= 92) console.log('Disk warning: critically low free space; stop the test before the data disk fills.');
+      else if (Number.isFinite(usage) && usage >= 85) console.log('Disk warning: usage is high; review growth before extending the test.');
+      const now = Date.now();
+      if (previousDiskSample) {
+        const elapsedMinutes = (now - previousDiskSample.time) / 60_000;
+        const consumed = previousDiskSample.available - freeBytes;
+        if (elapsedMinutes >= 0.25 && consumed > 0) {
+          console.log(`Observed disk growth since prior poll: ${formatBytes(consumed)} over ${elapsedMinutes.toFixed(1)} min (bursty; not a capacity forecast).`);
+        }
+      }
+      previousDiskSample = { available: freeBytes, time: now };
+    } else console.log(`Data disk usage unavailable: ${diskLine.slice(0, 180)}`);
+  } else console.log('Data disk usage unavailable.');
+
+  if (statsLine) {
+    const [cpu, memory, network, blockIo, pids] = statsLine.split('|');
+    if (cpu && memory) console.log(`Container: CPU ${cpu} · memory ${memory} · network I/O ${network || 'unknown'} · block I/O ${blockIo || 'unknown'} · PIDs ${pids || 'unknown'}`);
+  } else console.log('Container resource stats unavailable.');
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
@@ -155,6 +196,13 @@ async function poll(activeProject) {
   } else {
     console.log(`Peer mesh detail unavailable: ${(mesh.stderr || 'Snapchain mesh endpoint did not respond').trim().slice(0, 180)}`);
   }
+
+  const resources = gcloud([
+    'compute', 'ssh', instance, `--zone=${zone}`,
+    `--command=df -B1 --output=size,used,avail,pcent /mnt/disks/snapchain-data | tail -n 1; sudo docker stats --no-stream --format '{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}' ${container}`,
+  ], activeProject, { timeout: 20_000 });
+  if (resources.status === 0) summarizeResources(resources.stdout);
+  else console.log(`Resource stats unavailable: ${(resources.stderr || resources.error?.message || 'SSH failed').trim().slice(0, 240)}`);
 
   const logs = gcloud([
     'compute', 'ssh', instance, `--zone=${zone}`,

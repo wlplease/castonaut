@@ -16,7 +16,7 @@ If a normal post times out before Snapchain confirms it, Castonaut saves that ex
 
 ## Time Pass contract
 
-The contest/tutorial build is free to enter. `npm run client -- http://YOUR-VM-IP:3381` enables this mode automatically. For a hosted contest build, set `VITE_CONTEST_ACCESS=true` in the build environment so testers do not need to pay. A normal preview also stays free until a valid, deployed Time Pass contract address is configured; a missing checkout setup never blocks someone from trying Castonaut. The optional paid build uses a **3.70 native USDC Time Pass on Base for 30 days**, paid once with no auto-renewal. The expiry belongs to the payer's wallet, is visible on-chain, and early renewal adds 30 days. This is a wallet entitlement, not a Farcaster FID entitlement. Visitors need a compatible wallet, 3.70 USDC on Base, and a little Base ETH for gas. The current flow requests an exact 3.70 USDC approval, then a separate purchase transaction. It never asks for a recovery phrase or unlimited token approval.
+The contest/tutorial build is free to enter. `npm run client -- --zone us-central1-a` looks up your VM's public IP in the active Google Cloud project and starts the local client. For a hosted contest build, set `VITE_CONTEST_ACCESS=true` in the build environment so testers do not need to pay. A normal preview also stays free until a valid, deployed Time Pass contract address is configured; a missing checkout setup never blocks someone from trying Castonaut. The optional paid build uses a **3.70 native USDC Time Pass on Base for 30 days**, paid once with no auto-renewal. The expiry belongs to the payer's wallet, is visible on-chain, and early renewal adds 30 days. This is a wallet entitlement, not a Farcaster FID entitlement. Visitors need a compatible wallet, 3.70 USDC on Base, and a little Base ETH for gas. The current flow requests an exact 3.70 USDC approval, then a separate purchase transaction. It never asks for a recovery phrase or unlimited token approval.
 
 The source is [contracts/CastonautTimePass.sol](contracts/CastonautTimePass.sol). In Remix, use Solidity 0.8.24, compile this file, select **Base Mainnet**, deploy with the revenue wallet address as the constructor argument, and verify the source on BaseScan. The contract is deliberately small and has no admin or upgrade controls; it has not had an independent audit. Do not invite users to pay until you have reviewed and verified the deployed source, filled in the operator/support identity in the legal pages, and configured the address below.
 
@@ -52,7 +52,7 @@ The project has a **$25 monthly alert budget** with 50%, 80%, and 100% threshold
 ```sh
 npm run provision -- us-central1-a
 npm run node -- us-central1-a
-npm run client -- http://YOUR-VM-IP:3381
+npm run client -- --zone us-central1-a
 ```
 
 When the test is over, remove the VM, its dedicated data disk, and the contest firewall rule:
@@ -65,7 +65,7 @@ The cleanup script prints the active account/project and the resources, then wai
 
 Provisioning checks the active `gcloud` identity, project, and billing state. It prints an estimate and requires the word `CREATE` before making billable resources. The example configures a 4-vCPU, 16-GB VM and a 2-TB persistent disk, matching Snapchain's current run-node guide. Actual price and trial coverage depend on account, region, network usage, and current provider rates.
 
-The first historical snapshot can take several hours. Check readiness with `npm run node:check -- us-central1-a`. The command checks `/v1/info` inside the VM, checks the public HTTP endpoint from your computer, reports the maximum active-shard delay, and exits unsuccessfully until every check is ready. A running process or responding API is not a synced node. Readiness requires a maximum shard delay of 10 seconds or less and a reachable public endpoint. Run `npm run node:status:once` for a single read-only status snapshot, including each shard's height/delay and peer-mesh summary; run `npm run node:status` to keep polling every 60 seconds. This check only proves read-node availability; run the account read/write verification separately before asking anyone to test the public client.
+The first historical snapshot can take several hours. Check readiness with `npm run node:check -- us-central1-a`. The command checks `/v1/info` inside the VM, checks the public HTTP endpoint from your computer, reports the maximum active-shard delay, and exits unsuccessfully until every check is ready. A running process or responding API is not a synced node. Readiness requires a maximum shard delay of 10 seconds or less and a reachable public endpoint. Run `npm run node:status:once -- us-central1-a` for a single read-only status snapshot, including each shard's height/delay, peer mesh, mounted data-disk usage, and container CPU/memory/I/O; run `npm run node:status` to keep polling every 60 seconds. Docker's `BLOCK I/O` value is cumulative container I/O, not disk space used; use the reported `Data disk` line for storage occupancy. This check only proves read-node availability; run the account read/write verification separately before asking anyone to test the public client.
 
 Keep a bounded test window while the node catches up. The current machine has a 2-TB persistent disk, so it keeps charging while the VM is stopped. Check the free-trial balance and end date in Cloud Billing before each extension; the $25 project budget sends alerts and cannot enforce a $200 cap. Do not upgrade billing to continue the sync. If the approved credit is nearly exhausted, stop the VM and decide whether to delete the disk too; deleting it removes the saved database and a later run must sync again.
 
@@ -83,7 +83,7 @@ npm run build
 npm run dev
 ```
 
-`npm run dev` serves the UI on `127.0.0.1:5175`; the feed needs the shared service URL configured by the app operator. The `npm run client` command supplies the node URL to the local server-side adapter. No third-party read API credentials are needed.
+`npm run dev` serves the UI on Vite's printed local URL. The `npm run client -- --zone us-central1-a` command looks up `castonaut-snapchain` in the active Google Cloud project and supplies its public node URL to the local server-side adapter. No IP copy/paste or third-party read API credential is needed.
 
 ## Install on a phone or desktop
 

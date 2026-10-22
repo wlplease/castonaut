@@ -64,11 +64,10 @@
           <section class="view" id="desk-view" data-panel="desk">
             <div class="room-heading">
               <div class="hero-copy">
-                <div class="overline"><span class="live-pip"></span> YOUR FARCASTER, YOUR WAY</div>
-                <h1>Find your people.<br class="desktop-break" /> Keep your signal.</h1>
-                <p class="lead">A calmer Farcaster home: explore people first, then keep your timeline and memories on your terms.</p>
-                <div class="hero-actions"><a class="button button-orange" href="#people-search" data-scroll-to="people-search">Explore Farcaster <span>↓</span></a><a class="hero-secondary" href="#portal-gate" data-scroll-to="portal-gate">Open your desk <span>↗</span></a></div>
-                <small class="hero-note">Run your own Snapchain node? <a href="/tutorial.html#quickstart">The field guide covers setup, sync time, and cost ↗</a></small>
+                <div class="overline"><span class="live-pip"></span> FARCASTER · YOUR NODE · YOUR CLIENT</div>
+                <h1>Run your own<br class="desktop-break" /> Farcaster home.</h1>
+                <p class="lead">Three steps. Your own node. Your Castonaut.</p>
+                <div class="hero-actions"><a class="button button-orange" href="/tutorial.html#quickstart">Start setup <span>→</span></a><button class="hero-secondary" type="button" id="preview-toggle" aria-controls="client-preview" aria-expanded="false">Preview the client <span>↓</span></button></div>
               </div>
               <div class="hero-route" aria-label="A cast moves from your browser through your read node to the network, then is confirmed back in the feed.">
               <div class="route-heading"><span>THE CASTONAUT DIFFERENCE</span><span>OPEN BY DESIGN</span></div>
@@ -84,6 +83,10 @@
               <div class="route-legend"><span><i class="legend-dot"></i>your node, your route</span><span>OPTIONAL · SELF-HOSTED</span></div>
               </div>
             </div>
+
+            <ol class="home-steps" aria-label="Three steps to run Castonaut with your own node">
+              <li><span>01</span><strong>Provision</strong></li><li aria-hidden="true">→</li><li><span>02</span><strong>Sync Snapchain</strong></li><li aria-hidden="true">→</li><li><span>03</span><strong>Open Castonaut</strong></li>
+            </ol>
 
             <aside class="public-browse-note" id="public-browse-note" hidden>
               <span>READ ONLY · NO SIGN-IN PHRASE</span>
@@ -101,24 +104,35 @@
               <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" hidden>Feed setup ↗</a><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
             </div>
 
+            <section class="client-preview" id="client-preview" aria-labelledby="preview-title" hidden>
+              <div class="preview-heading"><div><span class="overline">A LOOK INSIDE · SAMPLE CONTENT</span><h2 id="preview-title">Your social desk, at a glance.</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
+              <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>A little corner of your own.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>J</b> jules.builds</span><span class="preview-pin"><b>M</b> moxie.eth</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
+              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newer signals first. Your pace.</p></div><div class="preview-tabs"><span class="selected">Following</span><span>Friends</span><span>Desk</span></div></div>
+                <article class="preview-post"><div class="preview-avatar avatar-amber">J</div><div class="preview-post-main"><div class="preview-byline"><strong>Jules Rivera</strong><span>@julesbuilds</span><time>8 min</time></div><p>Spent the morning making a tiny corner of the internet feel like home. The best tools leave room for people to make them their own.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
+                <article class="preview-post"><div class="preview-avatar avatar-lilac">M</div><div class="preview-post-main"><div class="preview-byline"><strong>Moxie</strong><span>@moxie.eth</span><time>21 min</time></div><p>Good morning, builders ☀️ What are you making this week? I’m collecting small ideas with big heart.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
+                <div class="preview-end"><span>✦</span> You’re all caught up <span>✦</span></div>
+              </div>
+              <p class="preview-caption">Example posts · Preview only</p>
+            </section>
+
             <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title">
               <div class="portal-art" aria-hidden="true"><img class="portal-illustration" src="/astral-atlas-art.webp" alt="" /><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span><span class="portal-art-caption">PLATE 037 <i>·</i> YOUR CORNER OF THE NETWORK</span></div>
               <div class="portal-copy">
                 <span class="overline">YOUR FARCASTER ACCOUNT</span>
-                <h2 id="portal-title">Open your signal desk.</h2>
-                <p>Follow your people in time order. Keep posts and notes on your Desk.</p>
+                <h2 id="portal-title">Welcome to Castonaut.</h2>
+                <p>Sign in to follow, post, and make your Desk yours.</p>
                 <button class="button button-orange" id="portal-enter">Sign in <span>↗</span></button>
-                <small id="portal-status" role="status">Follow, post, and save. A linked wallet keeps your phrase out of this page.</small>
-                <small class="portal-security-note">Phrase sign-in is optional. Page code can read it while entered; use only a deployment and device you trust.</small>
+                <small id="portal-status" role="status">A linked wallet keeps your recovery phrase off this page.</small>
                 <details class="portal-extras">
-                  <summary>Keys, wallet &amp; account details</summary>
+                  <summary>Account &amp; safety</summary>
                   <div class="portal-extras-content">
-                    <small>Farcaster verification does not need a wallet. The station pass uses a separate Base wallet, 3.70 USDC, and a little ETH for network fees.</small>
+                    <small>Phrase sign-in is optional. Page code can read a phrase while you enter it, so use only a deployment and device you trust.</small>
+                    <small>The prepaid station pass uses a separate Base wallet.</small>
                     <div class="station-voice"><label for="voice-profile">Listen <span>·</span></label><select id="voice-profile" aria-label="Choose a station voice"><option value="navigator">Mae · Navigator</option><option value="radio">Quinn · Radio host</option><option value="archivist">Jules · Archivist</option></select><button type="button" id="voice-play" aria-label="Listen to the station introduction">▶</button><audio id="station-audio" preload="none"></audio></div>
                   </div>
                 </details>
               </div>
-              <div class="portal-footer"><span>ACCOUNT CHECK · OPTIMISM</span><span>APP KEY · THIS DEVICE</span></div>
+              <div class="portal-footer"><span>YOUR SIGNER STAYS ON THIS DEVICE</span></div>
             </section>
 
             <section class="pass-gate" id="pass-gate" aria-labelledby="pass-title" hidden>
@@ -131,6 +145,16 @@
             <div class="pass-status-strip" id="pass-status-strip"><span class="pass-status-mark" aria-hidden="true">◷</span><span><small>YOUR TIME PASS</small><strong id="pass-countdown">Checking…</strong></span><span class="pass-wallet-label" id="pass-wallet-label"></span><button type="button" id="pass-extend" class="pass-extend">Add 30 days · $3.70</button></div>
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title">
               <div class="desk-strip-head"><div><span class="overline">YOUR CONSTELLATION</span><h2 id="desk-title">Keep your people close.</h2></div><p>Pin people, posts, or topics from any signal’s ••• menu. <button type="button" class="desk-backup-link" id="desk-backup-open">Move your Desk ↗</button></p></div>
+              <section class="first-orbit" id="first-orbit" aria-labelledby="first-orbit-title">
+                <div class="first-orbit-heading"><div><span class="overline">FIRST FLIGHT</span><h3 id="first-orbit-title">Make this place yours.</h3></div><span class="first-orbit-progress" id="first-orbit-progress">0 / 3</span></div>
+                <p class="first-orbit-intro">A person to follow. A signal to keep. A page to revisit.</p>
+                <div class="first-orbit-steps" role="group" aria-label="Three optional steps to personalize your station">
+                  <button type="button" class="first-orbit-step" data-flight-step="person"><span class="first-orbit-number">01</span><span class="first-orbit-label"><strong>Pin a person</strong><small>Keep someone close</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
+                  <button type="button" class="first-orbit-step" data-flight-step="signal"><span class="first-orbit-number">02</span><span class="first-orbit-label"><strong>Save a signal</strong><small>Keep a cast on your Desk</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
+                  <button type="button" class="first-orbit-step" data-flight-step="page"><span class="first-orbit-number">03</span><span class="first-orbit-label"><strong>Keep a page</strong><small>Save today’s feed to revisit</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
+                </div>
+                <small class="first-orbit-privacy">Optional · progress stays on this device</small>
+              </section>
               <div class="desk-pins" id="desk-pins"><span class="desk-empty">Your orbit is open. Pin a person from any signal to bring them aboard.</span></div>
               <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Pinned signals and topics"><div class="desk-saved-signals" id="desk-casts"></div><div class="desk-topic-list" id="desk-topics"></div></div>
               <p class="desk-active-topic" id="desk-active-topic" hidden></p>
@@ -152,7 +176,7 @@
             </details>
 
             <div class="feed-layout">
-                <section class="feed-window" aria-labelledby="feed-title">
+                <section class="feed-window" id="feed-window" aria-labelledby="feed-title">
                 <div class="feed-toolbar">
                   <div><div class="overline">YOUR TIMELINE</div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
                   <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Friends <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Crew <span id="crew-count">0</span></button></div><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Flight Log <span id="flight-log-count">0</span></button><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>

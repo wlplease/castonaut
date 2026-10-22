@@ -12,11 +12,12 @@ document.querySelectorAll('[data-copy]').forEach((button) => {
   button.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(button.dataset.copy);
+      const label = button.textContent;
       button.textContent = 'COPIED ✓';
-      announce('Command copied. Replace any example IP before running it.');
-      setTimeout(() => { button.textContent = 'COPY ⧉'; }, 1800);
+      announce('Copied. Paste it into your terminal and review before running.');
+      setTimeout(() => { button.textContent = label; }, 1800);
     } catch {
-      announce('Clipboard access was blocked. Select and copy the command text.');
+      announce('Clipboard blocked. Select the command text and copy it.');
     }
   });
 });

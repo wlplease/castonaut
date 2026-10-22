@@ -1,11 +1,33 @@
 import { spawn } from 'node:child_process';
 import { isIP } from 'node:net';
+import { runGcloud } from './gcloud.mjs';
 
 const args = process.argv.slice(2);
 const index = args.indexOf('--node-url');
-const nodeUrl = index >= 0 ? args[index + 1] : args.find((arg) => /^https?:\/\//i.test(arg)) || '';
+const zoneIndex = args.indexOf('--zone');
+const projectIndex = args.indexOf('--project');
+const zone = zoneIndex >= 0 ? args[zoneIndex + 1] : '';
+const project = projectIndex >= 0 ? args[projectIndex + 1] : '';
+let nodeUrl = index >= 0 ? args[index + 1] : args.find((arg) => /^https?:\/\//i.test(arg)) || '';
+if (!nodeUrl && zone) {
+  if (!/^[a-z0-9-]+-[a-z]$/.test(zone)) {
+    console.error('Zone must look like us-central1-a.');
+    process.exit(2);
+  }
+  const describeArgs = ['compute', 'instances', 'describe', 'castonaut-snapchain', `--zone=${zone}`, '--format=value(networkInterfaces[0].accessConfigs[0].natIP)'];
+  if (project) describeArgs.push(`--project=${project}`);
+  try {
+    const address = runGcloud(describeArgs, { capture: true }).stdout;
+    if (!address) throw new Error('No external IP was returned. Check that the VM is running and has an external IP.');
+    nodeUrl = `http://${address}:3381`;
+    console.log(`Found your Snapchain node: ${nodeUrl}`);
+  } catch (error) {
+    console.error(`Could not find your Snapchain VM: ${error.message}`);
+    process.exit(1);
+  }
+}
 if (!nodeUrl) {
-  console.error('Usage: npm run client -- http://<your-node-ip>:3381');
+  console.error('Usage: npm run client -- --zone us-central1-a   (or pass an explicit node URL)');
   process.exit(2);
 }
 let parsed;

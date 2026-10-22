@@ -462,6 +462,9 @@ async function loadSignerSources(messages) {
 }
 
 function setNodeState(kind, title, detail) {
+  document.body.dataset.nodeState = kind;
+  const browseNote = $('#public-browse-note');
+  if (browseNote && document.body.dataset.accountView !== 'member') browseNote.hidden = kind !== 'good';
   const led = $('#node-led');
   if (led) led.className = `node-led ${kind}`;
   $('#node-state').textContent = title;
@@ -626,11 +629,9 @@ async function checkNode() {
     if (setupLink && needsSetup) setupLink.textContent = 'See feed setup ↗';
     const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
-      ? localPreview
-        ? 'This local preview has no Snapchain endpoint, so profile search and feeds cannot load yet.'
-        : 'The app’s Snapchain endpoint needs configuration before profile search and feeds can load.'
-      : 'Feed service unavailable. Try again shortly.';
-    const message = needsSetup ? (localPreview ? 'Local preview needs a node' : 'Feed service setup needed') : 'Feed service unavailable';
+      ? localPreview ? 'Live posts need a synced node.' : 'Live posts need a Snapchain endpoint.'
+      : 'Try again when the node is ready.';
+    const message = needsSetup ? (localPreview ? 'Preview mode' : 'Node setup needed') : 'Node unavailable';
     setNodeState('bad', message, detail);
     const largeDetail = $('#node-detail-large'); if (largeDetail) largeDetail.textContent = needsSetup ? detail : error.message;
     const foot = $('#telemetry-foot'); if (foot) foot.textContent = needsSetup ? 'Account sign-in opens after setup.' : 'Try the connection again in a moment.';
@@ -1461,6 +1462,28 @@ function saveProfileTouch(fid, values) {
   return true;
 }
 
+function renderFirstOrbit() {
+  const panel = $('#first-orbit');
+  if (!panel) return;
+  const progress = {
+    person: state.deskPins.length > 0,
+    signal: state.deskCasts.length > 0,
+    page: state.capsules.length > 0,
+  };
+  const completed = Object.values(progress).filter(Boolean).length;
+  panel.hidden = completed === 3;
+  const count = $('#first-orbit-progress');
+  if (count) count.textContent = `${completed} / 3`;
+  for (const [step, done] of Object.entries(progress)) {
+    const button = panel.querySelector(`[data-flight-step="${step}"]`);
+    if (!button) continue;
+    button.classList.toggle('is-complete', done);
+    button.setAttribute('aria-label', `${button.querySelector('strong')?.textContent || 'Step'}${done ? ', complete' : ''}`);
+    const mark = button.querySelector('.first-orbit-mark');
+    if (mark) mark.textContent = done ? '✓' : '↗';
+  }
+}
+
 function renderDesk() {
   const container = $('#desk-pins');
   if (!container) return;
@@ -1486,6 +1509,7 @@ function renderDesk() {
   }
   renderDeskShortcuts();
   renderCapsuleShelf();
+  renderFirstOrbit();
 }
 
 function loadTimeCapsules(fid) {
@@ -1523,6 +1547,7 @@ function renderCapsuleShelf() {
     }
   }
   renderCapsuleReplay();
+  renderFirstOrbit();
 }
 
 function renderCapsuleReplay() {
@@ -1595,6 +1620,7 @@ function renderDeskShortcuts() {
     active.replaceChildren(document.createTextNode(`Showing ${state.activeDeskTopic.replace(/^site:/, '')} in this feed `));
     const clear = document.createElement('button'); clear.type = 'button'; clear.dataset.clearDeskTopic = 'true'; clear.textContent = 'Clear'; active.append(clear);
   }
+  renderFirstOrbit();
 }
 
 function toggleDeskCast(fidValue, hashValue) {
@@ -2527,6 +2553,14 @@ $('#desk-backup-open')?.addEventListener('click', () => {
   $('#backup-export')?.focus({ preventScroll: true });
 });
 $('#people-search').addEventListener('submit', (event) => { event.preventDefault(); searchProfile($('#people-query').value); });
+$('#preview-toggle').addEventListener('click', () => {
+  const preview = $('#client-preview');
+  const opening = preview.hidden;
+  preview.hidden = !opening;
+  $('#preview-toggle').setAttribute('aria-expanded', String(opening));
+  $('#preview-toggle').innerHTML = opening ? 'Close preview <span>↑</span>' : 'Preview the client <span>↓</span>';
+  if (opening) preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 $('#conversation-close').addEventListener('click', closeConversation);
 $('#theme-select').addEventListener('change', (event) => {
   setTheme(event.currentTarget.value);
@@ -2742,6 +2776,21 @@ $('#pass-check').addEventListener('click', connectAndCheckPass);
 $('#pass-buy').addEventListener('click', buyTimePass);
 $('#pass-extend').addEventListener('click', buyTimePass);
 $('#capsule-seal').addEventListener('click', sealTimeCapsule);
+$('#first-orbit')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-flight-step]');
+  if (!button) return;
+  const step = button.dataset.flightStep;
+  if (step === 'page') {
+    const capsule = $('.time-capsule');
+    if (capsule) { capsule.open = true; capsule.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    setNotice($('#capsule-seal')?.disabled ? 'Load a feed to save today’s page.' : 'Save today’s feed page to revisit it later.');
+    return;
+  }
+  $('#feed-window')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setNotice(step === 'person'
+    ? 'Choose a cast, open its ••• menu, then select Pin person to Desk.'
+    : 'Choose a cast, open its ••• menu, then select Pin signal to Desk.');
+});
 $('#capsule-shelf').addEventListener('click', (event) => {
   const button = event.target.closest('[data-open-capsule]');
   if (!button) return;
