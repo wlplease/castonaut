@@ -1,5 +1,7 @@
 # Castonaut
 
+**Live client:** [castonaut.vercel.app](https://castonaut.vercel.app/) · **Source:** [github.com/wlplease/castonaut](https://github.com/wlplease/castonaut)
+
 The app’s visual direction, theme rules, soundtrack asset path, and ready-to-use Suno prompt are in [BRAND_GUIDE.md](BRAND_GUIDE.md).
 
 The user-facing [Privacy Notice](privacy.html) and [Terms of Use](terms.html) describe the current client behavior and its service providers. Before public launch, the operator must fill in a real legal identity, privacy/security contact, and governing jurisdiction in both pages and have the terms reviewed for the launch location.
