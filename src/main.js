@@ -1837,7 +1837,8 @@ async function beginWalletConnection() {
     pendingWalletAccount = { custodyAddress, fid };
     $('#wallet-review-fid').textContent = `Farcaster ID · ${fid}`;
     $('#wallet-review-address').textContent = `Wallet · ${custodyAddress}`;
-    setConnectionStatus(`Account found. Check the FID and wallet address below before authorizing this browser key.`, { active: 'approve', completed: ['sign'] });
+    setConnectionStatus(`Farcaster account found · FID ${fid}. Review the limited app-key request in your wallet.`, { active: 'approve', completed: ['sign'], busy: true });
+    await authorizeSigner(null, pendingWalletAccount);
   } catch (error) {
     setConnectionStatus(error.message, { active: 'sign' });
   } finally {
