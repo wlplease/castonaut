@@ -3,6 +3,7 @@ import { isIP } from 'node:net';
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 5;
 const MAX_RATE_LIMIT_ENTRIES = 4096;
+const MAX_PROVIDER_RESPONSE_BYTES = 64 * 1024;
 const hits = new Map();
 
 function clientKey(req) {
@@ -71,6 +72,34 @@ function cleanPosts(body) {
   return posts.length ? posts : null;
 }
 
+async function readProviderResponse(response) {
+  const reader = response.body?.getReader();
+  if (!reader) return {};
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_PROVIDER_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new Error('Provider response exceeded the 64 KB limit');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
 export default async function digest(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
@@ -108,7 +137,7 @@ export default async function digest(req, res) {
       signal: AbortSignal.timeout(22_000),
     });
     if (!response.ok) return res.status(502).json({ error: 'Gemini could not create the digest right now. Try again shortly.' });
-    const result = await response.json();
+    const result = await readProviderResponse(response);
     const text = (result.candidates?.[0]?.content?.parts || [])
       .map((part) => typeof part.text === 'string' ? part.text : '')
       .join('\n').trim().slice(0, 4_000);

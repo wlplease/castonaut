@@ -1964,7 +1964,8 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
       busy: true,
     });
     const scopes = [protocol.MessageType.CAST_ADD, protocol.MessageType.CAST_REMOVE, protocol.MessageType.REACTION_ADD, protocol.MessageType.REACTION_REMOVE, protocol.MessageType.LINK_ADD, protocol.MessageType.LINK_REMOVE];
-    const keyBody = resultOrThrow(await protocol.makeKeyAddBody({ fid: BigInt(fid), key: protocol.hexStringToBytes(publicKey), scopes, ttl: KEY_TTL_SECONDS, nonce: nonce + 1, deadline }, eip712Signer), 'Could not authorize the app key');
+    const appKeyBytes = resultOrThrow(protocol.hexStringToBytes(publicKey), 'Could not prepare the browser app key');
+    const keyBody = resultOrThrow(await protocol.makeKeyAddBody({ fid: BigInt(fid), key: appKeyBytes, scopes, ttl: KEY_TTL_SECONDS, nonce: nonce + 1, deadline }, eip712Signer), 'Could not authorize the app key');
     const message = resultOrThrow(await protocol.makeKeyAdd(keyBody, { fid, network: protocol.FarcasterNetwork.MAINNET }, signer), 'Could not sign key registration');
     const signedRequest = protocol.Message.encode(message).finish();
     await storeSigner({ fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
@@ -2376,7 +2377,7 @@ function applyLocationRoute() {
 
 function castBody(text, parent, protocol, embeds = []) {
   const body = { text, type: protocol.CastType.CAST, embeds: embeds.slice(0, 4).map((url) => ({ url })), embedsDeprecated: [], mentions: [], mentionsPositions: [] };
-  if (parent) body.parentCastId = { fid: Number(parent.fid), hash: protocol.hexStringToBytes(parent.hash) };
+  if (parent) body.parentCastId = { fid: Number(parent.fid), hash: resultOrThrow(protocol.hexStringToBytes(parent.hash), 'Could not read the reply cast hash') };
   return body;
 }
 
@@ -3182,7 +3183,7 @@ document.addEventListener('click', async (event) => {
       let active = false;
       try { await nodeRequest('reactionById', params); active = true; }
       catch (error) { if (!/\(404\)/.test(error.message)) throw error; }
-      const body = { type: reactionType, targetCastId: { fid: targetFid, hash: protocol.hexStringToBytes(hash) } };
+      const body = { type: reactionType, targetCastId: { fid: targetFid, hash: resultOrThrow(protocol.hexStringToBytes(hash), 'Could not read the reaction cast hash') } };
       const message = active
         ? await protocol.makeReactionRemove(body, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner())
         : await protocol.makeReactionAdd(body, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner());

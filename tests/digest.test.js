@@ -47,7 +47,7 @@ test('digest endpoint sends bounded content with a server-only key and sanitizes
   let captured;
   globalThis.fetch = async (url, options) => {
     captured = { url, options };
-    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: '• A concise summary.' }] } }] }) };
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '• A concise summary.' }] } }] }), { status: 200 });
   };
   try {
     const response = await invoke({ body: { posts: [{ text: 'Hello' }, { text: 'World' }] }, ip: '192.0.2.27' });
@@ -62,10 +62,31 @@ test('digest endpoint sends bounded content with a server-only key and sanitizes
     assert.equal(captured.options.signal.aborted, false);
     assert.ok(!JSON.stringify(response.payload).includes('test-server-secret'));
 
-    globalThis.fetch = async () => ({ ok: false, status: 401, text: async () => 'secret provider detail' });
+    globalThis.fetch = async () => new Response('secret provider detail', { status: 401 });
     const failed = await invoke({ ip: '192.0.2.28' });
     assert.equal(failed.code, 502);
     assert.ok(!JSON.stringify(failed.payload).includes('secret provider detail'));
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = oldKey;
+  }
+});
+
+test('digest endpoint bounds and validates the upstream response body', async () => {
+  const oldKey = process.env.GEMINI_API_KEY;
+  const oldFetch = globalThis.fetch;
+  process.env.GEMINI_API_KEY = 'test-server-secret';
+  try {
+    globalThis.fetch = async () => new Response('x'.repeat(64 * 1024 + 1), { status: 200 });
+    const oversized = await invoke({ ip: '192.0.2.29' });
+    assert.equal(oversized.code, 502);
+    assert.equal(oversized.payload.error, 'Gemini is temporarily unavailable. Try again shortly.');
+
+    globalThis.fetch = async () => new Response('not-json', { status: 200 });
+    const malformed = await invoke({ ip: '192.0.2.30' });
+    assert.equal(malformed.code, 502);
+    assert.equal(malformed.payload.error, 'Gemini is temporarily unavailable. Try again shortly.');
   } finally {
     globalThis.fetch = oldFetch;
     if (oldKey === undefined) delete process.env.GEMINI_API_KEY;
