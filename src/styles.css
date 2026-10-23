@@ -1992,6 +1992,90 @@ html[data-theme="atlas"] .node-ribbon small{color:var(--station-copy-muted)}
   .client-preview{padding:13px 11px}
 }
 @media(prefers-reduced-motion:reduce){html[data-theme="atlas"] .route-line{animation:none}}
+
+/* Atlas is Castonaut's classic Macintosh inspired light desk. */
+html[data-theme="atlas"] {
+  --station-paper:#e7e6e2;
+  --station-card:#f8f7f3;
+  --station-line:#aaa9a5;
+  --station-ink:#272631;
+  --station-accent:#65508f;
+  --station-soft:#e7e2ef;
+  --station-gold:#8a6cb5;
+  --station-copy:#292832;
+  --station-copy-muted:#55535e;
+  --station-copy-soft:#6d6b74;
+  --station-focus:#65508f;
+  --orange:#8a6cb5;
+  --shadow:2px 3px 0 #37333d20, 0 10px 24px #37333d0b;
+}
+html[data-theme="atlas"] body {
+  background-color:#e7e6e2;
+  background-image:repeating-linear-gradient(0deg,#ffffff20 0 1px,transparent 1px 4px),radial-gradient(ellipse at 82% 0%,#f4f2ed 0,transparent 42%);
+  background-size:auto,100% 700px;
+}
+html[data-theme="atlas"] .sidebar,
+html[data-theme="atlas"] .topbar,
+html[data-theme="atlas"] .site-header,
+html[data-theme="atlas"] .window-titlebar,
+html[data-theme="atlas"] .dialog-top {
+  background-color:#eeede9;
+  background-image:repeating-linear-gradient(0deg,#ffffff60 0 1px,#e9e8e4 1px 2px);
+}
+html[data-theme="atlas"] .sidebar { border-color:#aaa9a5; }
+html[data-theme="atlas"] .topbar,
+html[data-theme="atlas"] .site-header { border-color:#aaa9a5; box-shadow:0 2px 0 #fff9; }
+html[data-theme="atlas"] .brand strong,
+html[data-theme="atlas"] .mobile-brand strong,
+html[data-theme="atlas"] .site-brand strong { color:#272631; }
+html[data-theme="atlas"] .brand small,
+html[data-theme="atlas"] .mobile-brand small,
+html[data-theme="atlas"] .site-brand small { color:#64616b; }
+html[data-theme="atlas"] .nav-item { color:#45434d; }
+html[data-theme="atlas"] .nav-item:hover { background:#dedbe3; color:#272631; }
+html[data-theme="atlas"] .nav-item.active { background:#e1dbea; color:#332a46; box-shadow:inset 3px 0 #65508f, inset 0 0 0 1px #c7bfd5; }
+html[data-theme="atlas"] .room-heading,
+html[data-theme="atlas"] .feed-window,
+html[data-theme="atlas"] .client-preview,
+html[data-theme="atlas"] .desk-strip,
+html[data-theme="atlas"] .side-card,
+html[data-theme="atlas"] .profile-summary,
+html[data-theme="atlas"] .post-card,
+html[data-theme="atlas"] .identity-bar,
+html[data-theme="atlas"] .node-ribbon,
+html[data-theme="atlas"] .sidebar-note {
+  border:1px solid #aaa9a5;
+  border-radius:4px;
+  box-shadow:inset 0 0 0 1px #fff9, 2px 3px 0 #37333d12;
+}
+html[data-theme="atlas"] .room-heading { background:#f7f6f2; }
+html[data-theme="atlas"] .feed-window,
+html[data-theme="atlas"] .client-preview { background:#f8f7f3; }
+html[data-theme="atlas"] .window-titlebar { color:#373540; border-bottom-color:#aaa9a5; }
+html[data-theme="atlas"] .window-controls { gap:5px; }
+html[data-theme="atlas"] .window-controls i { width:9px; height:9px; border:1px solid #56535d; border-radius:1px; background:#f8f7f3; box-shadow:inset 1px 1px #fff; }
+html[data-theme="atlas"] .window-controls i:nth-child(2) { background:#d8d2e2; }
+html[data-theme="atlas"] .window-controls i:nth-child(3) { background:#aaa5b3; }
+html[data-theme="atlas"] .button,
+html[data-theme="atlas"] .site-nav a,
+html[data-theme="atlas"] .theme-picker,
+html[data-theme="atlas"] .avatar-button {
+  border-radius:3px;
+  box-shadow:inset 1px 1px #ffffffb8, inset -1px -1px #00000012;
+}
+html[data-theme="atlas"] .button-orange,
+html[data-theme="atlas"] .hero-actions .button { background:#65508f; border-color:#514174; color:#fff; box-shadow:inset 1px 1px #ffffff55, 0 2px 0 #43365d; }
+html[data-theme="atlas"] .button-orange:hover,
+html[data-theme="atlas"] .hero-actions .button:hover { background:#55427d; }
+html[data-theme="atlas"] .fid-form input,
+html[data-theme="atlas"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="atlas"] textarea,
+html[data-theme="atlas"] select { background:#fffefa; color:#292832; border-color:#8e8b92; border-radius:3px; }
+html[data-theme="atlas"] :focus-visible { outline-color:#65508f; }
+html[data-theme="atlas"] .sidebar-note { background:#f2f0eb; }
+html[data-theme="atlas"] .sidebar-note small { color:#55535e; }
+html[data-theme="atlas"] .site-nav a { color:#484650; }
+html[data-theme="atlas"] .site-nav a[aria-current="page"] { border-color:#a89cbe; background:#e6e0ed; color:#493b68; }
 @media(max-width:620px){
   .crumb{display:none}
   .feed-list{gap:6px;padding:5px 5px 10px}

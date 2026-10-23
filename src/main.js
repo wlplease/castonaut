@@ -4,6 +4,7 @@ import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
 import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-capsules.js';
 import { isStationAccessAllowed } from './station-access.js';
 import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
+import { resultOrThrow } from './hub-result.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -159,11 +160,6 @@ try {
   const savedVoice = localStorage.getItem(VOICE_STORAGE);
   if (STATION_VOICES.some((voice) => voice.id === savedVoice)) selectedVoice = savedVoice;
 } catch { /* The first voice remains selected for this visit. */ }
-
-function resultOrThrow(result, label) {
-  if (!result || (typeof result.isErr === 'function' && result.isErr())) throw new Error(`${label}: ${result?.error || 'could not create protocol message'}`);
-  return result.value ?? result;
-}
 
 function hubOk(value) { return { value, isErr: () => false }; }
 
@@ -1894,7 +1890,8 @@ async function waitForSigner(fid, publicKey, tries = 6, onProgress = () => {}) {
     onProgress(i + 1, tries);
     try {
       if (await findSigner(fid, publicKey)) return true;
-    } catch {
+    } catch (error) {
+      if (/Too many requests|\(429\)/i.test(error.message)) throw error;
       // A temporarily unavailable read should not discard the saved signed registration.
     }
     if (i < tries - 1) await new Promise((resolve) => setTimeout(resolve, 1500));

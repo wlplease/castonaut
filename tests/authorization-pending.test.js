@@ -14,7 +14,8 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   const waitEnd = source.indexOf('\nasync function authorizeSigner', waitStart);
   const wait = source.slice(waitStart, waitEnd);
   assert.match(wait, /tries = 6/);
-  assert.match(wait, /catch \{/);
+  assert.match(wait, /catch \(error\)/);
+  assert.match(wait, /Too many requests\|\\\(429\\\)/);
   assert.match(wait, /onProgress\(i \+ 1, tries\)/);
 
   const authStart = source.indexOf('async function authorizeSigner(');

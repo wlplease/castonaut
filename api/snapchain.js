@@ -18,7 +18,9 @@ const hits = new Map();
 const WINDOW_MS = 60_000;
 const MAX_READS_PER_WINDOW = 240;
 const MAX_WRITES_PER_WINDOW = 20;
-const MAX_SIGNER_CHECKS_PER_WINDOW = 12;
+// A normal authorization uses one nonce read plus up to six confirmation
+// polls. Allow a manual retry in the same minute without throttling the owner.
+const MAX_SIGNER_CHECKS_PER_WINDOW = 60;
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_RATE_LIMIT_ENTRIES = 4096;

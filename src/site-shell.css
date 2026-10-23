@@ -83,6 +83,27 @@ html[data-theme="night-radio"] .site-nav a:hover { background: #211b2c; }
 html[data-theme="night-radio"] .site-footer nav a { color: #c4bdce; }
 html[data-theme="night-radio"] .site-brand strong { color: #eeeaf4; }
 
+/* Shared site chrome follows the Classic Mac platinum treatment. */
+html[data-theme="atlas"] {
+  --shell-ink:#272631;
+  --shell-muted:#625f69;
+  --shell-line:#aaa9a5;
+  --shell-paper:#eeede9;
+  --shell-accent:#65508f;
+  --shell-accent-soft:#e6e0ed;
+}
+html[data-theme="atlas"] .site-header {
+  background-color:#eeede9;
+  background-image:repeating-linear-gradient(0deg,#ffffff60 0 1px,#e9e8e4 1px 2px);
+  box-shadow:0 2px 0 #fff9;
+}
+html[data-theme="atlas"] .site-nav a { color:#484650; border-radius:3px; }
+html[data-theme="atlas"] .site-nav a:hover,
+html[data-theme="atlas"] .site-nav a[aria-current="page"] { border-color:#aaa9a5; background:#e6e0ed; color:#493b68; }
+html[data-theme="atlas"] .site-footer { border-color:#aaa9a5; }
+html[data-theme="atlas"] .site-footer nav a { color:#55535e; }
+html[data-theme="atlas"] .site-brand img { border-radius:4px; box-shadow:inset 1px 1px #fff, 1px 2px 0 #0002; }
+
 @media (max-width: 820px) {
   .site-header { grid-template-columns: minmax(150px, 1fr) auto; gap: 8px 12px; min-height: 70px; padding-block: 8px; }
   .site-brand img { width: 34px; height: 34px; }
