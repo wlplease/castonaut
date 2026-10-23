@@ -2274,6 +2274,14 @@ html[data-theme="atlas"] body{
 .feed-layout{grid-template-columns:minmax(0,1fr) 252px;gap:25px}
 .feed-window{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid var(--station-line);border-radius:13px;background:var(--station-card);box-shadow:0 5px 18px color-mix(in srgb,var(--station-ink) 5%,transparent)}
 .feed-window>.feed-toolbar{order:0;padding:19px 20px 14px;border-bottom:1px solid var(--station-line);background:linear-gradient(110deg,var(--station-card),color-mix(in srgb,var(--station-soft) 32%,var(--station-card)))}
+.feed-caption:empty{display:none}
+.feed-window>.feed-pulse{display:none!important}
+.board-tab span[hidden]{display:none}
+.feed-window>.composer[hidden]{display:none!important}
+.feed-window>.composer{margin-top:0}
+.feed-filter-summary{justify-content:flex-start}
+.feed-filter-summary span{display:none}
+.loaded-search-control small{display:none}
 .feed-window>.suggested-panel{order:1}
 .feed-window>.profile-summary,.feed-window>.conversation-view{order:2}
 .feed-window>.composer{order:3;margin:0;border-bottom:1px solid var(--station-line);background:var(--station-card)}

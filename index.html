@@ -154,16 +154,6 @@
                 <div><input id="desk-person-query" type="search" maxlength="200" placeholder="@username or FID" autocomplete="off" /><button type="submit" class="button button-outline">Add to Desk</button></div>
                 <p id="desk-person-status" role="status" aria-live="polite" hidden></p>
               </form>
-              <section class="first-orbit" id="first-orbit" aria-labelledby="first-orbit-title">
-                <div class="first-orbit-heading"><div><span class="overline">GET STARTED</span><h3 id="first-orbit-title">Make this place yours.</h3></div><span class="first-orbit-progress" id="first-orbit-progress">0 / 3</span></div>
-                <p class="first-orbit-intro">Follow someone. Save a post. Keep a page.</p>
-                <div class="first-orbit-steps" role="group" aria-label="Three optional steps to personalize your Desk">
-                  <button type="button" class="first-orbit-step" data-flight-step="person"><span class="first-orbit-number">01</span><span class="first-orbit-label"><strong>Pin a person</strong><small>Keep someone close</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
-                  <button type="button" class="first-orbit-step" data-flight-step="signal"><span class="first-orbit-number">02</span><span class="first-orbit-label"><strong>Save a post</strong><small>Keep a cast on your Desk</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
-                  <button type="button" class="first-orbit-step" data-flight-step="page"><span class="first-orbit-number">03</span><span class="first-orbit-label"><strong>Keep a page</strong><small>Save today’s feed to revisit</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
-                </div>
-                <small class="first-orbit-privacy">Optional · progress stays on this device</small>
-              </section>
               <section class="desk-people-section" aria-labelledby="desk-people-title"><div class="desk-section-heading"><h3 id="desk-people-title">People</h3><span id="desk-people-count">0 pinned</span></div><div class="desk-pins" id="desk-pins"><span class="desk-empty">Your pinned people will live here.</span></div></section>
               <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Saved posts and topics"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><span id="desk-cast-count">0 saved</span></div><div class="desk-saved-signals" id="desk-casts"></div></section><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Topics</h3><span id="desk-topic-count">0 pinned</span></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
               <p class="desk-active-topic" id="desk-active-topic" hidden></p>
@@ -187,7 +177,7 @@
             <div class="feed-layout" data-area="feed">
                 <section class="feed-window" id="feed-window" aria-labelledby="feed-title">
                 <div class="feed-toolbar">
-                  <div><div class="overline">YOUR TIMELINE</div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
+                  <div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
                   <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Friends <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Crew <span id="crew-count">0</span></button></div><details class="feed-extra-menu"><summary class="board-tab" aria-label="More feed options">More <span aria-hidden="true">⌄</span></summary><div class="feed-extra-panel"><button type="button" class="board-tab discover-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel" hidden>Find people</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button><button type="button" class="board-tab media-toggle" id="media-toggle" aria-pressed="false" aria-label="Remote media off. Media hosts can see your IP when enabled.">▧ <span>Media off</span></button></div></details><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
                 </div>
                 <section class="suggested-panel" id="suggested-panel" aria-labelledby="suggested-title" hidden>
@@ -229,9 +219,9 @@
                   <button type="button" class="draft-discard" id="draft-discard" hidden>Discard this draft</button>
                 </form>
                 <details class="feed-filters" id="feed-filters" hidden>
-                  <summary class="feed-filter-summary">View options <span>FILTERS · LOCAL</span></summary>
+                  <summary class="feed-filter-summary">Filters</summary>
                 <div class="feed-filter-options">
-                    <label class="source-control loaded-search-control" for="loaded-search"><span>Find in loaded posts</span><input id="loaded-search" type="search" maxlength="100" placeholder="Words, person, or link" autocomplete="off" /><small>Searches this view on this device.</small></label>
+                    <label class="source-control loaded-search-control" for="loaded-search"><span>Find in loaded posts</span><input id="loaded-search" type="search" maxlength="100" placeholder="Words, person, or link" autocomplete="off" /></label>
                     <label class="feed-option-control"><input id="filter-replies" type="checkbox" /><span>Replies only</span></label>
                     <label class="feed-option-control"><input id="filter-media" type="checkbox" /><span>Media only</span></label>
                     <label class="feed-option-control" title="Mini Apps appear as URL embeds in cast data; regular website links may match too."><input id="filter-apps" type="checkbox" /><span>App &amp; link embeds</span></label>
@@ -244,7 +234,6 @@
                     <label class="external-media-option" for="external-images"><input id="external-images" type="checkbox" /><span>Load remote media<small>Media hosts can see your IP</small></span></label>
                     <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>
                     <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Friends <kbd>3</kbd> Crew <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
-                    <span class="source-note">Preferences stay on this device.</span>
                   </div>
                 </details>
                 <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">

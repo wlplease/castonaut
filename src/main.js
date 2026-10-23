@@ -322,10 +322,10 @@ async function nodeRequest(route, params = {}, options = {}) {
   }
 }
 
-async function fetchFollowGraph(fid) {
+async function fetchFollowGraph(fid, limits = {}) {
   return loadFollowGraph(
     (params) => nodeRequest('links', { fid: Number(fid), link_type: 'follow', ...params }),
-    { ownFid: Number(fid), maxPages: 20, maxFollows: 2000 },
+    { ownFid: Number(fid), maxPages: 20, maxFollows: 2000, ...limits },
   );
 }
 
@@ -656,6 +656,10 @@ function renderEmpty(title, copy, action = null) {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
     button.addEventListener('click', () => loadFeed(state.feedTargetFid || state.fid, 'profile'));
     box.append(button);
+  } else if (action?.type === 'search') {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
+    button.addEventListener('click', () => { navigate('search'); requestAnimationFrame(() => $('#people-query').focus()); });
+    box.append(button);
   } else if (action?.type === 'clear-source') {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
     button.addEventListener('click', () => { $('#source-fid').value = ''; $('#source-mode').value = 'include'; renderFeed(); });
@@ -708,7 +712,9 @@ function updateFeedTabs() {
     button.setAttribute('aria-pressed', String(state.boardMode === 'signals' && state.feedMode === mode));
   }
   $('#friend-count').textContent = String(state.friendFids.length);
+  $('#friend-count').hidden = state.friendFids.length === 0;
   $('#crew-count').textContent = String(state.crewFids.length);
+  $('#crew-count').hidden = state.crewFids.length === 0;
   $('#show-crew').firstChild.textContent = `${state.crewName} `;
   const discover = $('#show-suggested');
   if (discover) {
@@ -998,7 +1004,7 @@ async function loadSuggestedPeople() {
   try {
     let followed = [...state.following.keys()];
     if (!followed.length) {
-      const graph = await fetchFollowGraph(state.fid);
+      const graph = await fetchFollowGraph(state.fid, { maxPages: 4, maxFollows: 400 });
       followed = graph.fids;
       state.following.clear();
       for (const target of followed) state.following.set(target, true);
@@ -1068,10 +1074,11 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   if (loadedSearch) loadedSearch.value = '';
   renderFeedMore();
   renderIdentity();
+  $('#feed-count').hidden = state.feedMode === 'profile';
   if (state.feedMode === 'profile' && fid !== Number(state.fid)) refreshFollowState(fid);
   updateFeedTabs();
   $('#page-label').textContent = state.feedMode === 'profile' ? 'PROFILE' : state.feedMode === 'crew' ? state.crewName.toUpperCase() : state.feedMode.toUpperCase();
-  $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log';
+  $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log' || state.feedMode === 'profile';
   const requestId = ++state.feedRequest;
   state.casts = [];
   $('#feed-pulse').hidden = true;
@@ -1082,7 +1089,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Friends' : state.feedMode === 'crew' ? state.crewName : 'Following';
   if (state.boardMode === 'signals') {
     $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
-    $('#feed-caption').textContent = feedDescription(state.feedMode);
+    $('#feed-caption').textContent = state.feedMode === 'following' ? '' : feedDescription(state.feedMode);
   }
   renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Loading your feed.');
   try {
@@ -1110,7 +1117,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     renderSuggestedPeople();
     if (state.boardMode === 'signals') {
       $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
-      $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · FID ${fid}` : feedDescription(state.feedMode);
+      $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username}` : '';
     }
     if (!limitedFids.length && ['friends', 'crew'].includes(state.feedMode)) {
       state.casts = [];
@@ -1205,10 +1212,7 @@ function renderFeedMore() {
 function updateFollowingCoverage() {
   const caption = $('#feed-caption');
   if (!caption || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
-  const loaded = Math.max(0, Math.min(state.feedFollowTotal, state.feedSourceOffset));
-  const available = Math.min(state.feedFollowTotal, state.feedSources.length);
-  const capNote = !state.feedFollowComplete ? ` · first ${available.toLocaleString()}+ follows` : state.feedFollowTotal > available ? ` · ${available}/${state.feedFollowTotal} follows in range` : '';
-  caption.textContent = `Latest · spread across follows · ${loaded}/${available} checked${capNote}.`;
+  caption.textContent = '';
 }
 
 async function loadMoreFollowed() {
@@ -1284,6 +1288,7 @@ function renderFeed() {
     : messages.map((message) => ({ messages: [message], reason: null }));
   const repeatedGroupCount = groups.filter((group) => group.messages.length > 1).length;
   const list = $('#feed-list');
+  $('#feed-count').hidden = state.boardMode === 'signals' && state.feedMode === 'profile';
   $('#group-repeats-control').hidden = state.boardMode !== 'signals';
   $('#orbit-only-control').hidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
   renderFeedPulse(messages);
@@ -1302,7 +1307,8 @@ function renderFeed() {
     } else if (state.feedMode === 'profile') {
       const profile = state.people.get(state.feedTargetFid);
       const isMediaTab = state.profileTab === 'media';
-      renderEmpty(isMediaTab ? 'No media in this profile yet.' : 'No recent posts here.', isMediaTab ? 'Media appears here when this profile shares an image or link.' : profile ? `Recent posts from @${profile.username} will appear here.` : 'Recent posts from this profile will appear here.');
+      const handle = profile?.username ? `@${profile.username}` : 'this profile';
+      renderEmpty(isMediaTab ? 'No media here yet.' : 'No posts found.', isMediaTab ? `No media was returned for ${handle}.` : `Your node returned no posts for ${handle}. If you meant another account, search its full username.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
     } else if (state.feedMode === 'friends' && !state.friendFids.length) {
       renderEmpty('Your Friends list is empty.', 'Search for someone and choose “Add to Friends” on their profile. This circle stays on this device.');
     } else if (state.feedMode === 'crew' && !state.crewFids.length) {
@@ -1388,37 +1394,10 @@ function updateCastRelationship(fid) {
 function renderFeedPulse(messages) {
   const panel = $('#feed-pulse');
   if (!panel) return;
-  panel.hidden = !state.casts.length || state.boardMode === 'flight-log';
-  if (!state.casts.length || state.boardMode === 'flight-log') return;
-  const people = new Map();
-  for (const message of messages) {
-    const fid = Number(message?.data?.fid) || 0;
-    if (fid) people.set(fid, (people.get(fid) || 0) + 1);
-  }
-  const busiest = [...people.entries()].sort((a, b) => b[1] - a[1])[0];
-  const orbitPosts = messages.filter((message) => state.deskPins.includes(Number(message?.data?.fid))).length;
-  const topicCounts = new Map();
-  for (const message of messages) for (const topic of topicsForCast(message)) topicCounts.set(topic, (topicCounts.get(topic) || 0) + 1);
-  const topTopic = [...topicCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-  const stats = $('#pulse-stats');
-  stats.replaceChildren();
-  const addStat = (label, value) => {
-    const item = document.createElement('div'); item.className = 'pulse-stat';
-    const strong = document.createElement('strong'); strong.textContent = value;
-    const small = document.createElement('small'); small.textContent = label;
-    item.append(strong, small); stats.append(item);
-  };
-  addStat('signals in this view', String(messages.length));
-  addStat('from your Orbit', `${orbitPosts} / ${messages.length}`);
-  if (topTopic) addStat('recurring topic', `${topTopic[0].replace(/^site:/, '')} · ${topTopic[1]}`);
-  if (busiest) {
-    const profile = state.people.get(busiest[0]) || { fid: busiest[0], name: `FID ${busiest[0]}` };
-    addStat('most active', `${localProfileName(profile)} · ${busiest[1]}`);
-  }
-  const busiestLabel = busiest ? `${localProfileName(state.people.get(busiest[0]) || { fid: busiest[0], name: `FID ${busiest[0]}` })} appears most` : '';
-  const orbitHint = state.deskPins.length ? `${orbitPosts} from your pinned people` : 'Pin people to build your Orbit';
-  const topicHint = topTopic ? ` · ${topTopic[0].replace(/^site:/, '')} repeats ${topTopic[1]} times` : '';
-  $('#pulse-insight').textContent = `${busiestLabel ? `${busiestLabel} · ` : ''}${orbitHint}${topicHint}. Counted on this device from posts already loaded.`;
+  // The feed summary repeated counts already visible elsewhere and crowded the
+  // timeline. Keep the data calculation out of the primary reading path.
+  panel.hidden = true;
+  return;
 }
 
 function renderProfileSummary() {
@@ -1695,35 +1674,13 @@ function saveProfileTouch(fid, values) {
   return true;
 }
 
-function renderFirstOrbit() {
-  const panel = $('#first-orbit');
-  if (!panel) return;
-  const progress = {
-    person: state.deskPins.length > 0,
-    signal: state.deskCasts.length > 0,
-    page: state.capsules.length > 0,
-  };
-  const completed = Object.values(progress).filter(Boolean).length;
-  panel.hidden = completed === 3;
-  const count = $('#first-orbit-progress');
-  if (count) count.textContent = `${completed} / 3`;
-  for (const [step, done] of Object.entries(progress)) {
-    const button = panel.querySelector(`[data-flight-step="${step}"]`);
-    if (!button) continue;
-    button.classList.toggle('is-complete', done);
-    button.setAttribute('aria-label', `${button.querySelector('strong')?.textContent || 'Step'}${done ? ', complete' : ''}`);
-    const mark = button.querySelector('.first-orbit-mark');
-    if (mark) mark.textContent = done ? '✓' : '↗';
-  }
-}
-
 function renderDesk() {
   const container = $('#desk-pins');
   if (!container) return;
   $('#desk-people-count').textContent = `${state.deskPins.length} pinned`;
   container.replaceChildren();
   if (!state.deskPins.length) {
-    const empty = document.createElement('span'); empty.className = 'desk-empty'; empty.textContent = 'Pin a person from any post to keep them here.'; container.append(empty);
+    const empty = document.createElement('span'); empty.className = 'desk-empty'; empty.textContent = 'Add a profile above or pin someone from a post.'; container.append(empty);
   } else {
     for (const fid of state.deskPins) {
       const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '' };
@@ -1743,7 +1700,6 @@ function renderDesk() {
   }
   renderDeskShortcuts();
   renderCapsuleShelf();
-  renderFirstOrbit();
 }
 
 function loadTimeCapsules(fid) {
@@ -1781,7 +1737,6 @@ function renderCapsuleShelf() {
     }
   }
   renderCapsuleReplay();
-  renderFirstOrbit();
 }
 
 function renderCapsuleReplay() {
@@ -1862,7 +1817,6 @@ function renderDeskShortcuts() {
     active.replaceChildren(document.createTextNode(`Showing ${state.activeDeskTopic.replace(/^site:/, '')} in this feed `));
     const clear = document.createElement('button'); clear.type = 'button'; clear.dataset.clearDeskTopic = 'true'; clear.textContent = 'Clear'; active.append(clear);
   }
-  renderFirstOrbit();
 }
 
 function toggleDeskCast(fidValue, hashValue) {
@@ -1945,9 +1899,9 @@ function setBoardMode(mode) {
   $('#feed-title').textContent = logMode ? 'Saved' : state.feedMode === 'profile' ? 'Posts' : state.feedMode === 'crew' ? state.crewName : state.feedMode === 'friends' ? 'Friends' : 'Following';
   $('#feed-caption').textContent = logMode
     ? 'Saved on this device.'
-    : state.feedMode === 'profile' ? `@${state.people.get(state.feedTargetFid)?.username || 'this profile'}` : 'Newest first.';
+    : state.feedMode === 'profile' ? `@${state.people.get(state.feedTargetFid)?.username || 'this profile'}` : '';
   $('#feed-filters').hidden = logMode || !state.casts.length;
-  $('#composer').hidden = !state.signerReady || logMode;
+  $('#composer').hidden = !state.signerReady || logMode || state.feedMode === 'profile';
   renderFeed();
   restoreFeedScroll();
 }
@@ -1956,7 +1910,7 @@ function setFeedTab(mode) {
   saveFeedScroll();
   feedScrollSaved = true;
   state.boardMode = 'signals';
-  $('#composer').hidden = !state.signerReady;
+  $('#composer').hidden = !state.signerReady || mode === 'profile';
   loadFeed(state.fid, mode);
 }
 
@@ -2434,7 +2388,7 @@ function renderIdentity() {
   $('#profile-avatar').textContent = profile.name.slice(0, 1).toUpperCase();
   const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
   if (avatarUrl) $('#profile-avatar').replaceChildren(makeRemoteImage(avatarUrl));
-  $('#composer').hidden = !ready || state.boardMode === 'flight-log';
+  $('#composer').hidden = !ready || state.boardMode === 'flight-log' || state.feedMode === 'profile';
   $('#composer-context').textContent = state.signerReady ? 'Scoped key · stored in this browser' : 'App key is awaiting merge confirmation';
   $('#composer-text').disabled = !ready;
   $('#composer button[type="submit"]').disabled = !ready;
@@ -3013,21 +2967,6 @@ $('#portal-enter').addEventListener('click', () => {
   if (state.signer && !state.signerReady) $('#check-signer').hidden = false;
 });
 $('#capsule-seal').addEventListener('click', sealTimeCapsule);
-$('#first-orbit')?.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-flight-step]');
-  if (!button) return;
-  const step = button.dataset.flightStep;
-  if (step === 'page') {
-    const capsule = $('.time-capsule');
-    if (capsule) { capsule.open = true; capsule.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-    setNotice($('#capsule-seal')?.disabled ? 'Load a feed to save today’s page.' : 'Save today’s feed page to revisit it later.');
-    return;
-  }
-  $('#feed-window')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setNotice(step === 'person'
-    ? 'Choose a cast, open its ••• menu, then select Pin person to Desk.'
-    : 'Choose a cast, open its ••• menu, then select Pin signal to Desk.');
-});
 $('#capsule-shelf').addEventListener('click', (event) => {
   const button = event.target.closest('[data-open-capsule]');
   if (!button) return;
@@ -3477,6 +3416,7 @@ document.addEventListener('click', async (event) => {
     const hash = button.dataset.hash;
     if (button.dataset.action === 'reply') {
       state.parent = { fid: targetFid, hash };
+      $('#composer').hidden = false;
       $('#composer-text').placeholder = `Replying to ${profileLabel(state.people.get(targetFid), targetFid)}…`;
       $('#composer-text').focus(); $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
