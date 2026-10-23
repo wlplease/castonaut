@@ -20,16 +20,20 @@
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#405b89" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Castonaut" />
+    <link rel="canonical" href="https://castonaut.vercel.app/" />
+    <meta property="og:url" content="https://castonaut.vercel.app/" />
     <meta property="og:title" content="Castonaut — A Farcaster feed and your personal Desk." />
     <meta property="og:description" content="A Farcaster feed in time order, with a personal Desk for people and posts you want to return to." />
-    <meta property="og:image" content="/og-castonaut-pocket-atlas.png" />
+    <meta property="og:image" content="https://castonaut.vercel.app/og-castonaut-pocket-atlas.png" />
+    <meta property="og:image:secure_url" content="https://castonaut.vercel.app/og-castonaut-pocket-atlas.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:alt" content="Castonaut’s paper atlas and orbital map." />
     <meta property="og:image:width" content="1730" />
     <meta property="og:image:height" content="909" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Castonaut — A Farcaster feed and your personal Desk." />
     <meta name="twitter:description" content="A Farcaster feed in time order, with a personal Desk for people and posts you want to return to." />
-    <meta name="twitter:image" content="/og-castonaut-pocket-atlas.png" />
+    <meta name="twitter:image" content="https://castonaut.vercel.app/og-castonaut-pocket-atlas.png" />
     <meta name="twitter:image:alt" content="Castonaut’s paper atlas and orbital map." />
     <title>Castonaut — A Farcaster feed and your personal Desk.</title>
   </head>
@@ -105,13 +109,23 @@
               <span>READ ONLY · NO SIGN-IN PHRASE</span>
               <p>Explore profiles. Sign in to follow or post.</p>
             </aside>
-            <div class="area-heading" data-area="search"><span class="overline">EXPLORE FARCASTER</span><h1>Find a person.</h1><p>Search by username or Farcaster ID.</p></div>
+            <div class="area-heading" data-area="search"><span class="overline">EXPLORE FARCASTER</span><h1>Find your people.</h1><p>Look up an account or discover people already connected to your circle.</p></div>
             <form class="people-search" id="people-search" role="search" data-area="search">
               <label class="sr-only" for="people-query">Find a public Farcaster profile by username or FID</label>
-              <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="64" placeholder="Username or FID" autocomplete="off" />
-              <button type="submit" class="button button-outline">Explore</button>
+              <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="64" placeholder="@username or FID" autocomplete="off" />
+              <button type="submit" class="button button-outline">Find person</button>
               <p id="people-search-status" role="status" aria-live="polite" hidden></p>
             </form>
+            <p class="search-hints" data-area="search">Look up by <strong>@username</strong>, <strong>FID</strong>, or a Farcaster profile link.</p>
+            <form class="feed-search-launch" id="feed-search-launch" role="search" data-area="search">
+              <label for="feed-search-query"><span class="overline">SEARCH POSTS</span><strong>Find a word, person, or link</strong><small>Searches posts already loaded in your current feed, on this device.</small></label>
+              <div><input id="feed-search-query" type="search" maxlength="100" placeholder="e.g. onchain, @name, or example.com" autocomplete="off" /><button type="submit" class="button button-outline">Search feed</button></div>
+              <p id="feed-search-status" role="status" aria-live="polite" hidden></p>
+            </form>
+            <section class="suggested-panel search-network-panel" id="search-network" aria-labelledby="search-network-title" data-area="search">
+              <div class="suggested-panel-head"><div><span class="overline">YOUR FARCASTER CIRCLE</span><h3 id="search-network-title">People your follows know</h3><p>Ranked by how many people you follow also follow them.</p></div><button type="button" class="icon-button" id="search-network-refresh" aria-label="Refresh people suggestions">↻</button></div>
+              <div class="suggested-list" id="search-network-list" aria-live="polite"><p class="suggested-empty">Sign in to see suggestions from your circle.</p></div>
+            </section>
 
             <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title" data-area="feed">
               <div class="portal-art" aria-hidden="true"><img class="portal-illustration" src="/astral-atlas-art.webp" alt="" /><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span><span class="portal-art-caption">PLATE 037 <i>·</i> YOUR CORNER OF THE NETWORK</span></div>
@@ -257,7 +271,6 @@
             <section class="desk-guest-gate" id="desk-guest-gate" data-area="desk" hidden aria-labelledby="desk-guest-title">
               <span class="overline">YOUR DESK</span><h2 id="desk-guest-title">A space that’s yours.</h2><p>Sign in to pin people, save posts, and keep pages here on this device.</p><button class="button button-orange" id="desk-signin">Sign in to personalize</button>
             </section>
-            <footer class="page-footer"><span>CASTONAUT · FARCASTER CLIENT</span><span class="legal-links"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
 
           <section class="view node-view" id="node-view" data-panel="node" hidden>
@@ -271,11 +284,12 @@
             <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, Friends, and Crew in time order.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
             <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Personal space, kept personal.</h2><p>Your Desk, notes, and saves stay in this browser. Pulse counts loaded posts; Lens filters to pinned people. Remote images are off by default. Image hosts can see your IP when enabled. Analytics are opt-in.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share basic visit statistics</strong><small>Optional Vercel page analytics. Your choice is saved in this browser; page paths are sent without query strings or fragments.</small></span></label><a class="legal-inline-link" href="/privacy.html">Read the Privacy Notice</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
             <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>How Castonaut works</strong><small>Feeds, sign-in, and running a node.</small></span><span class="guide-arrow">↗</span></a>
-            <footer class="page-footer"><span>CASTONAUT · ABOUT</span><span class="legal-links"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
         </main>
       </div>
     </div>
+
+    <footer class="persistent-footer" aria-label="Castonaut links"><span>CASTONAUT</span><nav class="legal-links" aria-label="Footer navigation"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security</a></nav></footer>
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <dialog class="connect-dialog" id="connect-dialog" aria-labelledby="connect-title">

@@ -48,6 +48,23 @@ test('GIF gate fails closed when shared limiter configuration is missing', async
   const result = await call();
   assert.equal(result.statusCode, 503);
   assert.equal(result.payload.enabled, false);
+  assert.match(result.payload.error, /GIPHY_APP/);
+  assert.match(result.payload.error, /UPSTASH_REDIS_REST_URL/);
+  assert.match(result.payload.error, /UPSTASH_REDIS_REST_TOKEN/);
+  assert.doesNotMatch(result.payload.error, /public-test-app-key|server-only-test-token/);
+});
+
+test('GIF setup reports only the missing shared limiter settings when the GIPHY key exists', async () => {
+  process.env.GIPHY_APP = 'private-test-value';
+  delete process.env.GIPHY_API_KEY;
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  globalThis.fetch = async () => { throw new Error('fetch should not run'); };
+  const result = await call();
+  assert.equal(result.statusCode, 503);
+  assert.match(result.payload.error, /UPSTASH_REDIS_REST_URL/);
+  assert.match(result.payload.error, /UPSTASH_REDIS_REST_TOKEN/);
+  assert.doesNotMatch(result.payload.error, /GIPHY_APP|private-test-value/);
 });
 
 test('status reports availability without exposing the app key', async () => {

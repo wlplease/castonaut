@@ -90,6 +90,14 @@ function configuration() {
   } catch { return null; }
 }
 
+function missingConfiguration() {
+  const missing = [];
+  if (!(process.env.GIPHY_APP || process.env.GIPHY_API_KEY)) missing.push('GIPHY_APP');
+  if (!process.env.UPSTASH_REDIS_REST_URL) missing.push('UPSTASH_REDIS_REST_URL');
+  if (!process.env.UPSTASH_REDIS_REST_TOKEN) missing.push('UPSTASH_REDIS_REST_TOKEN');
+  return missing;
+}
+
 async function redisCommand(config, command, signal) {
   const response = await fetch(config.redisUrl, {
     method: 'POST',
@@ -105,8 +113,13 @@ async function redisCommand(config, command, signal) {
 }
 
 export default async function giphy(req, res) {
+  const missing = missingConfiguration();
+  if (missing.length) return send(res, 503, {
+    enabled: false,
+    error: `GIF search setup is incomplete. Add ${missing.join(', ')} in the Vercel Production environment, then redeploy. Secret values stay server-side.`,
+  });
   const config = configuration();
-  if (!config) return send(res, 503, { enabled: false, error: 'GIF search is not set up yet. Direct media links still work.' });
+  if (!config) return send(res, 503, { enabled: false, error: 'GIF search settings are invalid. Check the Upstash Redis REST URL; it must be an HTTPS Upstash URL.' });
 
   if (req.method === 'GET') {
     if (rateLimited(req, 'status', 30)) return send(res, 429, { enabled: false, error: 'Too many GIF status checks. Wait a minute.' }, { 'retry-after': '60' });

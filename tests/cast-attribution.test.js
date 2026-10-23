@@ -36,3 +36,21 @@ test('truncating by protocol bytes never splits a Unicode code point', () => {
   assert.equal(utf8ByteLength(truncated), CAST_USER_LIMIT - 3);
   assert.doesNotMatch(truncated, /\uFFFD/);
 });
+
+test('the installed Farcaster SDK accepts short and long casts through 1,024 bytes', async () => {
+  // @farcaster/core initializes a few old Faker fixtures at import time.
+  await import('../src/faker-compat.js');
+  const { CastType, FarcasterNetwork, makeCastAddData } = await import('@farcaster/core');
+  const makeBody = (text) => ({
+    text,
+    type: castTypeForText(text, CastType),
+    embeds: [],
+    embedsDeprecated: [],
+    mentions: [],
+    mentionsPositions: [],
+  });
+  const options = { fid: 1, network: FarcasterNetwork.MAINNET };
+  assert.equal((await makeCastAddData(makeBody('x'.repeat(320)), options)).isOk(), true);
+  assert.equal((await makeCastAddData(makeBody('x'.repeat(321)), options)).isOk(), true);
+  assert.equal((await makeCastAddData(makeBody(withCastonautAttribution('x'.repeat(CAST_USER_LIMIT))), options)).isOk(), true);
+});

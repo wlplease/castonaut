@@ -926,22 +926,28 @@ function renderCast(message) {
 }
 
 function renderSuggestedPeople() {
-  const list = $('#suggested-list');
-  if (!list) return;
+  const lists = [$('#suggested-list'), $('#search-network-list')].filter(Boolean);
+  if (!lists.length) return;
   if (state.suggestionsBusy) {
-    const loading = document.createElement('p'); loading.className = 'suggested-empty'; loading.textContent = 'Finding people across your circle…'; list.replaceChildren(loading); return;
+    for (const list of lists) { const loading = document.createElement('p'); loading.className = 'suggested-empty'; loading.textContent = 'Finding people across your circle…'; list.replaceChildren(loading); }
+    return;
+  }
+  if (!state.signerReady) {
+    for (const list of lists) { const empty = document.createElement('p'); empty.className = 'suggested-empty'; empty.textContent = 'Sign in to see people followed by your circle.'; list.replaceChildren(empty); }
+    return;
   }
   if (!state.suggestedPeople.length) {
     const empty = document.createElement('p'); empty.className = 'suggested-empty';
     empty.textContent = state.suggestionsError
-      ? 'Could not reach your node for suggestions. Close this panel and try again.'
-      : !state.feedSources.length
+      ? 'Could not reach your node. Try refreshing suggestions.'
+      : !state.following.size && !state.feedSources.length
         ? 'Follow a few people first. Suggestions come from their public follow graphs.'
-        : 'No strong matches yet. As your circle grows, useful suggestions will show up here.';
-    list.replaceChildren(empty); return;
+        : 'No overlap yet. Suggestions appear as your circle grows.';
+    for (const list of lists) list.replaceChildren(empty.cloneNode(true));
+    return;
   }
   const fragment = document.createDocumentFragment();
-  for (const suggestion of state.suggestedPeople.slice(0, 3)) {
+  for (const suggestion of state.suggestedPeople.slice(0, 5)) {
     const profile = state.people.get(suggestion.fid) || { fid: suggestion.fid, name: `Farcaster ${suggestion.fid}`, username: `fid-${suggestion.fid}` };
     const row = document.createElement('article'); row.className = 'suggested-person';
     const avatar = document.createElement('div'); avatar.className = 'suggested-avatar'; avatar.setAttribute('aria-hidden', 'true');
@@ -955,27 +961,30 @@ function renderSuggestedPeople() {
     const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline suggested-follow'; follow.dataset.action = 'follow'; follow.dataset.fid = String(suggestion.fid); follow.textContent = state.following.get(suggestion.fid) ? 'Following' : 'Follow'; follow.disabled = state.following.get(suggestion.fid) || !state.signerReady; follow.setAttribute('aria-pressed', String(!!state.following.get(suggestion.fid)));
     row.append(avatar, identity, follow); fragment.append(row);
   }
-  list.replaceChildren(fragment);
+  for (const list of lists) list.replaceChildren(...[...fragment.children].map((child) => child.cloneNode(true)));
 }
 
 async function loadSuggestedPeople() {
-  if (state.suggestionsBusy || !state.fid || state.feedMode !== 'following') return;
+  if (state.suggestionsBusy || !state.fid || !state.signerReady) return;
   if (state.suggestionsLoadedFor === Number(state.fid)) { renderSuggestedPeople(); return; }
   state.suggestionsBusy = true; state.suggestionsError = false; renderSuggestedPeople();
   try {
-    const sources = state.feedSources.slice(0, 5).filter((fid) => fid !== Number(state.fid));
-    const groups = await mapLimit(sources, 3, async (sourceFid) => {
-      const response = await nodeRequest('links', { fid: sourceFid, link_type: 'follow', pageSize: 75, reverse: true });
+    let followed = [...state.following.keys()];
+    if (!followed.length) {
+      const response = await nodeRequest('links', { fid: state.fid, link_type: 'follow', pageSize: 100, reverse: true });
+      followed = followedFeedSources(state.fid, unwrapMessages(response), 100);
+      state.following.clear();
+      for (const target of followed) state.following.set(target, true);
+    }
+    const sources = (followed.length ? followed : state.feedSources).slice(0, 4).filter((fid) => fid !== Number(state.fid));
+    const groups = await mapLimit(sources, 2, async (sourceFid) => {
+      const response = await nodeRequest('links', { fid: sourceFid, link_type: 'follow', pageSize: 50, reverse: true });
       return { sourceFid, messages: unwrapMessages(response) };
     });
     if (sources.length && !groups.some(Boolean)) throw new Error('No follow graphs responded.');
     const alreadyKnown = new Set([...state.following.keys(), ...state.friendFids, ...state.crewFids, ...state.mutedAuthors]);
-    const candidates = rankFollowRecommendations(groups.filter(Boolean), { ownFid: state.fid, followingFids: alreadyKnown, limit: 5 });
-    const strongest = candidates.some((candidate) => candidate.mutualCount > 1)
-      ? candidates.filter((candidate) => candidate.mutualCount > 1)
-      : candidates;
-    state.suggestedPeople = strongest.slice(0, 5);
-    await mapLimit(state.suggestedPeople.map((person) => person.fid), 4, fetchProfile);
+    state.suggestedPeople = rankFollowRecommendations(groups.filter(Boolean), { ownFid: state.fid, followingFids: alreadyKnown, limit: 5 });
+    await mapLimit(state.suggestedPeople.map((person) => person.fid), 3, fetchProfile);
     state.suggestionsLoadedFor = Number(state.fid);
   } catch {
     state.suggestedPeople = [];
@@ -1449,13 +1458,27 @@ function setProfileRoute(fid) {
   history.pushState(null, '', `#profile=${Number(fid)}`);
 }
 
+function normalizeProfileSearch(rawQuery) {
+  let query = String(rawQuery || '').trim();
+  if (/^https:\/\//i.test(query)) {
+    const url = new URL(query);
+    if (!['farcaster.xyz', 'www.farcaster.xyz'].includes(url.hostname.toLowerCase())) {
+      throw new Error('Paste a Farcaster profile link, or search by @username or FID.');
+    }
+    query = decodeURIComponent(url.pathname.split('/').filter(Boolean)[0] || '');
+  }
+  return query.replace(/^@/, '').trim();
+}
+
 async function searchProfile(rawQuery) {
   const status = $('#people-search-status');
   const form = $('#people-search');
   const submit = form.querySelector('button[type="submit"]');
-  const query = String(rawQuery || '').trim().replace(/^@/, '');
+  let query;
   status.hidden = false;
   status.dataset.state = 'idle';
+  try { query = normalizeProfileSearch(rawQuery); }
+  catch (error) { status.dataset.state = 'error'; status.textContent = error.message; return; }
   if (!query) {
     status.dataset.state = 'error';
     status.textContent = 'Enter a username or Farcaster ID.';
@@ -1499,6 +1522,27 @@ async function searchProfile(rawQuery) {
     submit.disabled = false;
     $('#people-query').disabled = false;
   }
+}
+
+async function searchLoadedFeed(rawQuery) {
+  const status = $('#feed-search-status');
+  const query = String(rawQuery || '').trim().slice(0, 100);
+  status.hidden = false;
+  if (!query) { status.dataset.state = 'error'; status.textContent = 'Enter a word, person, or link to search.'; $('#feed-search-query').focus(); return; }
+  if (!state.casts.length) {
+    status.dataset.state = 'error';
+    status.textContent = 'No posts are loaded yet. Open a profile or sign in and load your feed first.';
+    return;
+  }
+  navigate('feed');
+  const filters = $('#feed-filters');
+  if (filters) filters.open = true;
+  const field = $('#loaded-search');
+  field.value = query;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  status.dataset.state = 'success';
+  status.textContent = `Searching ${state.casts.length} loaded posts. Results stay on this device.`;
+  requestAnimationFrame(() => { field.focus({ preventScroll: true }); field.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 }
 
 async function openConversation(fidValue, hashValue, { updateRoute = true } = {}) {
@@ -2121,6 +2165,9 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     setConnectionStatus(`Castonaut authorization signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'], busy: true });
     state.following.clear();
     state.fid = fid;
+    state.suggestedPeople = [];
+    state.suggestionsLoadedFor = 0;
+    state.suggestionsError = false;
     loadFlightLog(fid);
     loadTimeCapsules(fid);
     restoreComposerDraft(fid);
@@ -2371,6 +2418,7 @@ async function clearLocalSigner() {
   try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* Continue clearing the current session. */ }
   const cleared = await removeStoredSigner();
   state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = ''; state.boardMode = 'signals'; state.following.clear();
+  state.suggestedPeople = []; state.suggestionsLoadedFor = 0; state.suggestionsError = false; state.suggestionsBusy = false; renderSuggestedPeople();
   state.feedRequest += 1; state.feedPending = null; state.casts = []; state.feedTargetFid = null; state.feedMode = 'following';
   state.savedCasts = []; renderFlightLogCount();
   updateFeedTabs(); $('#page-label').textContent = 'FEED';
@@ -2396,6 +2444,10 @@ function navigate(view, { preserveHash = false } = {}) {
     link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
+  if (area === 'search') {
+    renderSuggestedPeople();
+    if (state.signerReady) loadSuggestedPeople();
+  }
   $('#page-label').textContent = area === 'node' ? 'NODE' : area === 'desk' ? 'DESK' : area === 'search' ? 'SEARCH' : state.boardMode === 'flight-log' ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
   const expectedHash = area === 'node' ? '#about' : area === 'desk' ? '#my-desk' : area === 'search' ? '#people-search' : '#feed';
   if (!preserveHash && location.hash !== expectedHash) history.pushState(null, '', expectedHash);
@@ -2629,6 +2681,12 @@ $('#desk-backup-open')?.addEventListener('click', () => {
   $('#backup-export')?.focus({ preventScroll: true });
 });
 $('#people-search').addEventListener('submit', (event) => { event.preventDefault(); searchProfile($('#people-query').value); });
+$('#feed-search-launch')?.addEventListener('submit', (event) => { event.preventDefault(); searchLoadedFeed($('#feed-search-query').value); });
+$('#search-network-refresh')?.addEventListener('click', () => {
+  if (!state.signerReady) { setNotice('Sign in to discover people through your follows.', 'pending'); return; }
+  state.suggestionsLoadedFor = 0;
+  loadSuggestedPeople();
+});
 $('#conversation-close').addEventListener('click', closeConversation);
 $('#theme-select').addEventListener('change', (event) => {
   setTheme(event.currentTarget.value);
@@ -3342,6 +3400,7 @@ document.addEventListener('click', async (event) => {
       if (following) await signAndRelayRemoval(message, 'linkById', params, `Unfollow of FID ${targetFid} confirmed.`);
       else await signAndRelay(message, 'linkById', params, `Follow of FID ${targetFid} confirmed.`);
       state.following.set(targetFid, !following);
+      state.suggestionsLoadedFor = 0;
       updateCastRelationship(targetFid);
       if (!following) { state.suggestedPeople = state.suggestedPeople.filter((person) => person.fid !== targetFid); renderSuggestedPeople(); }
       document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => {
