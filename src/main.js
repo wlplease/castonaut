@@ -1959,6 +1959,7 @@ async function connectWithRecoveryPhrase() {
   const connectButton = $('#recovery-connect');
   let phrase = takeRecoveryPhrase(phraseField);
   let candidates = null;
+  let recoveryStage = 'loading the account checker';
   pendingRecoveryAccount = null;
   if (!phrase) { setConnectionStatus('Enter your Farcaster recovery phrase, or use a linked wallet below.'); return; }
   if (!isSupportedRecoveryPhraseLength(phrase)) { phrase = ''; setConnectionStatus('Use a standard 12, 15, 18, 21, or 24-word phrase. The field has been cleared.'); return; }
@@ -1970,15 +1971,18 @@ async function connectWithRecoveryPhrase() {
   try {
     const { mnemonicToAccount } = await import('viem/accounts');
     const { createPublicClient, fallback, http, optimism } = await optimismToolkit();
+    recoveryStage = 'deriving your Farcaster account';
     try { candidates = deriveRecoveryAccountCandidates(phrase, mnemonicToAccount); }
     catch { throw new Error('That phrase could not be imported. Check the words and try again.'); }
     phrase = '';
+    recoveryStage = 'checking your account on Optimism';
     const publicClient = createPublicClient({ chain: optimism, transport: optimismReadTransport(fallback, http) });
     const { account, fid } = await findRegisteredRecoveryAccount(candidates, (candidate) => publicClient.readContract({
       address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [candidate.address],
     }));
     candidates = null;
     pendingRecoveryAccount = { account, address: account.address, fid: asFid(fid.toString()) };
+    recoveryStage = 'starting the limited browser-key authorization';
     setConnectionStatus(`Farcaster account found · FID ${pendingRecoveryAccount.fid}. Preparing your limited browser key…`, { active: 'approve', completed: ['sign'], busy: true });
     await authorizeSigner(pendingRecoveryAccount);
   } catch (error) {
@@ -1986,7 +1990,13 @@ async function connectWithRecoveryPhrase() {
       || error?.message === 'Could not reach the Optimism account registry. Check your connection or try a linked wallet.'
       || error?.message === 'No Farcaster account was found for this phrase. Check the words or use a linked wallet.'
       ? error.message
-      : 'Could not verify this account. Please try again or use a linked wallet.';
+      : recoveryStage === 'loading the account checker'
+        ? 'Could not load the sign-in tools. Reload Castonaut and try again.'
+        : recoveryStage === 'deriving your Farcaster account'
+          ? 'Could not read that recovery phrase. Check the words and try again.'
+          : recoveryStage === 'checking your account on Optimism'
+            ? 'Could not finish the Optimism account check. Check your connection and try again, or use a linked wallet.'
+            : 'Your account was found, but the limited key setup could not start. Reload Castonaut and check the saved key before retrying.';
     setConnectionStatus(`${safeMessage} The phrase field has been cleared.`, { active: 'sign' });
   } finally {
     phrase = '';
