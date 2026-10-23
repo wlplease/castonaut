@@ -246,6 +246,14 @@ function setNotice(message, kind = 'info') {
   setNotice.timer = setTimeout(() => { toast.hidden = true; }, 5600);
 }
 
+function clientErrorText(error) {
+  const message = String(error?.message || error || 'Something went wrong.');
+  if (/failed to fetch dynamically imported module|importing a module script failed/i.test(message)) {
+    return 'This Castonaut tab is out of date. Refresh the page and try again. Your saved key and draft stay in this browser.';
+  }
+  return message;
+}
+
 function setConnectionStatus(message, { canRetry = false, canRefresh = false, busy = false } = {}) {
   const refreshChoice = refreshSignerFlow && !busy && !canRetry && !state.signerReady;
   $('#dialog-status').textContent = message;
@@ -2204,11 +2212,11 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
       state.signerReady = false;
       renderIdentity();
       setConnectionStatus(`The request may have reached the node, but confirmation failed. Your key is saved here. Check again before trying anything else. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
-    } else setConnectionStatus(error?.message || 'Authorization could not start. Reload and try again.', {
+    } else setConnectionStatus(clientErrorText(error) || 'Authorization could not start. Reload and try again.', {
       active: pendingWalletAccount || recoveryAccount || walletAccount ? 'approve' : 'sign',
       completed: pendingWalletAccount || recoveryAccount || walletAccount ? ['sign'] : [],
     });
-    setNotice(error?.message || 'Authorization could not start. Reload and try again.', 'error');
+    setNotice(clientErrorText(error) || 'Authorization could not start. Reload and try again.', 'error');
   } finally {
     actionButtons.forEach((button) => { button.disabled = false; });
     if (recoveryAccount) clearRecoveryImport();
@@ -2225,7 +2233,9 @@ async function checkSavedSigner() {
     const confirmed = await findSigner(state.fid, state.publicKey);
     state.signerReady = confirmed;
     if (confirmed) await clearPendingRegistration();
-    if (confirmed) await fetchProfile(state.fid).catch(() => null);
+    // Public profile data can load while the app signer is pending. Keep the
+    // account identity visible even when posting authorization is unavailable.
+    await fetchProfile(state.fid).catch(() => null);
     renderIdentity();
     if (confirmed) {
       setConnectionStatus('Account verified. Castonaut is ready.', { active: 'done', completed: ['sign', 'approve', 'done'] });
@@ -2400,7 +2410,8 @@ async function restoreSession() {
   try {
     state.signerReady = await findSigner(state.fid, saved.publicKey);
     if (state.signerReady) await clearPendingRegistration();
-    if (state.signerReady) await fetchProfile(state.fid);
+    // Profile reads do not require a confirmed app signer.
+    await fetchProfile(state.fid).catch(() => null);
     renderIdentity();
     if (!state.signerReady) setNotice('This app key is not confirmed on the current node. Your station stays locked.');
     else {
@@ -2653,8 +2664,8 @@ async function publishThread() {
     setNotice('Thread confirmed on Snapchain.', 'success');
     await loadFeed(state.fid, 'following');
   } catch (error) {
-    $('#thread-draft-status').textContent = `${confirmed ? `${confirmed} post${confirmed === 1 ? '' : 's'} confirmed. ` : ''}${error.message} Your remaining thread is saved; resume to check the last post and continue.`;
-    setNotice(error.message, 'error');
+    $('#thread-draft-status').textContent = `${confirmed ? `${confirmed} post${confirmed === 1 ? '' : 's'} confirmed. ` : ''}${clientErrorText(error)} Your remaining thread is saved; resume to check the last post and continue.`;
+    setNotice(clientErrorText(error), 'error');
   } finally {
     state.threadBusy = false; renderThreadDraft(); button.disabled = !state.signerReady || !state.threadItems.length;
   }
@@ -3278,7 +3289,7 @@ $('#composer').addEventListener('submit', async (event) => {
       saveComposerDraft();
       $('#draft-status').textContent = 'Post status is not confirmed. Submit again to safely check or resume the same signed post.';
     }
-    setNotice(error.message, 'error');
+    setNotice(clientErrorText(error), 'error');
   }
   finally { submit.textContent = state.pendingCast ? 'Resume saved post' : 'Post'; submit.disabled = !state.signerReady; }
 });

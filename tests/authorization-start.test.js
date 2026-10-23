@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 test('authorization catches protocol chunk loading failures and reports a recoverable state', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /function clientErrorText\(error\)[\s\S]*?This Castonaut tab is out of date\. Refresh the page and try again/);
   const start = source.indexOf('async function authorizeSigner(');
   const end = source.indexOf('\nasync function checkSavedSigner', start);
   assert.ok(start >= 0 && end > start, 'authorization flow is present');

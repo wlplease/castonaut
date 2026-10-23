@@ -50,7 +50,8 @@ test('restored accounts load the feed after signer confirmation with no payment 
   const restoreStart = source.indexOf('async function restoreSession()');
   const restoreEnd = source.indexOf('\nasync function clearLocalSigner()', restoreStart);
   const restore = source.slice(restoreStart, restoreEnd);
-  assert.match(restore, /if \(state\.signerReady\) await fetchProfile\(state\.fid\)/);
+  assert.match(restore, /await fetchProfile\(state\.fid\)\.catch\(\(\) => null\)/);
+  assert.doesNotMatch(restore, /if \(state\.signerReady\) await fetchProfile\(state\.fid\)/);
   assert.match(restore, /else \{[\s\S]*?await loadFeed\(state\.fid\)/);
   assert.doesNotMatch(restore, /else if \(passActive\)/);
   assert.doesNotMatch(source, /Time Pass|VITE_PASS_CONTRACT_ADDRESS|buyTimePass|pass-gate|\$3\.70/);
