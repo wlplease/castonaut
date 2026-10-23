@@ -2553,14 +2553,6 @@ $('#desk-backup-open')?.addEventListener('click', () => {
   $('#backup-export')?.focus({ preventScroll: true });
 });
 $('#people-search').addEventListener('submit', (event) => { event.preventDefault(); searchProfile($('#people-query').value); });
-$('#preview-toggle').addEventListener('click', () => {
-  const preview = $('#client-preview');
-  const opening = preview.hidden;
-  preview.hidden = !opening;
-  $('#preview-toggle').setAttribute('aria-expanded', String(opening));
-  $('#preview-toggle').innerHTML = opening ? 'Close preview <span>↑</span>' : 'Preview the client <span>↓</span>';
-  if (opening) preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
 $('#conversation-close').addEventListener('click', closeConversation);
 $('#theme-select').addEventListener('change', (event) => {
   setTheme(event.currentTarget.value);

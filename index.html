@@ -65,9 +65,9 @@
             <div class="room-heading">
               <div class="hero-copy">
                 <div class="overline"><span class="live-pip"></span> FARCASTER · YOUR NODE · YOUR CLIENT</div>
-                <h1>Run your own<br class="desktop-break" /> Farcaster home.</h1>
-                <p class="lead">Three steps. Your own node. Your Castonaut.</p>
-                <div class="hero-actions"><a class="button button-orange" href="/tutorial.html#quickstart">Start setup <span>→</span></a><button class="hero-secondary" type="button" id="preview-toggle" aria-controls="client-preview" aria-expanded="false">Preview the client <span>↓</span></button></div>
+                <h1>Your Farcaster.<br class="desktop-break" /> Your own way.</h1>
+                <p class="lead">A personal social desk, powered by your own node.</p>
+                <div class="hero-actions"><a class="button button-orange" href="/tutorial.html#quickstart">Build your station <span>→</span></a><a class="hero-secondary" href="#client-preview">Take a look inside <span>↓</span></a></div>
               </div>
               <div class="hero-route" aria-label="A cast moves from your browser through your read node to the network, then is confirmed back in the feed.">
               <div class="route-heading"><span>THE CASTONAUT DIFFERENCE</span><span>OPEN BY DESIGN</span></div>
@@ -83,6 +83,17 @@
               <div class="route-legend"><span><i class="legend-dot"></i>your node, your route</span><span>OPTIONAL · SELF-HOSTED</span></div>
               </div>
             </div>
+
+            <section class="client-preview" id="client-preview" aria-labelledby="preview-title">
+              <div class="preview-heading"><div><span class="overline">A LOOK INSIDE · SAMPLE CONTENT</span><h2 id="preview-title">Your social desk, at a glance.</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
+              <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>A little corner of your own.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>J</b> jules.builds</span><span class="preview-pin"><b>M</b> moxie.eth</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
+              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newer signals first. Your pace.</p></div><div class="preview-tabs"><span class="selected">Following</span><span>Friends</span><span>Desk</span></div></div>
+                <article class="preview-post"><div class="preview-avatar avatar-amber">J</div><div class="preview-post-main"><div class="preview-byline"><strong>Jules Rivera</strong><span>@julesbuilds</span><time>8 min</time></div><p>Spent the morning making a tiny corner of the internet feel like home. The best tools leave room for people to make them their own.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
+                <article class="preview-post"><div class="preview-avatar avatar-lilac">M</div><div class="preview-post-main"><div class="preview-byline"><strong>Moxie</strong><span>@moxie.eth</span><time>21 min</time></div><p>Good morning, builders ☀️ What are you making this week? I’m collecting small ideas with big heart.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
+                <div class="preview-end"><span>✦</span> You’re all caught up <span>✦</span></div>
+              </div>
+              <p class="preview-caption">Example posts · Preview only</p>
+            </section>
 
             <ol class="home-steps" aria-label="Three steps to run Castonaut with your own node">
               <li><span>01</span><strong>Provision</strong></li><li aria-hidden="true">→</li><li><span>02</span><strong>Sync Snapchain</strong></li><li aria-hidden="true">→</li><li><span>03</span><strong>Open Castonaut</strong></li>
@@ -103,17 +114,6 @@
               <div class="node-ribbon-left"><span class="node-led" id="node-led"></span><div><strong id="node-state">Checking the connection…</strong><small id="node-detail">Checking the feed service. You can still explore profiles while it connects.</small></div></div>
               <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" hidden>Feed setup ↗</a><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
             </div>
-
-            <section class="client-preview" id="client-preview" aria-labelledby="preview-title" hidden>
-              <div class="preview-heading"><div><span class="overline">A LOOK INSIDE · SAMPLE CONTENT</span><h2 id="preview-title">Your social desk, at a glance.</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
-              <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>A little corner of your own.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>J</b> jules.builds</span><span class="preview-pin"><b>M</b> moxie.eth</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
-              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newer signals first. Your pace.</p></div><div class="preview-tabs"><span class="selected">Following</span><span>Friends</span><span>Desk</span></div></div>
-                <article class="preview-post"><div class="preview-avatar avatar-amber">J</div><div class="preview-post-main"><div class="preview-byline"><strong>Jules Rivera</strong><span>@julesbuilds</span><time>8 min</time></div><p>Spent the morning making a tiny corner of the internet feel like home. The best tools leave room for people to make them their own.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
-                <article class="preview-post"><div class="preview-avatar avatar-lilac">M</div><div class="preview-post-main"><div class="preview-byline"><strong>Moxie</strong><span>@moxie.eth</span><time>21 min</time></div><p>Good morning, builders ☀️ What are you making this week? I’m collecting small ideas with big heart.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
-                <div class="preview-end"><span>✦</span> You’re all caught up <span>✦</span></div>
-              </div>
-              <p class="preview-caption">Example posts · Preview only</p>
-            </section>
 
             <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title">
               <div class="portal-art" aria-hidden="true"><img class="portal-illustration" src="/astral-atlas-art.webp" alt="" /><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span><span class="portal-art-caption">PLATE 037 <i>·</i> YOUR CORNER OF THE NETWORK</span></div>

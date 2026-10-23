@@ -7,6 +7,7 @@
 .guide-hero .hero-meta>b{color:var(--station-accent)}
 .guide-hero .button-orange{background:var(--station-accent);border-color:var(--station-accent);color:#fffaf1}
 .guide-hero-note{max-width:62ch;margin:18px 0 0;color:var(--station-copy-soft);font:9px/1.6 var(--mono)}
+.guide-hero-note a{color:var(--station-accent);text-decoration:underline;text-underline-offset:3px}
 .guide-frame .quickstart-section{scroll-margin-top:86px}
 .guide-frame .quickstart-section .section-intro{margin-bottom:18px}
 .guide-frame .first-run-setup{margin:0 0 14px;background:#fffdf6}
@@ -24,6 +25,10 @@
 .step-more summary{width:max-content;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .step-more p{margin:7px 0;color:#5e7066}
 .step-more>code{display:inline-block;padding:7px 8px}
+.step-command{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:8px 10px;border:1px solid #d2d7cb;border-radius:5px;background:#eef0e6}
+.step-command>code{overflow-wrap:anywhere}
+.step-command .copy-command{min-height:36px}
+.privacy-note{display:block;margin-top:10px;color:#68786e;font-size:9px;line-height:1.6}
 .quickstart-details{display:grid;gap:8px;padding:0 13px 13px;color:#5e7066;font-size:10px;line-height:1.55}
 .quickstart-details p{margin:0}
 .quickstart-details small{font-size:9px}

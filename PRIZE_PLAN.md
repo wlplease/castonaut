@@ -1,8 +1,8 @@
 # Castonaut Snapchain prize plan
 
-Status (22 October 2026, 01:42 UTC): The Google VM `castonaut-snapchain` in `us-central1-a` is RUNNING (`e2-standard-4`). The prior local Snapchain database and stale snapshot cache were intentionally cleared after shard 0's snapshot chunk returned 404. The VM was then restarted with the existing Compose project name (`snapchain`); the accidental `snapchain-data` project was stopped after its StatsD port collision. A fresh 21 October public snapshot has been fetched for all three shards. At 21:42 EDT, download progress was 376/5,695 chunks (6%); the current shard-1 chunk was 377/2,673 and the estimate was 4h33, with 1.8 TiB free. CPU was 52.7% and memory 402 MiB. Snapchain API and mesh are not responding yet during restore. **Not ready; do not reset or restart it.** Wait for snapshot completion, then check all shard heights/delays and public reachability before configuring Vercel. Billing-trial balance/expiry remains unverified. The user authorized at most $200 of free-trial credit and no paid-billing upgrade.
+Status (22 October 2026; latest checks): The Google VM `castonaut-snapchain` in `us-central1-a` is RUNNING (`e2-standard-4`). Snapchain 0.14.3 reports three active shards; the latest hosted `/api/snapchain?route=info` response is HTTP 200 and shows 0–1 second shard delays. The operator's latest `npm run node:check -- us-central1-a` also passed with the public endpoint reachable. The VM uses a 2-TB persistent data disk; check Cloud Billing before extending its run. Billing-trial balance/expiry remains unverified. The user authorized at most $200 of free-trial credit and no paid-billing upgrade.
 
-The public GitHub repository is [wlplease/castonaut](https://github.com/wlplease/castonaut) (MIT), and the public site is [castonaut.vercel.app](https://castonaut.vercel.app). The homepage, tutorial, privacy page, and terms page on the earlier deployment returned HTTP 200 on 21 October 2026. Its `/api/snapchain?route=info` returned HTTP 503 with `Snapchain is not configured`; recheck the new deployment before relying on hosted feeds. Do not point it at the current node until all shards are ready. The local monitor reports snapshot progress and recent logs. Local verification on 22 October: all 23 tests pass, the production build succeeds, and `git diff --check` passes. Build warnings include the upstream Farcaster protocol bundle exceeding 500 kB and direct `eval` in `@farcaster/core`. The current workspace has local, uncommitted improvements; verify its Git history against the renamed public repository before syncing. No independent tester/voucher or contest reply is recorded. Do not push, deploy, or post externally without the user's explicit action-time confirmation. The exact contest cutoff still needs verification from the original cast timestamp.
+The public GitHub repository is [wlplease/castonaut](https://github.com/wlplease/castonaut) (MIT), and the public site is [castonaut.vercel.app](https://castonaut.vercel.app). The Vercel site and node-info endpoint respond with HTTP 200. The homepage and guide edits in this workspace still need the owner's GitHub upload before the public site can serve this final visual pass. Local verification passes all 23 tests and the production build; the bundle still reports the upstream Farcaster protocol chunk over 500 kB and direct `eval` in `@farcaster/core`. A second builder has not yet independently completed the walkthrough or published a voucher, so the entry is not eligible to submit yet. The announcement was posted 17 October 2026 at 2:47 PM as displayed in the Farcaster result; verify its exact timezone/timestamp in the original cast before relying on a 24 October cutoff.
 
 ## Aim
 
@@ -81,7 +81,7 @@ The current GCP test uses an `e2-standard-4` (4 vCPUs, 16 GiB RAM), a 2-TB stand
 
 A $25 monthly project budget is configured with 50%, 80%, and 100% thresholds and excludes credits from its spend calculation, so it tracks gross usage. It sends warning emails to billing-account administrators and users by default. It is alerts-only and does not stop use. Keep the billing account in free-trial status and delete the VM, disk, and firewall rule after each contest test; do not upgrade to paid billing for this test.
 
-Before extending the current VM run, confirm the active project and free-trial balance/expiration; verify the project budget alert; agree on a bounded verification window; and stop/delete the VM, data disk, and firewall rule after the test. For the current VM, `npm run node:check -- us-central1-a` checks the in-VM API and public endpoint, reports maximum active-shard delay, and exits nonzero until that delay is 10 seconds or lower. The fresh snapshot restore is underway and `/v1/info` has not responded yet. Keep Vercel on its free plan for the client and same-origin API proxy. The home IP stays out of the node path; a cloud node has its own public IP, while Vercel and wallet providers may still observe normal client connection metadata.
+Before extending the current VM run, confirm the active project and free-trial balance/expiration; verify the project budget alert; agree on a bounded verification window; and stop/delete the VM, data disk, and firewall rule after the test. For the current VM, `npm run node:check -- us-central1-a` checks the in-VM API and public endpoint, reports maximum active-shard delay, and exits nonzero until that delay is 10 seconds or lower. The node and hosted info route are responding and caught up in the latest checks. Keep Vercel on its free plan for the client and same-origin API proxy. The home IP stays out of the node path; a cloud node has its own public IP, while Vercel and wallet providers may still observe normal client connection metadata.
 
 The same trial-credit route works for the independent tester only if they are individually eligible for Google's new-customer trial and can create their own project/node. Do not create extra accounts to multiply credits. If they are ineligible, use their existing provider credits or budget a short paid run. Ask the tester to use a dedicated Farcaster test account and prefer linked-wallet authorization; they should not paste a primary account's recovery phrase into an unreviewed site.
 
@@ -98,12 +98,21 @@ Other first-week costs: $0 for an MIT GitHub repository and a free static micros
 
 ## Sequence
 
-1. Confirm the original cast timestamp and exact submission cutoff in UTC. Find a human tester immediately.
-2. The VM is restoring the fresh 21 October snapshots after the old shard-0 snapshot URL returned 404. At 21:42 EDT it had downloaded 376/5,695 chunks (6%), with 1.8 TiB free and a provisional 4h33 ETA. The API is not responding during restore. Monitor chunk progress and disk headroom; leave the node running. After completion, check every shard's delay and public endpoint before continuing.
-3. Public entry points are live, but the public source/deployment does not include the eight current local changes. Review the diff, commit and publish it, then verify the deployed build before asking the tester to follow it.
-4. The contest client path is implemented with direct Snapchain reads/writes, source lens, scoped key flow, and merge confirmation. Verify wallet authorization on a real node with an account whose owner approves the test.
-5. After the reviewed local changes are published, have a separate person follow the public guide on their own compute and account; revise it based on where they get stuck. The already-live site currently serves the old `origin/main` build.
-6. Obtain the tester's public Farcaster voucher and submit the microsite, MIT repo, and voucher URLs before the exact cutoff. Posting the contest reply is an external publication and needs the owner's explicit action-time confirmation.
+1. Upload the reviewed local build to GitHub and confirm the Vercel deployment serves the new homepage and guide; then line up an independent tester.
+2. The owner node and hosted `/api/snapchain?route=info` endpoint are now ready. Keep the node running during the test and monitor disk and billing.
+3. The current local guide edits are not live yet. The owner will upload the reviewed changes to the public GitHub repository and verify Vercel redeployment.
+4. Have a separate person follow the published guide on their own compute and account. Ask them to test node readiness, feed read, authorized post, follow, reaction, source filter, and read-after-write confirmation; fix any blockers they encounter.
+5. Obtain the tester's honest public Farcaster voucher and submit the site, MIT repo, and voucher URLs before the exact cutoff (seven days after the original cast; verify the timestamp on Farcaster).
+
+## Reply draft
+
+Do not submit until the homepage/guide deployment is current and the independent tester has published their own voucher. Then reply to the original bounty cast with exactly these three links:
+
+1. Microsite and quickstart: https://castonaut.vercel.app/
+2. MIT source: https://github.com/wlplease/castonaut
+3. Independent user's public voucher: add the tester's Farcaster cast URL after they publish it.
+
+Suggested one-line intro: “Castonaut pairs a personal Farcaster client with a repeatable, self-run Snapchain setup guide.” Keep the voucher in the tester's own words; do not imply independent completion before it happens.
 
 ## Sources
 

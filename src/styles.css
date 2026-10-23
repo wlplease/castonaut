@@ -44,6 +44,8 @@ img{max-width:100%}
   .sidebar .nav-item[href="/tutorial.html"]{display:flex;min-width:40px;min-height:42px}
   .sidebar .nav-item{min-height:42px}
 }
+
+
 @media(max-width:390px){
   .sidebar .nav-item[href="/tutorial.html"]{padding:0 8px}
   .sidebar .nav-item[href="/tutorial.html"]>span:not(.nav-symbol){display:none}
@@ -1809,3 +1811,46 @@ html[data-theme="night-radio"] .node-journey:before{border-color:color-mix(in sr
   .board-tab{padding-inline:7px;font-size:9px}
   .feed-refresh-button{width:40px;height:44px}
 }
+
+/* First-visit polish: make the client itself the hero, with a compact node map beside it. */
+html,body{max-width:100%;overflow-x:clip}
+@media(min-width:761px){
+  .room-heading{grid-template-columns:minmax(0,1fr) minmax(300px,.78fr);gap:clamp(24px,4vw,54px);min-height:330px;padding:clamp(28px,4vw,48px)}
+  .hero-route{display:flex}
+  .hero-copy h1{font-size:clamp(44px,5vw,66px)}
+}
+.client-preview{margin:clamp(18px,3vw,30px) auto 24px;padding:clamp(16px,2.4vw,26px);border-radius:10px;background:linear-gradient(145deg,color-mix(in srgb,var(--station-card) 97%,white),color-mix(in srgb,var(--station-soft) 25%,var(--station-card)));box-shadow:0 18px 45px #2524380d}
+.preview-heading{margin-bottom:12px}
+.preview-desk{border-radius:7px}
+.preview-feed{margin-top:16px}
+.preview-post-main>p{font-size:13px;line-height:1.7}
+.preview-post{transition:background .16s ease}
+.preview-post:hover{background:color-mix(in srgb,var(--station-soft) 30%,transparent)}
+.preview-caption{font-size:10px}
+.home-steps{margin-top:3px}
+.hero-secondary{display:inline-flex;align-items:center;gap:7px;min-height:42px}
+.hero-secondary span{transition:transform .18s ease}
+.hero-secondary:hover span{transform:translateY(3px)}
+@media(max-width:760px){
+  .room-heading{grid-template-columns:1fr;min-height:0;padding:24px 19px}
+  .hero-route{display:flex;min-height:0;padding:10px 12px}
+  .route-map{max-height:170px;margin:0 auto}
+  .route-heading{font-size:8px}
+  .route-legend{font-size:7px}
+  .client-preview{margin:16px 0 22px;padding:15px 13px}
+  .preview-heading{margin-bottom:10px}
+  .preview-desk-title strong{font-size:12px}
+  .preview-post-main>p{font-size:12px;line-height:1.65}
+  .preview-post-foot{font-size:9px}
+}
+@media(max-width:390px){
+  body{min-width:0}
+  .room-heading{padding:20px 14px}
+  .hero-copy .overline{font-size:8px;letter-spacing:.1em}
+  .hero-copy h1{font-size:36px}
+  .hero-route{padding:9px}
+  .route-heading{font-size:7px}
+  .preview-tabs span{padding:7px 6px;font-size:8px}
+  .preview-post-foot{gap:9px;font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){.hero-secondary span{transition:none}}

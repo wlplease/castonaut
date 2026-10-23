@@ -28,14 +28,16 @@ For a paid build, set `VITE_PASS_CONTRACT_ADDRESS` to the deployed address and l
 
 ## Develop the client
 
-Contributors need Node.js 22. The local preview needs the app team's shared Snapchain endpoint configured server-side.
+Contributors need Node.js 22. To work on the interface, install dependencies and start Vite:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5175`. Set `SNAPCHAIN_URL` in a root `.env` file or the local server environment before using feeds; the Vite adapter proxies requests so the browser does not contact Snapchain directly. For Vercel, set `SNAPCHAIN_URL` in the project's server-side environment settings and deploy. Never put node credentials in browser variables. Optional proxy credentials belong in `SNAPCHAIN_HTTP_USER` and `SNAPCHAIN_HTTP_PASS`.
+Open `http://127.0.0.1:5175`. Feed and write requests need a server-side Snapchain URL. For a quick UI preview, use the hosted client; for local feed development, set `SNAPCHAIN_URL` in a root `.env` file. Vite's adapter proxies requests so the browser does not contact Snapchain directly. Never use a `VITE_` prefix for the node URL or credentials.
+
+For the contest's independent node-and-client walkthrough, follow the [quickstart](tutorial.html). It provisions a separate node in the builder's own Google Cloud project and runs the client locally against that node. No Vercel deployment or third-party read API key is required for that test. In local-node mode, Snapchain sees the builder's public egress IP; in hosted mode, node requests come from Vercel. Optional proxy credentials belong in `SNAPCHAIN_HTTP_USER` and `SNAPCHAIN_HTTP_PASS` and require an HTTPS proxy.
 
 The app’s social desk stays closed until the account proves control of an existing FID and Snapchain confirms the app key. Castonaut creates an Ed25519 app key in the browser and requests a scoped, gasless `KEY_ADD`; either the recovery phrase-derived custody signer or a linked wallet can authorize it. Phrase entry is available in hosted builds. The client derives the selected Ethereum account index (0–4, default 0) in the tab, clears the field before the network lookup, and does not save or send the phrase or custody private key. The separate app key is saved as non-extractable Web Crypto key material in this browser’s IndexedDB; the server never receives it. Website code, a malicious extension, or a compromised device could still read a phrase while it is entered or cause social actions, so users should enter it only when they trust the exact site and its source. The app key can post, delete its posts, follow/unfollow, like/unlike, and recast/unrecast. Its 30-day sliding expiry can refresh with use, so an active key may stay valid; revoke it from the account's signer controls to disable it sooner. It cannot move tokens or change account custody. **Forget this browser** deletes the local app key and returns to the sign-in gate, but does not revoke the protocol signer. Successful relay is shown as pending until a read confirms the message in Snapchain.
 
