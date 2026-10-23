@@ -604,8 +604,8 @@ async function checkNode() {
     const version = $('#node-version'); if (version) version.textContent = info.version || 'Unknown';
     const shardCount = $('#node-shards'); if (shardCount) shardCount.textContent = `${shards.length || info.numShards || '—'} ACTIVE`;
     const inSync = maxDelay !== null && maxDelay <= 10;
-    const title = inSync ? 'Waystation service is ready' : 'The feed is catching up';
-    const detail = inSync ? 'The service is connected. Verify your account to open your station.' : `Connected, but the feed is not current: its latest network data is about ${maxDelay === null ? 'an unknown amount' : formatNodeDelay(maxDelay)} behind.`;
+    const title = inSync ? 'Snapchain is ready' : 'The feed is catching up';
+    const detail = inSync ? 'Connected. Sign in to open your feed.' : `Connected, but the feed is not current: its latest network data is about ${maxDelay === null ? 'an unknown amount' : formatNodeDelay(maxDelay)} behind.`;
     setNodeState(inSync ? 'good' : '', title, detail);
     const foot = $('#telemetry-foot'); if (foot) foot.textContent = inSync ? 'Connection and network freshness are healthy.' : 'Connection works; feed results may be incomplete until catch-up finishes.';
     const list = $('#shard-list');
@@ -1161,7 +1161,7 @@ function renderFeed() {
   if (!messages.length) {
     const sourceFilter = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
     if (state.boardMode === 'flight-log') {
-      renderEmpty('Flight Log is empty.', 'Save a post from any feed to keep it here.');
+      renderEmpty('Nothing saved yet.', 'Save a post from any feed to keep it here.');
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedSourceOffset < state.feedSources.length) {
       renderEmpty('Your first group is quiet.', 'Load a wider group of people to check more of your follows.');
     } else if (query) {
@@ -1177,9 +1177,9 @@ function renderFeed() {
     } else if (state.feedMode === 'crew' && !state.crewFids.length) {
       renderEmpty(`${state.crewName} is ready.`, `Use ••• on a post to add people to ${state.crewName}. This group stays on this device.`);
     } else if (state.orbitOnly && !state.deskPins.length) {
-      renderEmpty('Your Orbit is open.', 'Pin someone from a post, then turn on Orbit Lens to see only their posts.');
+      renderEmpty('No pinned people yet.', 'Pin someone from a post, then turn on this filter to see only their posts.');
     } else if (state.orbitOnly) {
-      renderEmpty('No Orbit signals in this view.', 'Try another feed or turn off Orbit Lens to see everyone you follow.');
+      renderEmpty('No posts from pinned people here.', 'Try another feed or turn off the filter to see everyone you follow.');
     } else if (state.activeDeskTopic) {
       renderEmpty(`No posts match ${state.activeDeskTopic.replace(/^site:/, '')}.`, 'Try another feed or clear this topic shortcut.');
     } else if (state.casts.length) {
@@ -1700,8 +1700,8 @@ function setBoardMode(mode) {
   const logMode = state.boardMode === 'flight-log';
   updateFeedTabs();
   renderDeskShortcuts();
-  $('#page-label').textContent = logMode ? 'FLIGHT LOG' : state.feedMode === 'profile' ? 'PROFILE' : 'SIGNALS';
-  $('#feed-title').textContent = logMode ? 'Flight Log' : state.feedMode === 'profile' ? 'Posts' : state.feedMode === 'crew' ? state.crewName : state.feedMode === 'friends' ? 'Friends' : 'Following';
+  $('#page-label').textContent = logMode ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
+  $('#feed-title').textContent = logMode ? 'Saved' : state.feedMode === 'profile' ? 'Posts' : state.feedMode === 'crew' ? state.crewName : state.feedMode === 'friends' ? 'Friends' : 'Following';
   $('#feed-caption').textContent = logMode
     ? 'Saved on this device.'
     : state.feedMode === 'profile' ? `@${state.people.get(state.feedTargetFid)?.username || 'this profile'}` : 'Newest first.';
@@ -1728,18 +1728,18 @@ function toggleFlightLog(fidValue, hashValue) {
   if (existing >= 0) state.savedCasts.splice(existing, 1);
   else {
     const message = state.casts.find((cast) => Number(cast?.data?.fid) === fid && postHash(cast) === hash) || state.messages.get(`${fid}:${hash}`);
-    if (!message) { setNotice('This transmission is no longer available to save. Refresh your signal board and try again.', 'error'); return; }
-    if (state.savedCasts.length >= 100) { setNotice('Your Flight Log is full. Remove a saved post before adding another.'); return; }
+    if (!message) { setNotice('This post is no longer available. Refresh the feed and try again.', 'error'); return; }
+    if (state.savedCasts.length >= 100) { setNotice('Your saved list is full. Remove a post before adding another.'); return; }
     const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}` };
     const body = message.data?.castAddBody || {};
     const embeds = (body.embeds || []).filter((embed) => typeof embed?.url === 'string' && embed.url.length <= 2048).slice(0, 4).map((embed) => ({ url: embed.url }));
     state.savedCasts.unshift({ fid, hash, signer: signerHex(message.signer), text: String(body.text || '').slice(0, 320), timestamp: Number(message.data?.timestamp) || 0, name: String(profile.name || '').slice(0, 80), username: String(profile.username || '').slice(0, 80), embeds, savedAt: Date.now() });
   }
   try { localStorage.setItem(flightLogStorageKey(), JSON.stringify(state.savedCasts)); }
-  catch { state.savedCasts = prior; setNotice('Browser storage is unavailable. Your Flight Log could not be updated.', 'error'); return; }
+  catch { state.savedCasts = prior; setNotice('Browser storage is unavailable. Your saved list could not be updated.', 'error'); return; }
   renderFlightLogCount();
   renderFeed();
-  setNotice(existing >= 0 ? 'Transmission removed from your Flight Log.' : 'Transmission saved to your Flight Log on this device.', 'success');
+  setNotice(existing >= 0 ? 'Post removed from Saved.' : 'Post saved on this device.', 'success');
 }
 
 async function toggleDeskPin(fidValue, button) {
@@ -2325,10 +2325,10 @@ async function clearLocalSigner() {
   state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = ''; state.boardMode = 'signals';
   state.feedRequest += 1; state.feedPending = null; state.casts = []; state.feedTargetFid = null; state.feedMode = 'following';
   state.savedCasts = []; renderFlightLogCount();
-  updateFeedTabs(); $('#page-label').textContent = 'SIGNALS';
+  updateFeedTabs(); $('#page-label').textContent = 'FEED';
   $('#feed-title').textContent = 'Following'; $('#feed-caption').textContent = 'Sign in to open your feed.';
   $('#feed-filters').hidden = true; $('#feed-pulse').hidden = true; $('#profile-summary').hidden = true; $('#feed-count').textContent = '0 POSTS';
-  renderEmpty('Your station is locked.', 'Sign in with your Farcaster recovery phrase or a linked wallet to continue.');
+  renderEmpty('Your account is disconnected.', 'Sign in to open your feed.');
   renderIdentity();
   if (!cleared) { setNotice('This session is signed out, but browser storage could not delete the app key. Revoke it in Farcaster account settings and clear this site’s browser data.', 'error'); return; }
   setNotice('This browser forgot its signing key. The Farcaster signer remains active until you revoke it from account settings or it expires.', 'pending');
@@ -2347,7 +2347,7 @@ function navigate(view, { preserveHash = false } = {}) {
     link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
   });
-  $('#page-label').textContent = target === 'node' ? 'ABOUT' : state.boardMode === 'flight-log' ? 'FLIGHT LOG' : state.feedMode === 'profile' ? 'PROFILE' : 'SIGNALS';
+  $('#page-label').textContent = target === 'node' ? 'ABOUT' : state.boardMode === 'flight-log' ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
   const expectedHash = target === 'node' ? '#about' : '#desk';
   if (!preserveHash && location.hash !== expectedHash) history.replaceState(null, '', expectedHash);
   if (analyticsEnabled) pageview({ route: target, path: location.pathname });

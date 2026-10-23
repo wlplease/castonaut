@@ -1901,6 +1901,97 @@ html[data-theme="night-radio"] .board-tab.is-active,html[data-theme="night-radio
 html[data-theme="night-radio"] .hero-actions .button{background:#ffbd83;border-color:#ffbd83;color:#211b30;box-shadow:0 3px 0 #9e6546}
 html[data-theme="night-radio"] .mini-monitor i{background:#efddff;box-shadow:0 6px 0 #c5a5ff,0 12px 0 #8f72c1}
 html[data-theme="night-radio"] .toggle-label input:checked+.toggle-track{background:#8869b5}
+
+/* Castonaut home: an editorial atlas, with the sample client as the main event. */
+html[data-theme="atlas"]{
+  --station-paper:#f4f1e8;
+  --station-card:#fffdf8;
+  --station-line:#d8d3c8;
+  --station-ink:#232a36;
+  --station-accent:#394f75;
+  --station-soft:#e9edf1;
+  --station-gold:#bd5947;
+  --station-copy:#303741;
+  --station-copy-muted:#5e6670;
+  --station-copy-soft:#747a80;
+  --station-focus:#394f75;
+  --orange:#bd5947;
+}
+html[data-theme="atlas"] body{
+  background-color:var(--station-paper);
+  background-image:radial-gradient(circle at 1px 1px,#2530440a .7px,transparent .8px),radial-gradient(ellipse at 84% 0%,#e4e8ef 0,transparent 38%);
+  background-size:20px 20px,100% 720px;
+}
+html[data-theme="atlas"] .sidebar{background:#f6f3eced;border-color:#d9d4ca}
+html[data-theme="atlas"] .topbar{background:#f7f4eced;border-color:#d9d4ca}
+html[data-theme="atlas"] .brand-mark{transform:none;border:1px solid #c8c2b6;background:#fffdf8;box-shadow:0 2px 6px #25304412}
+html[data-theme="atlas"] .nav-item{border-radius:5px}
+html[data-theme="atlas"] .nav-item.active{background:#e8eaf0;box-shadow:inset 2px 0 var(--station-accent)}
+html[data-theme="atlas"] .room-heading{
+  min-height:294px;
+  border:1px solid var(--station-line);
+  border-radius:4px;
+  background:linear-gradient(105deg,#fffdf9 0%,#f6f4ee 59%,#ececf0 100%);
+  box-shadow:0 9px 28px #2931450a;
+}
+html[data-theme="atlas"] .room-heading:after{border-color:#46598015;box-shadow:0 0 0 24px #46598007,0 0 0 56px #46598004}
+html[data-theme="atlas"] .hero-copy .overline{color:var(--station-accent)}
+html[data-theme="atlas"] .hero-copy h1{max-width:11ch;color:var(--station-ink);font-size:clamp(44px,5.5vw,72px);letter-spacing:-.078em}
+html[data-theme="atlas"] .hero-copy .lead{max-width:40ch;color:var(--station-copy-muted);font-size:14px;line-height:1.65}
+html[data-theme="atlas"] .hero-actions .button{border-radius:4px;background:var(--station-accent);border-color:var(--station-accent);box-shadow:0 2px 0 #263654;color:#fffdf8}
+html[data-theme="atlas"] .hero-actions .button:hover{background:#2f456c;border-color:#2f456c}
+html[data-theme="atlas"] .hero-secondary{color:var(--station-ink)}
+html[data-theme="atlas"] .hero-route{
+  border:1px solid #c7c8c5;
+  border-radius:4px;
+  background:#ecebe4;
+  color:var(--station-ink);
+  box-shadow:inset 0 0 0 4px #ecebe4,inset 0 0 0 5px #394f7518;
+}
+html[data-theme="atlas"] .hero-route:before{border-color:#394f7512}
+html[data-theme="atlas"] .hero-route:after{border-color:#bd59472e;box-shadow:0 0 0 12px #bd59470a,0 0 0 28px #bd594706}
+html[data-theme="atlas"] .route-heading{color:#394f75}
+html[data-theme="atlas"] .route-map{color:#394f75}
+html[data-theme="atlas"] .route-grid-bg{stroke:#394f751c}
+html[data-theme="atlas"] .route-line{stroke:#bd5947}
+html[data-theme="atlas"] .route-node circle{fill:#f7f5ee;stroke:#394f75}
+html[data-theme="atlas"] .route-owned circle:first-child{fill:#e4e7ed;stroke:#bd5947}
+html[data-theme="atlas"] .route-owned .route-ring{stroke:#bd594766}
+html[data-theme="atlas"] .route-node path{stroke:#394f75}
+html[data-theme="atlas"] .route-node text{fill:#263249}
+html[data-theme="atlas"] .route-node .route-sub{fill:#68717b}
+html[data-theme="atlas"] .route-map .route-return{fill:#a94b3c}
+html[data-theme="atlas"] .route-legend{border-color:#394f7520;color:#626b76}
+html[data-theme="atlas"] .route-legend span:first-child{color:#394f75}
+html[data-theme="atlas"] .legend-dot{background:#bd5947;box-shadow:none}
+html[data-theme="atlas"] .node-ribbon{border-bottom-color:var(--station-line)}
+html[data-theme="atlas"] .node-ribbon strong{color:var(--station-ink)}
+html[data-theme="atlas"] .node-ribbon small{color:var(--station-copy-muted)}
+.client-preview{border-radius:5px;box-shadow:0 8px 25px #2931450b}
+.preview-heading h2{letter-spacing:-.055em}
+.preview-desk{border:1px solid var(--station-line);border-radius:4px;background:#f6f4ee}
+.preview-pin,.preview-topic{border-radius:4px}
+.preview-feed{border-top:1px solid var(--station-line)}
+.preview-post{border-radius:0}
+.preview-avatar{border-radius:50%}
+.preview-caption{margin-bottom:0;color:var(--station-copy-soft)}
+.people-search{border-radius:4px;box-shadow:none}
+@media(max-width:760px){
+  html[data-theme="atlas"] .room-heading{min-height:0;padding:21px 18px}
+  html[data-theme="atlas"] .hero-copy h1{max-width:12ch;font-size:clamp(39px,9vw,52px)}
+  html[data-theme="atlas"] .hero-copy .lead{max-width:36ch;font-size:13px}
+  .hero-route{display:none}
+  .client-preview{margin-top:15px}
+  .preview-heading .overline{font-size:8px;letter-spacing:.1em}
+}
+@media(max-width:420px){
+  html[data-theme="atlas"] .room-heading{padding:18px 14px}
+  html[data-theme="atlas"] .hero-copy h1{font-size:38px}
+  .hero-actions{gap:8px 13px}
+  .hero-actions .button{min-height:44px}
+  .client-preview{padding:13px 11px}
+}
+@media(prefers-reduced-motion:reduce){html[data-theme="atlas"] .route-line{animation:none}}
 @media(max-width:620px){
   .crumb{display:none}
   .feed-list{gap:6px;padding:5px 5px 10px}

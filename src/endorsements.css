@@ -6,20 +6,20 @@
 :root {
   color-scheme: light;
   font-family: 'DM Sans Variable', Arial, sans-serif;
-  color: #332e40;
-  background: #f5f0e5;
+  color: #232a36;
+  background: #f4f1e8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --paper: #f5f0e5;
+  --paper: #f4f1e8;
   --card: #fffdf8;
-  --soft: #eee8f2;
-  --ink: #332e40;
-  --copy: #625e6e;
-  --muted: #817b8b;
-  --line: #ded5c8;
-  --accent: #51436f;
-  --accent-soft: #e9e1ef;
-  --gold: #b84b3c;
+  --soft: #e9edf1;
+  --ink: #232a36;
+  --copy: #5e6670;
+  --muted: #747a80;
+  --line: #d8d3c8;
+  --accent: #394f75;
+  --accent-soft: #e5e9f0;
+  --gold: #bd5947;
   --display: 'Space Grotesk', 'DM Sans Variable', sans-serif;
   --mono: 'DM Mono', monospace;
 }
@@ -32,9 +32,9 @@ body {
   margin: 0;
   color: var(--ink);
   background:
-    radial-gradient(circle at 1px 1px, #30253b0a .75px, transparent .85px),
-    radial-gradient(ellipse at 82% -10%, #e7ddf2 0, transparent 42%),
-    radial-gradient(ellipse at 5% 46%, #f1dfd5 0, transparent 36%),
+    radial-gradient(circle at 1px 1px, #2530440a .7px, transparent .8px),
+    radial-gradient(ellipse at 82% -10%, #e4e8ef 0, transparent 42%),
+    radial-gradient(ellipse at 5% 46%, #f1e1d7 0, transparent 36%),
     var(--paper);
   background-size: 22px 22px, 100% 700px, 100% 900px, auto;
 }
@@ -58,7 +58,7 @@ a:focus-visible { outline: 3px solid #b84b3c; outline-offset: 4px; border-radius
 .eyebrow { display: inline-flex; align-items: center; gap: 9px; color: var(--accent); }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #8b6cac; box-shadow: 0 0 0 4px #8b6cac1a; }
 .endorse-hero h1 { position: relative; z-index: 1; max-width: 800px; margin: 23px 0 15px; color: #302a3d; font: 600 clamp(48px, 7.4vw, 82px)/.96 var(--display); letter-spacing: -.075em; text-wrap: balance; }
-.endorse-hero h1 em,.how-section h2 em { color: #68577f; font-style: normal; }
+.endorse-hero h1 em,.how-section h2 em { color: #bd5947; font-style: normal; }
 .endorse-hero>p { position: relative; z-index: 1; max-width: 500px; margin: 0; color: var(--copy); font-size: 15px; line-height: 1.65; }
 .hero-actions { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .endorse-button { min-height: 43px; display: inline-flex; align-items: center; justify-content: center; gap: 18px; padding: 0 15px; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; font-weight: 700; transition: transform .16s,background .16s,border-color .16s; }

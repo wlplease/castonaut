@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#f4f1e6" />
-    <meta name="description" content="A calmer Farcaster client for your people, your pace, and your memory. Follow in time order, keep a personal Desk, and save the signals you want to return to." />
+    <meta name="description" content="A Farcaster feed in time order, with a personal Desk for people and posts you want to return to." />
     <meta name="application-name" content="Castonaut" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -19,18 +19,18 @@
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#405b89" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Castonaut" />
-    <meta property="og:title" content="Castonaut — Your people. Your pace. Your memory." />
-    <meta property="og:description" content="A calmer Farcaster client: follow in time order, keep your people close, and save a page from today. Your social journal, on your terms." />
+    <meta property="og:title" content="Castonaut — Your feed, with a place to land." />
+    <meta property="og:description" content="A Farcaster feed in time order, with a personal Desk for people and posts you want to return to." />
     <meta property="og:image" content="/og-castonaut-pocket-atlas.png" />
-    <meta property="og:image:alt" content="Castonaut’s warm-paper field journal cover, with an indigo orbital map and the promise: Your people. Your pace. Your memory." />
+    <meta property="og:image:alt" content="Castonaut’s paper atlas and orbital map." />
     <meta property="og:image:width" content="1730" />
     <meta property="og:image:height" content="909" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Castonaut — Your people. Your pace. Your memory." />
-    <meta name="twitter:description" content="A calmer Farcaster client: follow in time order, keep your people close, and save a page from today." />
+    <meta name="twitter:title" content="Castonaut — Your feed, with a place to land." />
+    <meta name="twitter:description" content="A Farcaster feed in time order, with a personal Desk for people and posts you want to return to." />
     <meta name="twitter:image" content="/og-castonaut-pocket-atlas.png" />
-    <meta name="twitter:image:alt" content="Castonaut’s warm-paper field journal cover, with an indigo orbital map and the promise: Your people. Your pace. Your memory." />
-    <title>Castonaut — Your people. Your pace. Your memory.</title>
+    <meta name="twitter:image:alt" content="Castonaut’s paper atlas and orbital map." />
+    <title>Castonaut — Your feed, with a place to land.</title>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to the atlas</a>
@@ -53,7 +53,7 @@
       <div class="main-column">
         <header class="topbar">
           <a class="mobile-brand" href="/" aria-label="Castonaut home"><img src="/favicon.svg" alt="" /><span><strong>castonaut</strong><small>FIELD JOURNAL · FARCASTER</small></span></a>
-          <div class="crumb"><span class="crumb-dot"></span><span id="page-label">YOUR HOME</span></div>
+          <div class="crumb"><span class="crumb-dot"></span><span id="page-label">HOME</span></div>
           <div class="top-actions">
             <a class="top-link" href="/tutorial.html">Guide <span>↗</span></a>
             <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Atlas · daylight</option><option value="night-radio">Night radio · violet dusk</option></select></label>
@@ -66,12 +66,12 @@
             <div class="room-heading">
               <div class="hero-copy">
                 <div class="overline"><span class="live-pip"></span> AN INDEPENDENT FARCASTER CLIENT</div>
-                <h1>Keep up.<br class="desktop-break" /> Keep what matters.</h1>
-                <p class="lead">A chronological Farcaster feed, with a personal Desk for people and posts you want to return to.</p>
-                <div class="hero-actions"><a class="button button-orange" href="#client-preview">Preview the client <span>↓</span></a><a class="hero-secondary" href="/tutorial.html#quickstart">Run your own node <span>↗</span></a></div>
+                <h1>A Farcaster feed and your personal Desk.</h1>
+                <p class="lead">Catch up in time order. Pin people and posts you want to find again.</p>
+                <div class="hero-actions"><a class="button button-orange" href="#client-preview">See the client <span>↓</span></a><a class="hero-secondary" href="/tutorial.html#quickstart">Run your own node <span>↗</span></a></div>
               </div>
               <div class="hero-route" aria-label="A cast moves from your browser through your read node to the network, then is confirmed back in the feed.">
-              <div class="route-heading"><span>THE CASTONAUT DIFFERENCE</span><span>OPEN BY DESIGN</span></div>
+              <div class="route-heading"><span>HOW A CAST TRAVELS</span><span>37 · NETWORK MAP</span></div>
                 <svg class="route-map" viewBox="0 0 430 250" role="img" aria-labelledby="route-title route-description">
                   <title id="route-title">A cast’s route through your own node</title><desc id="route-description">Your browser signs a message, your Snapchain read node relays it, validators include it, and Castonaut reads it back for confirmation.</desc>
                   <defs><pattern id="route-grid" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M18 0H0V18" fill="none" stroke="currentColor" stroke-opacity=".08" stroke-width=".6"/></pattern><marker id="route-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="currentColor"/></marker></defs>
@@ -81,19 +81,23 @@
                   <g class="route-node route-network"><circle cx="369" cy="120" r="27"/><path d="m359 120 7 7 14-16M357 106h-7m37 0h-7m-23 28-5 6m38-6 5 6"/><text x="369" y="165" text-anchor="middle">NETWORK</text><text x="369" y="179" text-anchor="middle" class="route-sub">validators confirm</text></g>
                   <text x="214" y="233" text-anchor="middle" class="route-return">READ BACK · CONFIRMATION RETURNS TO YOUR FEED</text>
                 </svg>
-              <div class="route-legend"><span><i class="legend-dot"></i>your node, your route</span><span>OPTIONAL · SELF-HOSTED</span></div>
+              <div class="route-legend"><span><i class="legend-dot"></i>your node, your route</span><span>RUN IT YOURSELF · OPTIONAL</span></div>
               </div>
             </div>
 
+            <div class="node-ribbon" id="node-ribbon">
+              <div class="node-ribbon-left"><span class="node-led" id="node-led"></span><div><strong id="node-state">Checking the connection…</strong><small id="node-detail">Checking the feed service. You can still explore profiles while it connects.</small></div></div>
+              <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" aria-label="Open the feed setup guide" hidden>Feed setup ↗</a><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
+            </div>
+
             <section class="client-preview" id="client-preview" aria-labelledby="preview-title">
-              <div class="preview-heading"><div><span class="overline">A LOOK INSIDE · SAMPLE CONTENT</span><h2 id="preview-title">Your social desk, at a glance.</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
-              <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>A little corner of your own.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>J</b> jules.builds</span><span class="preview-pin"><b>M</b> moxie.eth</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
-              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newer signals first. Your pace.</p></div></div>
-                <article class="preview-post"><div class="preview-avatar avatar-amber">J</div><div class="preview-post-main"><div class="preview-byline"><strong>Jules Rivera</strong><span>@julesbuilds</span><time>8 min</time></div><p>Spent the morning making a tiny corner of the internet feel like home. The best tools leave room for people to make them their own.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
-                <article class="preview-post"><div class="preview-avatar avatar-lilac">M</div><div class="preview-post-main"><div class="preview-byline"><strong>Moxie</strong><span>@moxie.eth</span><time>21 min</time></div><p>Good morning, builders ☀️ What are you making this week? I’m collecting small ideas with big heart.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
+              <div class="preview-heading"><div><span class="overline">SAMPLE POSTS</span><h2 id="preview-title">A timeline with a personal Desk.</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
+              <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>People and posts you pin.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>M</b> marav</span><span class="preview-pin"><b>R</b> ravi</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
+              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">FOLLOWING</span><h3>Newest first</h3><p>Posts from people you follow.</p></div></div>
+                <article class="preview-post"><div class="preview-avatar avatar-amber">M</div><div class="preview-post-main"><div class="preview-byline"><strong>Mara V.</strong><span>@marav</span><time>8 min</time></div><p>The little weather display is finally working. Three LEDs and a completely unnecessary sunrise animation. 🌤️</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">SAMPLE</span></div></div></article>
+                <article class="preview-post"><div class="preview-avatar avatar-lilac">R</div><div class="preview-post-main"><div class="preview-byline"><strong>Ravi</strong><span>@ravi</span><time>21 min</time></div><p>Weekend question: what are you tinkering with right now?</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">SAMPLE</span></div></div></article>
                 <div class="preview-end"><span>✦</span> You’re all caught up <span>✦</span></div>
               </div>
-              <p class="preview-caption">Example posts · Preview only</p>
             </section>
 
             <aside class="public-browse-note" id="public-browse-note" hidden>
@@ -106,11 +110,6 @@
               <button type="submit" class="button button-outline">Explore</button>
               <p id="people-search-status" role="status" aria-live="polite" hidden></p>
             </form>
-
-            <div class="node-ribbon" id="node-ribbon">
-              <div class="node-ribbon-left"><span class="node-led" id="node-led"></span><div><strong id="node-state">Checking the connection…</strong><small id="node-detail">Checking the feed service. You can still explore profiles while it connects.</small></div></div>
-              <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" aria-label="Open the feed setup guide" hidden>Feed setup ↗</a><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
-            </div>
 
             <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title">
               <div class="portal-art" aria-hidden="true"><img class="portal-illustration" src="/astral-atlas-art.webp" alt="" /><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span><span class="portal-art-caption">PLATE 037 <i>·</i> YOUR CORNER OF THE NETWORK</span></div>
@@ -134,29 +133,29 @@
 
             <section class="pass-gate" id="pass-gate" aria-labelledby="pass-title" hidden>
               <div class="pass-art" aria-hidden="true"><span class="pass-orbit pass-orbit-a"></span><span class="pass-orbit pass-orbit-b"></span><strong>37</strong><small>TIME / PASS</small></div>
-              <div class="pass-copy"><span class="overline">CASTONAUT · THE SIGNAL ROOM</span><h2 id="pass-title">Your time here is yours.</h2><p>One prepaid pass opens the full station for 30 days. No auto-renewal. The pass follows your payment wallet, so bring that same wallet when you return.</p><div class="pass-offer"><strong>$3.70</strong><span>USDC on Base<br />30 days · one-time</span></div><p class="pass-status" id="pass-status" role="status" aria-live="polite">Connect a wallet to check your pass or get started.</p><div class="pass-actions"><button type="button" class="button button-outline" id="pass-check">Connect wallet / check pass</button><button type="button" class="button button-orange" id="pass-buy">Get a 30-day pass</button></div><small class="pass-note">Two wallet confirmations: exact USDC approval, then purchase. You also need a little Base ETH for network fees. Payments go directly to the published contract’s treasury.</small><details class="pass-setup" id="pass-setup"><summary>Pass checkout details</summary><p>Checkout is locked until a CastonautTimePass contract is deployed and its public address is set as <code>VITE_PASS_CONTRACT_ADDRESS</code> in the site build.</p></details></div>
+              <div class="pass-copy"><span class="overline">CASTONAUT · OPTIONAL PASS</span><h2 id="pass-title">Your time here is yours.</h2><p>One prepaid pass opens the client for 30 days. No auto-renewal. The pass follows your payment wallet, so bring that same wallet when you return.</p><div class="pass-offer"><strong>$3.70</strong><span>USDC on Base<br />30 days · one-time</span></div><p class="pass-status" id="pass-status" role="status" aria-live="polite">Connect a wallet to check your pass or get started.</p><div class="pass-actions"><button type="button" class="button button-outline" id="pass-check">Connect wallet / check pass</button><button type="button" class="button button-orange" id="pass-buy">Get a 30-day pass</button></div><small class="pass-note">Two wallet confirmations: exact USDC approval, then purchase. You also need a little Base ETH for network fees. Payments go directly to the published contract’s treasury.</small><details class="pass-setup" id="pass-setup"><summary>Pass checkout details</summary><p>Checkout is locked until a CastonautTimePass contract is deployed and its public address is set as <code>VITE_PASS_CONTRACT_ADDRESS</code> in the site build.</p></details></div>
               <div class="pass-footer"><span>NO RECURRING CHARGE</span><span>VERIFIABLE ON BASE</span></div>
             </section>
 
             <div id="member-workspace" hidden>
             <div class="pass-status-strip" id="pass-status-strip"><span class="pass-status-mark" aria-hidden="true">◷</span><span><small>YOUR TIME PASS</small><strong id="pass-countdown">Checking…</strong></span><span class="pass-wallet-label" id="pass-wallet-label"></span><button type="button" id="pass-extend" class="pass-extend">Add 30 days · $3.70</button></div>
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title">
-              <div class="desk-strip-head"><div><span class="overline">YOUR CONSTELLATION</span><h2 id="desk-title">Keep your people close.</h2></div><p>Pin people, posts, or topics from any signal’s ••• menu. <button type="button" class="desk-backup-link" id="desk-backup-open">Move your Desk ↗</button></p></div>
+              <div class="desk-strip-head"><div><span class="overline">YOUR DESK</span><h2 id="desk-title">Keep what matters close.</h2></div><p>Pin a person, post, or topic from its menu. <button type="button" class="desk-backup-link" id="desk-backup-open">Move your Desk ↗</button></p></div>
               <section class="first-orbit" id="first-orbit" aria-labelledby="first-orbit-title">
-                <div class="first-orbit-heading"><div><span class="overline">FIRST FLIGHT</span><h3 id="first-orbit-title">Make this place yours.</h3></div><span class="first-orbit-progress" id="first-orbit-progress">0 / 3</span></div>
-                <p class="first-orbit-intro">A person to follow. A signal to keep. A page to revisit.</p>
-                <div class="first-orbit-steps" role="group" aria-label="Three optional steps to personalize your station">
+                <div class="first-orbit-heading"><div><span class="overline">GET STARTED</span><h3 id="first-orbit-title">Make this place yours.</h3></div><span class="first-orbit-progress" id="first-orbit-progress">0 / 3</span></div>
+                <p class="first-orbit-intro">Follow someone. Save a post. Keep a page.</p>
+                <div class="first-orbit-steps" role="group" aria-label="Three optional steps to personalize your Desk">
                   <button type="button" class="first-orbit-step" data-flight-step="person"><span class="first-orbit-number">01</span><span class="first-orbit-label"><strong>Pin a person</strong><small>Keep someone close</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
-                  <button type="button" class="first-orbit-step" data-flight-step="signal"><span class="first-orbit-number">02</span><span class="first-orbit-label"><strong>Save a signal</strong><small>Keep a cast on your Desk</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
+                  <button type="button" class="first-orbit-step" data-flight-step="signal"><span class="first-orbit-number">02</span><span class="first-orbit-label"><strong>Save a post</strong><small>Keep a cast on your Desk</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
                   <button type="button" class="first-orbit-step" data-flight-step="page"><span class="first-orbit-number">03</span><span class="first-orbit-label"><strong>Keep a page</strong><small>Save today’s feed to revisit</small></span><span class="first-orbit-mark" aria-hidden="true">↗</span></button>
                 </div>
                 <small class="first-orbit-privacy">Optional · progress stays on this device</small>
               </section>
-              <div class="desk-pins" id="desk-pins"><span class="desk-empty">Your orbit is open. Pin a person from any signal to bring them aboard.</span></div>
-              <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Pinned signals and topics"><div class="desk-saved-signals" id="desk-casts"></div><div class="desk-topic-list" id="desk-topics"></div></div>
+              <div class="desk-pins" id="desk-pins"><span class="desk-empty">Your Desk is empty. Pin someone or save a post to start.</span></div>
+              <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Saved posts and topics"><div class="desk-saved-signals" id="desk-casts"></div><div class="desk-topic-list" id="desk-topics"></div></div>
               <p class="desk-active-topic" id="desk-active-topic" hidden></p>
               <details class="time-capsule" aria-labelledby="capsule-title">
-                <summary class="capsule-heading"><span class="overline">FIELD NOTES</span><span class="capsule-heading-title" id="capsule-title">Keep a page from today.</span><span class="capsule-count">14 days · this device</span></summary>
+                <summary class="capsule-heading"><span class="overline">TODAY’S PAGE</span><span class="capsule-heading-title" id="capsule-title">Keep a page from today.</span><span class="capsule-count">14 days · this device</span></summary>
                 <div class="capsule-tools"><p id="capsule-save-note">Save this feed to revisit the people and signals from today.</p><button type="button" class="button button-outline" id="capsule-seal" disabled>Save today’s page</button></div>
                 <div class="capsule-shelf" id="capsule-shelf" aria-label="Saved time capsules"><span class="capsule-empty">Your first capsule will appear here.</span></div>
                 <section class="capsule-replay" id="capsule-replay" aria-live="polite" hidden><div class="capsule-replay-head"><span><small>LOOKING BACK</small><strong id="capsule-replay-title"></strong></span><button type="button" id="capsule-replay-close" aria-label="Close capsule replay">×</button></div><div class="capsule-replay-list" id="capsule-replay-list"></div></section>
@@ -176,7 +175,7 @@
                 <section class="feed-window" id="feed-window" aria-labelledby="feed-title">
                 <div class="feed-toolbar">
                   <div><div class="overline">YOUR TIMELINE</div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
-                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Friends <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Crew <span id="crew-count">0</span></button></div><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Flight Log <span id="flight-log-count">0</span></button><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
+                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Friends <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Crew <span id="crew-count">0</span></button></div><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
                 </div>
                 <section class="profile-summary" id="profile-summary" aria-live="polite" tabindex="-1" hidden></section>
                 <section class="conversation-view" id="conversation-view" aria-labelledby="conversation-title" hidden>
@@ -214,7 +213,7 @@
                     <label class="feed-option-control" title="Mini Apps appear as URL embeds in cast data; regular website links may match too."><input id="filter-apps" type="checkbox" /><span>App &amp; link embeds</span></label>
                     <label class="feed-option-control"><input id="compact-mode" type="checkbox" /><span>Compact view</span></label>
                     <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" type="checkbox" checked /><span>Group repeats</span></label>
-                    <label class="feed-option-control" id="orbit-only-control"><input id="orbit-only" type="checkbox" /><span>Orbit Lens · pinned people</span></label>
+                    <label class="feed-option-control" id="orbit-only-control"><input id="orbit-only" type="checkbox" /><span>Pinned people only</span></label>
                     <label class="source-control" for="source-fid"><span>Source FID</span><input id="source-fid" type="number" min="1" placeholder="Any" /></label>
                     <label class="source-control" for="source-mode"><span>Show</span><select id="source-mode" class="source-mode"><option value="include">Only source</option><option value="exclude">Hide source</option></select></label>
                     <label class="source-control crew-name-control" for="crew-name"><span>Crew name</span><input id="crew-name" type="text" maxlength="20" placeholder="Crew" /></label>
@@ -235,7 +234,7 @@
 
               <aside class="right-column" aria-label="Your account and connection details">
                 <section class="side-card identity-card">
-                  <div class="side-card-head"><span class="overline">YOUR FLIGHT ID</span><span class="identity-mark">✳</span></div>
+                  <div class="side-card-head"><span class="overline">YOUR ACCOUNT</span><span class="identity-mark">✳</span></div>
                     <div id="identity-empty"><h3>Account not connected</h3><p>Connect to follow and post. A linked wallet keeps your phrase out of Castonaut.</p></div>
                   <div id="identity-connected" hidden><div class="connected-profile"><div class="profile-avatar" id="profile-avatar">?</div><div><strong id="profile-name">Connected</strong><small id="profile-handle">FID —</small></div></div><button class="button button-outline" id="manage-key">Forget this browser</button></div>
                   <div class="security-line"><span>⌑</span><span>Limited access. Remove it in your Farcaster account settings.</span></div>
@@ -255,13 +254,13 @@
 
           <section class="view node-view" id="node-view" data-panel="node" hidden>
             <div class="overline"><span class="live-pip"></span> ABOUT CASTONAUT</div>
-            <div class="node-page-heading"><div><h1>Your own little<br />waystation.</h1><p class="lead">A personal station for Farcaster: follow your orbit, scan the latest signals, and keep the posts you want to find again.</p></div></div>
+            <div class="node-page-heading"><div><h1>Your own Snapchain node.</h1><p class="lead">Run your own node to serve the feed and relay signed messages. It’s optional for reading the client.</p></div></div>
             <section class="node-journey" aria-labelledby="node-journey-title">
               <div class="node-journey-head"><div><span class="overline">THE NODE PATH · OPTIONAL</span><h2 id="node-journey-title">Make the network feel closer.</h2><p>Run a Snapchain node and connect your client. Compute and storage cost money.</p></div><div class="node-journey-status"><span class="node-led" id="node-journey-led"></span><span><strong id="node-journey-state">Checking configured node…</strong><small id="node-journey-detail">Checks this client’s feed node only.</small></span></div></div>
               <div class="node-journey-steps"><article><span>01 / CHECK</span><h3>Know what is live.</h3><p>Check version, shards, and delay.</p></article><article><span>02 / PREPARE</span><h3>Plan the machine.</h3><p>Confirm credits, disk cost, and cleanup.</p></article><article><span>03 / CONNECT</span><h3>Use your own route.</h3><p>Connect locally. Your node sees your public IP.</p></article></div>
               <div class="node-journey-actions"><button type="button" class="button button-outline" id="node-journey-check">Check configured node</button><a class="button button-orange" href="/tutorial.html#quickstart">Open the node guide ↗</a><a class="text-button" href="/tutorial.html#quickstart">Costs, readiness, and cleanup</a></div>
             </section>
-            <div class="about-feature-grid"><article class="side-card"><span class="overline">SIGNALS</span><h3>A timeline you control.</h3><p>Following, Friends, and Crew in time order.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Your own corner.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">FLIGHT LOG</span><h3>Keep a signal for later.</h3><p>Save posts to revisit later.</p></article></div>
+            <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, Friends, and Crew in time order.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
             <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Personal space, kept personal.</h2><p>Your Desk, notes, and saves stay in this browser. Pulse counts loaded posts; Lens filters to pinned people. Remote images are off by default. Image hosts can see your IP when enabled. Analytics are opt-in.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share basic visit statistics</strong><small>Optional Vercel page analytics. Your choice is saved in this browser; page paths are sent without query strings or fragments.</small></span></label><a class="legal-inline-link" href="/privacy.html">Read the Privacy Notice</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
             <section class="plus-preview"><div><span class="overline">CASTONAUT TIME PASS</span><h2>A month in your own signal room.</h2><p>One pass opens the full client: your Desk, the live timeline, GIF posts, and the Time Capsule replay.</p></div><div class="plus-price"><strong>$3.70</strong><span>30 days</span><small>One-time · no auto-renew</small></div><p class="plus-footnote">Paid once in native USDC on Base. The pass follows its payment wallet and counts down on-chain. You need a little Base ETH for network fees. Checkout remains locked until the contract is deployed and configured.</p></section>
             <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>How Castonaut works</strong><small>Feeds, sign-in, and running a node.</small></span><span class="guide-arrow">↗</span></a>
@@ -274,7 +273,7 @@
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <dialog class="connect-dialog" id="connect-dialog" aria-labelledby="connect-title">
       <form method="dialog" class="dialog-top"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><button class="dialog-close" value="close" aria-label="Close dialog">×</button></form>
-      <div class="dialog-content"><span class="overline">WAYSTATION ACCESS</span><h2 id="connect-title" tabindex="-1">Sign in to Farcaster.</h2><p class="dialog-intro">Read freely. Connect to post and follow.</p>
+      <div class="dialog-content"><span class="overline">CASTONAUT ACCOUNT</span><h2 id="connect-title" tabindex="-1">Sign in to Farcaster.</h2><p class="dialog-intro">Read freely. Connect to post and follow.</p>
         <p class="dialog-status" id="dialog-status" role="status" tabindex="-1"></p>
         <div class="wallet-review" id="wallet-review" hidden><span class="overline">CHECK THIS IS YOUR ACCOUNT</span><strong id="wallet-review-fid"></strong><code id="wallet-review-address"></code><small>Next, your wallet will show one gasless app-key authorization to review.</small></div>
         <section class="recovery-import" id="recovery-import" aria-labelledby="recovery-title"><div class="recovery-import-body"><aside class="recovery-warning" id="recovery-warning" role="note"><strong>Only continue on a deployment you trust.</strong><span>This page can read your phrase. It checks your Farcaster account, then creates a browser key for posts, follows and reactions. It cannot move funds. Your phrase is cleared after the attempt.</span></aside><label id="recovery-title" for="recovery-phrase">Farcaster recovery phrase</label><div class="recovery-phrase-entry"><input id="recovery-phrase" type="password" name="recovery-input" maxlength="240" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="go" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" aria-describedby="recovery-warning recovery-input-help" placeholder="12–24 words" /><button type="button" class="button button-outline recovery-reveal" id="recovery-reveal" aria-controls="recovery-phrase" aria-pressed="false">Show</button></div><small class="recovery-input-help" id="recovery-input-help" aria-live="polite">Cleared after the connection attempt.</small><button type="button" class="button button-orange" id="recovery-connect">Connect &amp; authorize</button></div></section>
