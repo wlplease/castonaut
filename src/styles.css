@@ -1049,13 +1049,13 @@ html{scroll-padding-top:78px}
     box-shadow:0 -5px 22px #33264a12;backdrop-filter:blur(14px)
   }
   .sidebar>.brand,.sidebar>.rail-label,.sidebar>.sidebar-note,.sidebar>.sidebar-foot{display:none}
-  .sidebar .nav-list{display:grid;width:min(100%,420px);height:100%;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:4px;margin:0;padding:5px 0 0}
+  .sidebar .nav-list{display:grid;width:min(100%,520px);height:100%;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:4px;margin:0;padding:5px 0 0}
   .sidebar .nav-item{display:flex;min-width:0;min-height:48px;flex-direction:column;justify-content:center;gap:3px;padding:4px;border:0;border-radius:9px;color:var(--station-copy-muted);font-size:9px}
   .sidebar .nav-item[href="/tutorial.html"]{display:flex}
   .sidebar .nav-arrow{display:none}
   .sidebar .nav-item:hover{background:var(--station-soft)}
   .sidebar .nav-item.active{background:var(--station-soft);color:var(--station-accent)}
-  .sidebar .nav-item .nav-icon{width:20px;height:18px;font-size:15px}
+  .sidebar .nav-item .nav-symbol{width:auto;height:18px;font-size:15px}
   .main-column{min-width:0;padding-bottom:0}
   .topbar{
     position:sticky;top:0;z-index:70;display:flex;align-items:center;justify-content:space-between;gap:8px;

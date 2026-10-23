@@ -2331,7 +2331,16 @@ async function clearLocalSigner() {
 function navigate(view, { preserveHash = false } = {}) {
   const target = view === 'node' ? 'node' : 'desk';
   document.querySelectorAll('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== target; });
-  document.querySelectorAll('[data-view]').forEach((link) => link.classList.toggle('active', link.dataset.view === target));
+  document.querySelectorAll('[data-view]').forEach((link) => {
+    const active = link.dataset.view === target;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+  });
+  document.querySelectorAll('[data-scroll-to]').forEach((link) => {
+    const active = target === 'desk' && link.hash === location.hash;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
+  });
   $('#page-label').textContent = target === 'node' ? 'ABOUT' : state.boardMode === 'flight-log' ? 'FLIGHT LOG' : state.feedMode === 'profile' ? 'PROFILE' : 'SIGNALS';
   const expectedHash = target === 'node' ? '#about' : '#desk';
   if (!preserveHash && location.hash !== expectedHash) history.replaceState(null, '', expectedHash);
@@ -2342,6 +2351,15 @@ function navigate(view, { preserveHash = false } = {}) {
 function applyLocationRoute() {
   if (location.hash === '#node' || location.hash === '#about') { navigate('node', { preserveHash: true }); return; }
   navigate('desk', { preserveHash: true });
+  if (location.hash === '#my-desk' || location.hash === '#people-search') {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(location.hash.slice(1));
+      if (target?.getClientRects().length) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      else { navigate('node'); setNotice('Connect a synced node to use this section.', 'pending'); }
+    });
+    if (location.hash === '#people-search') requestAnimationFrame(() => $('#people-query')?.focus({ preventScroll: true }));
+    return;
+  }
   const profile = location.hash.match(/^#profile=(\d{1,15})$/);
   if (profile) { if (state.boardMode !== 'signals') setBoardMode('signals'); loadFeed(Number(profile[1]), 'profile'); return; }
   const cast = location.hash.match(/^#cast=(\d{1,15})\/(0x[\da-f]{40,64})$/i);
@@ -2647,8 +2665,19 @@ document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener
 }));
 document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventListener('click', (event) => {
   event.preventDefault();
-  navigate('desk');
+  navigate('desk', { preserveHash: true });
   const target = document.getElementById(link.dataset.scrollTo);
+  if (!target?.getClientRects().length) {
+    navigate('node');
+    setNotice('Connect a synced node to use this section.', 'pending');
+    return;
+  }
+  history.replaceState(null, '', link.hash);
+  document.querySelectorAll('[data-scroll-to]').forEach((item) => {
+    const active = item === link;
+    item.classList.toggle('active', active);
+    if (active) item.setAttribute('aria-current', 'location'); else item.removeAttribute('aria-current');
+  });
   target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   if (link.dataset.scrollTo === 'people-search') $('#people-query').focus({ preventScroll: true });
 }));
