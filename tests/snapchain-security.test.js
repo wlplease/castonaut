@@ -134,6 +134,24 @@ test('proxy normalizes Snapchain missing-cast 400 responses to 404 for safe publ
   assert.deepEqual(result.payload, { error: 'Cast not found' });
 });
 
+test('proxy normalizes Snapchain missing-link 400 responses to 404 for follow checks', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ message: 'Failed to get link' }), {
+    status: 400, headers: { 'content-type': 'application/json' },
+  });
+  const result = await callApi(makeRequest({ url: '/api/snapchain?route=linkById&fid=1059075&target_fid=18928&link_type=follow' }));
+  assert.equal(result.statusCode, 404);
+  assert.deepEqual(result.payload, { error: 'Link not found' });
+});
+
+test('proxy preserves other link lookup errors as client errors', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ message: 'Invalid link type' }), {
+    status: 400, headers: { 'content-type': 'application/json' },
+  });
+  const result = await callApi(makeRequest({ url: '/api/snapchain?route=linkById&fid=1059075&target_fid=18928&link_type=follow' }));
+  assert.equal(result.statusCode, 400);
+  assert.match(result.payload.error, /Invalid link type/);
+});
+
 test('read rate limit is enforced per client address', async () => {
   globalThis.fetch = async () => new Response('{"version":"test"}', { status: 200, headers: { 'content-type': 'application/json' } });
   for (let i = 0; i < 240; i++) {

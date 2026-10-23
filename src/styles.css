@@ -2408,6 +2408,80 @@ html[data-theme="night-radio"] .post-card{border-color:color-mix(in srgb,var(--s
 }
 @media(max-width:380px){.feed-toolbar-actions{grid-template-columns:minmax(0,1fr) auto 38px}.profile-more-panel{min-width:205px}}
 
+/* A little classic Mac window chrome, with modern spacing and legible cast text. */
+.classic-titlebar{
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:24px;padding:0 9px;
+  border-bottom:1px solid color-mix(in srgb,var(--station-ink) 20%,var(--station-line));
+  background:repeating-linear-gradient(0deg,color-mix(in srgb,var(--station-card) 94%,var(--station-ink)) 0 1px,var(--station-card) 1px 2px);
+  color:var(--station-copy-muted);font:8px var(--mono);letter-spacing:.14em
+}
+.classic-titlebar-close{width:11px;height:11px;border:1px solid var(--station-ink);background:var(--station-card);box-shadow:inset 1px 1px #fff8}
+.classic-titlebar-label{padding:0 9px;background:var(--station-card)}
+.classic-titlebar-grip{justify-self:end;color:var(--station-copy-soft);font:9px var(--mono)}
+.feed-window{border:1px solid color-mix(in srgb,var(--station-ink) 32%,var(--station-line));border-radius:7px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--station-card) 85%,white),2px 3px 0 color-mix(in srgb,var(--station-ink) 10%,transparent),0 8px 22px color-mix(in srgb,var(--station-ink) 5%,transparent)}
+.feed-window>.feed-toolbar{background:linear-gradient(180deg,color-mix(in srgb,var(--station-card) 90%,white),var(--station-card));border-bottom-color:var(--station-line)}
+.feed-toolbar h2{font-size:26px;letter-spacing:-.055em}
+.feed-window>.feed-list{background:color-mix(in srgb,var(--station-paper) 28%,var(--station-card))}
+.post-card{border-radius:6px;border-color:color-mix(in srgb,var(--station-ink) 13%,var(--station-line));box-shadow:0 2px 0 color-mix(in srgb,var(--station-ink) 5%,transparent)}
+.post-card:hover{transform:none;box-shadow:0 3px 0 color-mix(in srgb,var(--station-ink) 7%,transparent);background:color-mix(in srgb,var(--station-card) 96%,var(--station-soft))}
+.post-head{row-gap:3px}
+.post-profile-link{font-size:12px;letter-spacing:-.02em}
+.post-handle-link{font-size:9px}
+.post-time{font-family:var(--mono);font-size:9px}
+.post-copy{font-size:14px;line-height:1.68;letter-spacing:.002em}
+.post-actions{border-top:1px solid color-mix(in srgb,var(--station-line) 75%,transparent)}
+.post-action,.post-more>summary{border-radius:5px}
+.profile-summary{border:1px solid var(--station-line);border-radius:8px;background:var(--station-card);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--station-card) 70%,white)}
+.profile-cover{min-height:142px;border:1px solid color-mix(in srgb,var(--station-ink) 13%,transparent);border-radius:5px;background:linear-gradient(125deg,#e7deed 0%,#f2e8da 53%,#dce5d9 100%)}
+.profile-cover:before{position:absolute;content:"";z-index:0;right:-45px;top:-136px;width:260px;height:260px;border:1px solid color-mix(in srgb,var(--station-accent) 20%,transparent);border-radius:50%;box-shadow:0 0 0 12px color-mix(in srgb,var(--station-accent) 4%,transparent),0 0 0 34px color-mix(in srgb,var(--station-accent) 3%,transparent),0 0 0 62px color-mix(in srgb,var(--station-accent) 2%,transparent);pointer-events:none}
+.profile-cover-image{z-index:0;opacity:.45}
+.profile-summary-main{gap:14px;padding:12px;border:1px solid color-mix(in srgb,var(--station-card) 70%,white);background:color-mix(in srgb,var(--station-card) 76%,transparent);box-shadow:0 2px 8px color-mix(in srgb,var(--station-ink) 5%,transparent)}
+.profile-summary-avatar{border-radius:10px;border:2px solid var(--station-card);box-shadow:0 1px 0 color-mix(in srgb,var(--station-ink) 20%,transparent)}
+.profile-summary-identity h3{font-size:18px}
+.profile-summary-identity p{font-size:10px}
+.profile-summary-identity .profile-summary-bio{max-width:56ch;font-size:11px;line-height:1.55}
+.profile-summary-actions .button,.profile-more-options>summary{border-radius:4px;box-shadow:0 1px 0 color-mix(in srgb,var(--station-ink) 12%,transparent);font-size:10px}
+.profile-summary-actions .button:hover,.profile-more-options>summary:hover{transform:translateY(-1px);box-shadow:0 2px 0 color-mix(in srgb,var(--station-ink) 13%,transparent)}
+.profile-tabs{margin:0 14px}
+.profile-tab{font:600 9px var(--mono);letter-spacing:.03em}
+.profile-tab.is-active{border-bottom-width:3px}
+.profile-summary .post-card{border-radius:0;box-shadow:none}
+.profile-summary .post-card:hover{transform:none;box-shadow:none}
+.profile-pinned-label{font:8px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+@media(max-width:760px){
+  .classic-titlebar{min-height:22px}
+  .feed-window{border-radius:6px}
+  .profile-cover{min-height:unset;padding:49px 10px 10px}
+  .profile-summary-main{gap:10px;padding:10px}
+  .profile-summary-avatar{width:46px;height:46px}
+  .profile-summary-actions{padding-left:56px}
+  .profile-summary-actions .button{min-height:36px}
+  .profile-summary-identity h3{font-size:16px}
+  .post-copy{font-size:14px;line-height:1.62}
+}
+@media(max-width:520px){
+  .feed-window>.feed-toolbar{padding:13px 11px 11px}
+  .feed-toolbar h2{font-size:23px}
+  .feed-window>.composer{padding:9px 10px}
+  .composer-label{font-size:11px;margin-bottom:5px}
+  .composer textarea{min-height:64px;padding:9px 10px;font-size:13px;line-height:1.45}
+  .composer-bottom{gap:5px}
+  .composer-bottom>span{display:flex;flex:1 1 100%;flex-wrap:wrap;gap:2px 8px;max-width:100%;font-size:8px;line-height:1.35}
+  .composer-bottom>span small{display:inline;font-size:8px;line-height:1.35}
+  .composer-bottom>div{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:5px}
+  .composer-bottom .button{min-height:31px;padding:0 8px;font-size:9px}
+  #char-count{align-self:center;margin-left:auto;font-size:8px}
+  .composer-attribution{display:none!important}
+  .profile-summary{margin-left:8px;margin-right:8px}
+  .profile-summary-actions{padding-left:0}
+  .profile-summary-actions .button{flex:0 1 auto;min-height:34px;padding-inline:8px;font-size:9px}
+  .profile-more-options{margin-left:auto}
+  .profile-more-panel{min-width:210px}
+  .profile-tabs{margin-inline:10px}
+  .profile-tab{padding-inline:9px}
+}
+@media(prefers-reduced-motion:reduce){.profile-summary-actions .button:hover,.profile-more-options>summary:hover{transform:none}}
+
 /* Feed, Desk, and Search are destinations, not scroll targets. */
 [data-area][hidden]{display:none!important}
 [hidden]{display:none!important}

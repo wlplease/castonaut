@@ -200,6 +200,13 @@ export default async function snapchain(req, res) {
       if (routeName === 'castById' && response.status === 400 && /^failed to get cast(?:$|[:\s])/i.test(reason)) {
         return res.status(404).json({ error: 'Cast not found' });
       }
+      // Snapchain 0.14.x reports a missing link (including a follow that
+      // does not exist yet) as HTTP 400 "Failed to get link". Expose that as
+      // 404 so the client can safely distinguish an absent follow from a
+      // rejected write or malformed request.
+      if (routeName === 'linkById' && response.status === 400 && /^failed to get link(?:$|[:\s])/i.test(reason)) {
+        return res.status(404).json({ error: 'Link not found' });
+      }
       const status = response.status >= 500 ? 502 : response.status;
       const message = response.status >= 500
         ? 'Snapchain is temporarily unavailable.'
