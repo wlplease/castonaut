@@ -75,22 +75,29 @@ function localSnapchainAdapter(serverEnv) {
     configureServer(server) {
       server.middlewares.use('/api/snapchain', async (req, res) => {
         const requestUrl = new URL(req.url || '/', 'http://localhost');
-        const route = ROUTES[requestUrl.searchParams.get('route')];
+        const routeName = requestUrl.searchParams.get('route');
+        const route = ROUTES[routeName];
         const base = serverEnv.SNAPCHAIN_URL;
+        const proxyUrl = serverEnv.SNAPCHAIN_PROXY_URL;
         if (!route) return sendJson(res, 404, { error: 'Unknown Snapchain route' });
-        if (!base) return sendJson(res, 503, { error: 'The shared feed service has not been configured for this preview yet.' });
+        if (!base && !proxyUrl) return sendJson(res, 503, { error: 'No Snapchain route is configured. Set SNAPCHAIN_URL or SNAPCHAIN_PROXY_URL for local development.' });
         if (req.method !== route.method) { res.setHeader('allow', route.method); return sendJson(res, 405, { error: 'Method not allowed' }); }
         if (route.method === 'POST') {
           if (!sameOriginWrite(req)) return sendJson(res, 403, { error: 'Write request origin could not be verified' });
           if (req.headers['content-type']?.split(';')[0].trim() !== 'application/octet-stream') return sendJson(res, 415, { error: 'Snapchain messages must use application/octet-stream' });
         }
         try {
-          const baseUrl = new URL(base);
-          if (!['https:', 'http:'].includes(baseUrl.protocol) || baseUrl.username || baseUrl.password || baseUrl.pathname !== '/' || baseUrl.search || baseUrl.hash) throw new Error('SNAPCHAIN_URL must be an HTTP or HTTPS origin');
+          const baseUrl = base ? new URL(base) : null;
+          if (baseUrl && (!['https:', 'http:'].includes(baseUrl.protocol) || baseUrl.username || baseUrl.password || baseUrl.pathname !== '/' || baseUrl.search || baseUrl.hash)) throw new Error('SNAPCHAIN_URL must be an HTTP or HTTPS origin');
+          const proxyTarget = !base && proxyUrl ? new URL(proxyUrl) : null;
+          if (proxyTarget && (proxyTarget.protocol !== 'https:' || proxyTarget.username || proxyTarget.password || proxyTarget.pathname !== '/api/snapchain' || proxyTarget.search || proxyTarget.hash)) throw new Error('SNAPCHAIN_PROXY_URL must be an HTTPS /api/snapchain URL');
           if (Boolean(serverEnv.SNAPCHAIN_HTTP_USER) !== Boolean(serverEnv.SNAPCHAIN_HTTP_PASS)) throw new Error('Both proxy credential variables must be set together');
-          const target = new URL(route.path, baseUrl);
+          if (proxyTarget && (serverEnv.SNAPCHAIN_HTTP_USER || serverEnv.SNAPCHAIN_HTTP_PASS)) throw new Error('Node credentials cannot be forwarded through SNAPCHAIN_PROXY_URL.');
+          const target = proxyTarget || new URL(route.path, baseUrl);
+          if (proxyTarget) target.searchParams.set('route', routeName);
           if ((serverEnv.SNAPCHAIN_HTTP_USER || serverEnv.SNAPCHAIN_HTTP_PASS) && target.protocol !== 'https:') throw new Error('Proxy credentials require an HTTPS Snapchain endpoint.');
           for (const [key, value] of requestUrl.searchParams.entries()) {
+            if (key === 'route') continue;
             if (key === 'route') continue;
             if (!route.params.includes(key) || !validParam(key, value)) return sendJson(res, 400, { error: `Invalid ${key} parameter` });
             target.searchParams.set(key, value);
@@ -101,6 +108,7 @@ function localSnapchainAdapter(serverEnv) {
           const params = [...requestUrl.searchParams.keys()].filter((key) => key !== 'route');
           if (new Set(params).size !== params.length) return sendJson(res, 400, { error: 'Duplicate query parameters are not allowed' });
           const headers = { accept: 'application/json' };
+          if (proxyTarget && req.method === 'POST') headers.origin = proxyTarget.origin;
           let body;
           if (req.method === 'POST') {
             const chunks = []; let length = 0;
@@ -133,6 +141,7 @@ export default defineConfig(({ mode }) => {
   const loaded = loadEnv(mode, process.cwd(), '');
   const serverEnv = {
     SNAPCHAIN_URL: process.env.SNAPCHAIN_URL || loaded.SNAPCHAIN_URL || '',
+    SNAPCHAIN_PROXY_URL: process.env.SNAPCHAIN_PROXY_URL || loaded.SNAPCHAIN_PROXY_URL || 'https://castonaut.vercel.app/api/snapchain',
     SNAPCHAIN_HTTP_USER: process.env.SNAPCHAIN_HTTP_USER || loaded.SNAPCHAIN_HTTP_USER || '',
     SNAPCHAIN_HTTP_PASS: process.env.SNAPCHAIN_HTTP_PASS || loaded.SNAPCHAIN_HTTP_PASS || '',
   };

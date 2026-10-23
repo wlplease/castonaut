@@ -29,7 +29,7 @@ npm ci
 npm run dev
 ```
 
-Feed requests need a server-side `SNAPCHAIN_URL` in a root `.env` file. Do not use a `VITE_` prefix for a node URL or credential. See the [quickstart](https://castonaut.vercel.app/tutorial.html#quickstart) for the Google Cloud node setup, commands, costs, readiness checks, and cleanup steps.
+Local preview uses Castonaut’s hosted Snapchain proxy by default, so the node sees Vercel’s server instead of your home IP. To point local development directly at your own node, set server-only `SNAPCHAIN_URL` in a root `.env`; then requests come from your computer and the node can see its public IP. Never use a `VITE_` prefix for a node URL or credential. See the [quickstart](https://castonaut.vercel.app/tutorial.html#quickstart) for the Google Cloud node setup, commands, costs, readiness checks, and cleanup steps.
 
 ```sh
 npm test

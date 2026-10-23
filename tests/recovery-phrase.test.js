@@ -55,7 +55,7 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(source, /addEventListener\('visibilitychange', \(\) => \{ if \(document\.visibilityState === 'hidden'\) clearRecoveryImport\(\); \}\)/);
   assert.match(source, /addEventListener\('pagehide', clearRecoveryImport\)/);
   assert.match(source, /addEventListener\('beforeunload', clearRecoveryImport\)/);
-  assert.match(source, /readContract\(\{ address: ID_REGISTRY_ADDRESS[\s\S]*?args: \[account\.address\]/);
+  assert.match(source, /readContract\(\{ address: ID_REGISTRY_ADDRESS[\s\S]*?args: \[candidate\.address\]/);
   assert.match(source, /await storeSigner\(\{ fid, publicKey, custodyAddress, privateKey, signedKeyAdd:/);
   assert.match(source, /const safeMessage = error\?\.message === 'That phrase could not be imported/);
   assert.doesNotMatch(source, /Could not check the account on Optimism: \$\{error\.message\}/);
