@@ -29,9 +29,10 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   const checkStart = source.indexOf('async function checkSavedSigner(');
   const checkEnd = source.indexOf('\nasync function submitMessage', checkStart);
   const check = source.slice(checkStart, checkEnd);
-  assert.match(check, /replayError = error/);
-  assert.match(check, /Snapchain rejected the saved authorization \(HTTP \$\{replayError\.status\}\)/);
-  assert.match(check, /saved key is not in Snapchain’s signer list yet/);
+  assert.match(check, /findSigner\(state\.fid, state\.publicKey\)/);
+  assert.match(check, /canRetry: true, canRefresh: true/);
+  assert.match(check, /this same key to continue; no new key will be created/);
+  assert.doesNotMatch(check, /submitEncodedMessage|replayError/);
 
   const refreshStart = source.indexOf('async function authorizeSigner(');
   const refreshEnd = source.indexOf('\nasync function checkSavedSigner', refreshStart);
