@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { deriveRecoveryAccountCandidates, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from '../src/recovery-phrase.js';
+import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from '../src/recovery-phrase.js';
 import { readFile } from 'node:fs/promises';
 
 test('taking a recovery phrase normalizes and clears the field immediately', () => {
@@ -21,11 +21,25 @@ test('phrase sign-in checks the old account slots automatically without an index
   ]);
 });
 
+test('phrase sign-in selects the registered Farcaster account and reports incomplete registry checks safely', async () => {
+  const candidates = [0, 1, 2, 3, 4].map((accountIndex) => ({ accountIndex, account: { address: `address-${accountIndex}` } }));
+  const match = await findRegisteredRecoveryAccount(candidates, async (account) => account.address === 'address-2' ? 123n : 0n);
+  assert.equal(match.accountIndex, 2);
+  assert.equal(match.fid, 123n);
+  await assert.rejects(
+    findRegisteredRecoveryAccount(candidates, async (account) => {
+      if (account.address === 'address-2') throw new Error('RPC timeout');
+      return 0n;
+    }),
+    /Could not reach the Optimism account registry/,
+  );
+});
+
 test('active recovery flow does not store or transmit the phrase and clears the derived account on dialog close', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const headers = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
-  assert.match(source, /import \{ deriveRecoveryAccountCandidates, isSupportedRecoveryPhraseLength, takeRecoveryPhrase \} from '\.\/recovery-phrase\.js';/);
+  assert.match(source, /import \{ deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase \} from '\.\/recovery-phrase\.js';/);
   assert.match(source, /let phrase = takeRecoveryPhrase\(phraseField\);/);
   assert.match(source, /function optimismReadTransport\(fallback, http\)[\s\S]*?https:\/\/mainnet\.optimism\.io[\s\S]*?https:\/\/optimism-rpc\.publicnode\.com/);
   assert.match(source, /phrase = '';/);
@@ -59,7 +73,7 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(html, /Read freely\. Connect to post and follow/);
   assert.doesNotMatch(html, /recovery-account-index/);
   assert.match(source, /deriveRecoveryAccountCandidates\(phrase, mnemonicToAccount\)/);
-  assert.match(source, /Promise\.allSettled\(candidates\.map/);
+  assert.match(source, /findRegisteredRecoveryAccount\(candidates/);
   assert.match(source, /connectButton\.textContent = 'Connecting…'/);
   assert.match(source, /\$\('#recovery-import'\)\.hidden = busy \|\| canRetry \|\| !!pendingWalletAccount \|\| !!state\.signer \|\| state\.signerReady/);
   assert.doesNotMatch(html, /<script[^>]+src="https?:\/\//i, 'setup page has no remote script tags');

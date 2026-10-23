@@ -1836,6 +1836,7 @@ async function connectWithRecoveryPhrase() {
   const phraseField = $('#recovery-phrase');
   const connectButton = $('#recovery-connect');
   let phrase = takeRecoveryPhrase(phraseField);
+  let candidates = null;
   pendingRecoveryAccount = null;
   if (!phrase) { setConnectionStatus('Enter your Farcaster recovery phrase, or use a linked wallet below.'); return; }
   if (!isSupportedRecoveryPhraseLength(phrase)) { phrase = ''; setConnectionStatus('Use a standard 12, 15, 18, 21, or 24-word phrase. The field has been cleared.'); return; }
@@ -1847,7 +1848,6 @@ async function connectWithRecoveryPhrase() {
   try {
     const { mnemonicToAccount } = await import('viem/accounts');
     const { createPublicClient, fallback, http, optimism } = await optimismToolkit();
-    let candidates;
     try { candidates = deriveRecoveryAccountCandidates(phrase, mnemonicToAccount); }
     catch { throw new Error('That phrase could not be imported. Check the words and try again.'); }
     phrase = '';
@@ -1855,6 +1855,7 @@ async function connectWithRecoveryPhrase() {
     const { account, fid } = await findRegisteredRecoveryAccount(candidates, (candidate) => publicClient.readContract({
       address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [candidate.address],
     }));
+    candidates = null;
     pendingRecoveryAccount = { account, address: account.address, fid: asFid(fid.toString()) };
     setConnectionStatus(`Farcaster account found · FID ${pendingRecoveryAccount.fid}. Preparing your limited browser key…`, { active: 'approve', completed: ['sign'], busy: true });
     await authorizeSigner(pendingRecoveryAccount);
@@ -1867,6 +1868,7 @@ async function connectWithRecoveryPhrase() {
     setConnectionStatus(`${safeMessage} The phrase field has been cleared.`, { active: 'sign' });
   } finally {
     phrase = '';
+    candidates = null;
     connectButton.disabled = false;
     connectButton.textContent = originalLabel;
     connectButton.removeAttribute('aria-busy');
