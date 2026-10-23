@@ -193,11 +193,11 @@
                     <button type="button" id="composer-media-clear" class="media-clear">Remove attachment</button>
                     <details class="giphy-picker" id="giphy-picker">
                       <summary>Find a GIF</summary>
-                      <form class="giphy-search" id="giphy-search-form">
+                      <div class="giphy-search" id="giphy-search-form" role="search">
                         <label class="sr-only" for="giphy-search-query">Search GIFs</label>
                         <input id="giphy-search-query" type="search" maxlength="50" placeholder="Search GIFs…" autocomplete="off" />
-                        <button type="submit" class="button button-orange" id="giphy-search-button">Search</button>
-                      </form>
+                        <button type="button" class="button button-orange" id="giphy-search-button">Search</button>
+                      </div>
                       <p class="giphy-status" id="giphy-status" role="status" aria-live="polite">Search the shared GIF library.</p>
                       <div class="giphy-results" id="giphy-results" aria-label="GIF search results"></div>
                       <a class="giphy-attribution" href="https://giphy.com" target="_blank" rel="noopener noreferrer">Powered by GIPHY</a>

@@ -11,6 +11,26 @@ redis.call('SET', KEYS[1], '1', 'PX', ARGV[1])
 return {1, tonumber(ARGV[1])}
 `;
 
+async function readLimitedJson(response, maxBytes = 1_000_000) {
+  const reader = response.body?.getReader();
+  if (!reader) return {};
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) { await reader.cancel(); throw new Error('GIF response was too large'); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
 function send(res, status, body, headers = {}) {
   res.statusCode = status;
   res.setHeader('content-type', 'application/json; charset=utf-8');
@@ -92,7 +112,7 @@ export default async function giphy(req, res) {
     if (rateLimited(req, 'status', 30)) return send(res, 429, { enabled: false, error: 'Too many GIF status checks. Wait a minute.' }, { 'retry-after': '60' });
     try {
       const remaining = Number(await redisCommand(config, ['PTTL', GLOBAL_KEY], AbortSignal.timeout(3500)));
-      return send(res, 200, { enabled: true, apiKey: config.apiKey, retryAfterMs: Math.max(0, remaining) });
+      return send(res, 200, { enabled: true, retryAfterMs: Math.max(0, remaining) });
     } catch {
       return send(res, 503, { enabled: false, error: 'GIF search is temporarily unavailable. Direct media links still work.' });
     }
@@ -105,7 +125,10 @@ export default async function giphy(req, res) {
   if (!sameOrigin(req)) return send(res, 403, { error: 'Request origin could not be verified.' });
   if (rateLimited(req, 'claim', 8)) return send(res, 429, { error: 'Too many GIF searches. Wait a minute.', retryAfterMs: COOLDOWN_MS }, { 'retry-after': '60' });
   if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') return send(res, 415, { error: 'Expected a JSON request.' });
-  if (!req.body || req.body.action !== 'claim') return send(res, 400, { error: 'Invalid GIF search request.' });
+  const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
+  if (req.body?.action !== 'search' || query.length < 1 || query.length > 50 || /[\u0000-\u001f\u007f]/.test(query)) {
+    return send(res, 400, { error: 'Enter a GIF search up to 50 characters.' });
+  }
 
   try {
     const result = await redisCommand(config, ['EVAL', CLAIM_SCRIPT, '1', GLOBAL_KEY, String(COOLDOWN_MS)], AbortSignal.timeout(3500));
@@ -113,7 +136,30 @@ export default async function giphy(req, res) {
     const accepted = Number(result[0]) === 1;
     const retryAfterMs = Math.max(0, Math.min(COOLDOWN_MS, Number(result[1]) || 0));
     if (!accepted) return send(res, 429, { error: 'Someone just searched. Try again when the timer clears.', retryAfterMs }, { 'retry-after': String(Math.ceil(retryAfterMs / 1000)) });
-    return send(res, 200, { allowed: true, retryAfterMs });
+    const searchUrl = new URL('https://api.giphy.com/v1/gifs/search');
+    searchUrl.searchParams.set('api_key', config.apiKey);
+    searchUrl.searchParams.set('q', query);
+    searchUrl.searchParams.set('limit', '16');
+    searchUrl.searchParams.set('offset', '0');
+    searchUrl.searchParams.set('rating', 'pg');
+    searchUrl.searchParams.set('lang', 'en');
+    const upstream = await fetch(searchUrl, {
+      headers: { accept: 'application/json' },
+      redirect: 'error',
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!upstream.ok) return send(res, 502, { error: 'GIPHY could not complete that search. Try again when the shared timer clears.', retryAfterMs });
+    const payload = await readLimitedJson(upstream);
+    if (!Array.isArray(payload?.data)) return send(res, 502, { error: 'GIPHY returned an unreadable response.', retryAfterMs });
+    const data = payload.data.slice(0, 16).map((item) => ({
+      title: typeof item?.title === 'string' ? item.title.slice(0, 100) : 'GIF',
+      images: {
+        original: { url: item?.images?.original?.url },
+        fixed_width_small: { url: item?.images?.fixed_width_small?.url },
+        preview_gif: { url: item?.images?.preview_gif?.url },
+      },
+    }));
+    return send(res, 200, { data, retryAfterMs });
   } catch {
     return send(res, 503, { error: 'GIF search is temporarily unavailable. Direct media links still work.' });
   }

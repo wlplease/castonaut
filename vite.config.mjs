@@ -170,14 +170,14 @@ function localGiphyAdapter(serverEnv) {
             for await (const chunk of req) { length += chunk.length; if (length > 1024) return sendJson(res, 413, { error: 'Request is too large.' }); chunks.push(chunk); }
             let parsed;
             try { parsed = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return sendJson(res, 400, { error: 'Invalid JSON request.' }); }
-            if (parsed?.action !== 'claim') return sendJson(res, 400, { error: 'Invalid GIF search request.' });
+            const query = typeof parsed?.query === 'string' ? parsed.query.trim() : '';
+            if (parsed?.action !== 'search' || query.length < 1 || query.length > 50 || /[\u0000-\u001f\u007f]/.test(query)) return sendJson(res, 400, { error: 'Invalid GIF search request.' });
             headers['content-type'] = 'application/json';
             headers.origin = target.origin;
-            body = JSON.stringify({ action: 'claim' });
+            body = JSON.stringify({ action: 'search', query });
           }
           const upstream = await fetch(target, { method: req.method, headers, body, redirect: 'error', signal: AbortSignal.timeout(5000) });
-          const raw = await upstream.text();
-          if (raw.length > 4096) return sendJson(res, 502, { error: 'GIF service returned an oversized response.' });
+          const raw = await readLimitedText(upstream, 1_000_000);
           let result;
           try { result = raw ? JSON.parse(raw) : {}; } catch { return sendJson(res, 502, { error: 'GIF service returned an unreadable response.' }); }
           return sendJson(res, upstream.status, result, upstream.headers.get('retry-after') ? { 'retry-after': upstream.headers.get('retry-after') } : {});

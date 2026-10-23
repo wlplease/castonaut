@@ -50,7 +50,7 @@ test('GIF gate fails closed when shared limiter configuration is missing', async
   assert.equal(result.payload.enabled, false);
 });
 
-test('status returns app-owned GIPHY key and shared cooldown without caching', async () => {
+test('status reports availability without exposing the app key', async () => {
   configure();
   globalThis.fetch = async (_url, options) => {
     assert.equal(options.headers.authorization, 'Bearer server-only-test-token');
@@ -59,12 +59,13 @@ test('status returns app-owned GIPHY key and shared cooldown without caching', a
   };
   const result = await call();
   assert.equal(result.statusCode, 200);
-  assert.equal(result.payload.apiKey, 'public-test-app-key');
+  assert.equal(result.payload.apiKey, undefined);
+  assert.doesNotMatch(JSON.stringify(result.payload), /public-test-app-key|server-only-test-token/);
   assert.equal(result.payload.retryAfterMs, 24_000);
   assert.equal(result.headers['cache-control'], 'no-store');
 });
 
-test('global claim uses one atomic Redis script and denies a concurrent caller', async () => {
+test('global search uses one atomic Redis script and denies a concurrent caller', async () => {
   configure();
   const scripts = [];
   globalThis.fetch = async (_url, options) => {
@@ -72,7 +73,7 @@ test('global claim uses one atomic Redis script and denies a concurrent caller',
     scripts.push(command);
     return Response.json({ result: [0, 8500] });
   };
-  const result = await call({ method: 'POST', body: { action: 'claim' }, headers: {
+  const result = await call({ method: 'POST', body: { action: 'search', query: 'space' }, headers: {
     origin: 'https://castonaut.example', 'sec-fetch-site': 'same-origin', 'content-type': 'application/json',
   } });
   assert.equal(result.statusCode, 429);
@@ -85,20 +86,43 @@ test('global claim uses one atomic Redis script and denies a concurrent caller',
   assert.equal(scripts[0][4], '60000');
 });
 
-test('global claim allows one caller and returns the minute countdown', async () => {
+test('global search returns bounded results without exposing the app key', async () => {
   configure();
-  globalThis.fetch = async () => Response.json({ result: [1, 60_000] });
-  const result = await call({ method: 'POST', body: { action: 'claim' }, headers: {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes('upstash.io')) return Response.json({ result: [1, 60_000] });
+    return Response.json({ data: [{ title: 'Space cat', images: { original: { url: 'https://media.giphy.com/original.gif' }, fixed_width_small: { url: 'https://media.giphy.com/small.gif' }, fixed_width: { url: 'must-not-return' } } }] });
+  };
+  const result = await call({ method: 'POST', body: { action: 'search', query: 'space' }, headers: {
     origin: 'https://castonaut.example', 'sec-fetch-site': 'same-origin', 'content-type': 'application/json',
   } });
   assert.equal(result.statusCode, 200);
-  assert.deepEqual(result.payload, { allowed: true, retryAfterMs: 60_000 });
+  assert.equal(result.payload.retryAfterMs, 60_000);
+  assert.equal(result.payload.data[0].title, 'Space cat');
+  assert.equal(result.payload.data[0].images.fixed_width, undefined);
+  assert.match(calls[1].url, /api_key=public-test-app-key/);
+  assert.match(calls[1].url, /q=space/);
+  assert.doesNotMatch(JSON.stringify(result.payload), /public-test-app-key|server-only-test-token|must-not-return/);
 });
 
-test('global claim refuses cross-origin requests before calling Redis', async () => {
+test('GIF search validates query length and rejects old claim-only requests', async () => {
   configure();
   globalThis.fetch = async () => { throw new Error('fetch should not run'); };
-  const result = await call({ method: 'POST', body: { action: 'claim' }, headers: {
+  const missing = await call({ method: 'POST', body: { action: 'claim' }, headers: {
+    origin: 'https://castonaut.example', 'sec-fetch-site': 'same-origin', 'content-type': 'application/json',
+  } });
+  const oversized = await call({ method: 'POST', body: { action: 'search', query: 'x'.repeat(51) }, headers: {
+    origin: 'https://castonaut.example', 'sec-fetch-site': 'same-origin', 'content-type': 'application/json',
+  } });
+  assert.equal(missing.statusCode, 400);
+  assert.equal(oversized.statusCode, 400);
+});
+
+test('GIF search refuses cross-origin requests before calling Redis', async () => {
+  configure();
+  globalThis.fetch = async () => { throw new Error('fetch should not run'); };
+  const result = await call({ method: 'POST', body: { action: 'search', query: 'space' }, headers: {
     origin: 'https://attacker.example', 'sec-fetch-site': 'cross-site', 'content-type': 'application/json',
   } });
   assert.equal(result.statusCode, 403);
@@ -107,4 +131,16 @@ test('global claim refuses cross-origin requests before calling Redis', async ()
 test('draft restoration never assigns the invalid negative maxLength', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /\.maxLength\s*=\s*-\d+/);
+});
+
+test('GIF search controls are not nested forms that browsers discard', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /<div class="giphy-search" id="giphy-search-form"/);
+  assert.doesNotMatch(html, /<form[^>]*id="giphy-search-form"/);
+});
+
+test('client sends GIF searches only to the same-origin proxy', async () => {
+  const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /fetch\('\/api\/giphy'[\s\S]*?action: 'search', query/);
+  assert.doesNotMatch(source, /api\.giphy\.com|api_key|apiKey/);
 });

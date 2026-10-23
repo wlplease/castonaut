@@ -38,13 +38,13 @@ npm run build
 
 ## Optional services
 
-- **Contest build:** the core client does not require third-party data API keys. Optional GIF search uses one app-owned GIPHY key and a shared Redis cooldown; regular users never enter a key. GIPHY's client-side search requirement means the app key is visible in browsers. The Redis token stays server-only. Feed, profile, follow, post, reaction, and direct media-link features do not depend on GIF search.
+- **Contest build:** the core client does not require third-party data API keys. Optional GIF search uses an operator-configured GIPHY key and shared Redis cooldown behind a server-side route; users never enter or receive keys. Feed, profile, follow, post, reaction, and direct media-link features do not depend on GIF search.
 
 ## Deployment notes
 
 Vercel serves the static app and its small server-side Snapchain proxy. Set `SNAPCHAIN_URL` as a server environment variable. Castonaut is currently free to use; no payment contract or purchase configuration is required. Verify the node is synced and reachable before inviting people to test. The node is public and can be contacted directly; the proxy’s per-instance rate limits are best-effort, not abuse-proof protection.
 
-GIF search reads the existing Vercel `GIPHY_APP` secret (with `GIPHY_API_KEY` as a compatibility alias) plus `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Users never provide these values. Keep the Redis token server-only; the app-owned GIPHY key is exposed to browsers because GIPHY requires direct client-side search. The global limiter allows one search per minute across the deployment and fails closed if Redis is missing or unavailable. Direct media URLs continue to work without these settings.
+GIF search reads the existing Vercel `GIPHY_APP` secret (with `GIPHY_API_KEY` as a compatibility alias) plus `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Users never provide or receive these values. Both credentials stay server-side. The server validates each search, uses an atomic Redis cooldown to allow one search per minute across the deployment, and returns only a small set of GIF fields. It fails closed if Redis is missing or unavailable. Direct media URLs continue to work without these settings.
 
 The [setup guide](https://castonaut.vercel.app/tutorial.html) covers node operation, the message path, account security, source filters, and a repeatable test checklist. The [Privacy Notice](privacy.html) and [Terms of Use](terms.html) describe data handling and service providers. Complete the operator contact and jurisdiction fields before public launch.
 

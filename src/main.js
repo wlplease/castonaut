@@ -3000,8 +3000,8 @@ async function loadGiphyStatus() {
   try {
     const response = await fetch('/api/giphy', { headers: { accept: 'application/json' }, cache: 'no-store' });
     const result = await response.json();
-    if (!response.ok || !result.enabled || typeof result.apiKey !== 'string' || !result.apiKey) throw new Error(result.error || 'GIF search is not configured.');
-    giphyConfig = { apiKey: result.apiKey };
+    if (!response.ok || !result.enabled) throw new Error(result.error || 'GIF search is not configured.');
+    giphyConfig = { enabled: true };
     updateGiphyCooldown(result.retryAfterMs);
     if (Number(result.retryAfterMs) > 0) status.textContent = 'Shared search is in use. Your timer is running.';
   } catch (error) {
@@ -3044,8 +3044,7 @@ function renderGiphyResults(items) {
 }
 
 $('#giphy-picker').addEventListener('toggle', (event) => { if (event.currentTarget.open) loadGiphyStatus(); });
-$('#giphy-search-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
+async function searchGifs() {
   const query = $('#giphy-search-query').value.trim().slice(0, 50);
   if (!query) { $('#giphy-status').textContent = 'Type a word to search GIFs.'; $('#giphy-search-query').focus(); return; }
   if (!giphyConfig) await loadGiphyStatus();
@@ -3056,36 +3055,23 @@ $('#giphy-search-form').addEventListener('submit', async (event) => {
   giphySearching = true;
   button.disabled = true;
   button.textContent = 'Searching…';
-  status.textContent = 'Claiming the shared search, then contacting GIPHY…';
+  status.textContent = 'Searching GIPHY…';
   results.replaceChildren();
   try {
-    const claimResponse = await fetch('/api/giphy', {
+    const searchResponse = await fetch('/api/giphy', {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ action: 'claim' }),
+      body: JSON.stringify({ action: 'search', query }),
       cache: 'no-store',
     });
-    const claim = await claimResponse.json();
-    if (claimResponse.status === 429) {
-      updateGiphyCooldown(claim.retryAfterMs);
-      status.textContent = claim.error || 'Someone just searched. Try again when the timer clears.';
+    const payload = await searchResponse.json();
+    if (Number(payload.retryAfterMs) > 0) updateGiphyCooldown(payload.retryAfterMs);
+    if (searchResponse.status === 429) {
+      status.textContent = payload.error || 'Someone just searched. Try again when the timer clears.';
       return;
     }
-    if (!claimResponse.ok || !claim.allowed) throw new Error(claim.error || 'GIF search is temporarily unavailable.');
-    updateGiphyCooldown(claim.retryAfterMs || 60_000);
-    const searchUrl = new URL('https://api.giphy.com/v1/gifs/search');
-    searchUrl.searchParams.set('api_key', giphyConfig.apiKey);
-    searchUrl.searchParams.set('q', query);
-    searchUrl.searchParams.set('limit', '16');
-    searchUrl.searchParams.set('offset', '0');
-    searchUrl.searchParams.set('rating', 'pg');
-    searchUrl.searchParams.set('lang', 'en');
-    const response = await fetch(searchUrl, { headers: { accept: 'application/json' }, mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(12_000) });
-    const raw = await response.text();
-    if (raw.length > 2_000_000) throw new Error('GIPHY returned too many results. Try a shorter search.');
-    let payload;
-    try { payload = JSON.parse(raw); } catch { throw new Error('GIPHY returned an unreadable response.'); }
-    if (!response.ok || !Array.isArray(payload.data)) throw new Error('GIPHY could not complete that search. Try again when the timer clears.');
+    if (!searchResponse.ok || !Array.isArray(payload.data)) throw new Error(payload.error || 'GIPHY could not complete that search. Try again when the timer clears.');
+    updateGiphyCooldown(payload.retryAfterMs || 60_000);
     renderGiphyResults(payload.data);
     status.textContent = $('#giphy-results').childElementCount ? `${$('#giphy-results').childElementCount} GIFs · select one to attach` : 'No GIFs found. Try another search when the timer clears.';
   } catch (error) {
@@ -3099,6 +3085,10 @@ $('#giphy-search-form').addEventListener('submit', async (event) => {
       button.textContent = `Wait ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
     }
   }
+}
+$('#giphy-search-button').addEventListener('click', searchGifs);
+$('#giphy-search-query').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') { event.preventDefault(); searchGifs(); }
 });
 $('#composer-media-url').addEventListener('input', () => {
   const candidate = safeExternalUrl($('#composer-media-url').value.trim());
