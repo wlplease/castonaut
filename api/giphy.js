@@ -1,5 +1,9 @@
+import { isIP } from 'node:net';
+
 const COOLDOWN_MS = 60_000;
 const GLOBAL_KEY = 'castonaut:giphy:global:v1';
+const rateHits = new Map();
+const RATE_WINDOW_MS = 60_000;
 const CLAIM_SCRIPT = `
 local ttl = redis.call('PTTL', KEYS[1])
 if ttl > 0 then return {0, ttl} end
@@ -28,8 +32,34 @@ function sameOrigin(req) {
   } catch { return false; }
 }
 
+function requestKey(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  if (forwarded.length <= 64 && isIP(forwarded)) return forwarded;
+  const remote = String(req.socket?.remoteAddress || '').trim();
+  return remote.length <= 64 && isIP(remote) ? remote : 'unknown';
+}
+
+function rateLimited(req, scope, limit) {
+  const key = `${scope}:${requestKey(req)}`;
+  const now = Date.now();
+  const current = rateHits.get(key);
+  if (!current || now - current.start >= RATE_WINDOW_MS) {
+    if (rateHits.size >= 4096) {
+      for (const [entryKey, entry] of rateHits) {
+        if (now - entry.start >= RATE_WINDOW_MS) rateHits.delete(entryKey);
+        if (rateHits.size < 4096) break;
+      }
+      if (rateHits.size >= 4096) rateHits.delete(rateHits.keys().next().value);
+    }
+    rateHits.set(key, { start: now, count: 1 });
+    return false;
+  }
+  current.count += 1;
+  return current.count > limit;
+}
+
 function configuration() {
-  const apiKey = process.env.GIPHY_API_KEY || '';
+  const apiKey = process.env.GIPHY_APP || process.env.GIPHY_API_KEY || '';
   const redisUrl = process.env.UPSTASH_REDIS_REST_URL || '';
   const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || '';
   if (!apiKey || !redisUrl || !redisToken) return null;
@@ -59,6 +89,7 @@ export default async function giphy(req, res) {
   if (!config) return send(res, 503, { enabled: false, error: 'GIF search is not set up yet. Direct media links still work.' });
 
   if (req.method === 'GET') {
+    if (rateLimited(req, 'status', 30)) return send(res, 429, { enabled: false, error: 'Too many GIF status checks. Wait a minute.' }, { 'retry-after': '60' });
     try {
       const remaining = Number(await redisCommand(config, ['PTTL', GLOBAL_KEY], AbortSignal.timeout(3500)));
       return send(res, 200, { enabled: true, apiKey: config.apiKey, retryAfterMs: Math.max(0, remaining) });
@@ -72,6 +103,7 @@ export default async function giphy(req, res) {
     return send(res, 405, { error: 'Method not allowed' });
   }
   if (!sameOrigin(req)) return send(res, 403, { error: 'Request origin could not be verified.' });
+  if (rateLimited(req, 'claim', 8)) return send(res, 429, { error: 'Too many GIF searches. Wait a minute.', retryAfterMs: COOLDOWN_MS }, { 'retry-after': '60' });
   if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') return send(res, 415, { error: 'Expected a JSON request.' });
   if (!req.body || req.body.action !== 'claim') return send(res, 400, { error: 'Invalid GIF search request.' });
 

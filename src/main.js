@@ -3019,6 +3019,7 @@ function renderGiphyResults(items) {
     image.alt = title;
     image.loading = 'lazy';
     image.decoding = 'async';
+    image.referrerPolicy = 'no-referrer';
     const caption = document.createElement('span');
     caption.textContent = title;
     button.append(image, caption);
@@ -3069,7 +3070,7 @@ $('#giphy-search-form').addEventListener('submit', async (event) => {
     searchUrl.searchParams.set('offset', '0');
     searchUrl.searchParams.set('rating', 'pg');
     searchUrl.searchParams.set('lang', 'en');
-    const response = await fetch(searchUrl, { headers: { accept: 'application/json' }, mode: 'cors', credentials: 'omit', referrerPolicy: 'strict-origin-when-cross-origin', signal: AbortSignal.timeout(12_000) });
+    const response = await fetch(searchUrl, { headers: { accept: 'application/json' }, mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(12_000) });
     const raw = await response.text();
     if (raw.length > 2_000_000) throw new Error('GIPHY returned too many results. Try a shorter search.');
     let payload;
