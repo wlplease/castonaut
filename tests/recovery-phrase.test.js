@@ -81,7 +81,8 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(csp, /script-src 'self'; script-src-attr 'none'/);
   assert.match(csp, /style-src 'self'; style-src-attr 'none'/);
   assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/);
-  assert.match(csp, /connect-src[^;]*https:\/\/mainnet\.optimism\.io[^;]*https:\/\/optimism-rpc\.publicnode\.com[^;]*https:\/\/mainnet\.base\.org[^;]*https:\/\/api\.giphy\.com/);
+  assert.match(csp, /connect-src[^;]*https:\/\/mainnet\.optimism\.io[^;]*https:\/\/optimism-rpc\.publicnode\.com[^;]*https:\/\/mainnet\.base\.org/);
+  assert.doesNotMatch(csp, /giphy|gemini/i);
   assert.match(csp, /media-src 'self' https:/);
   assert.match(source, /function enableAnalytics\(\)[\s\S]*?disableAutoTrack: true/);
   assert.match(source, /if \(analyticsEnabled\) pageview\(/);

@@ -1,5 +1,6 @@
 import { groupRepeatedCasts } from './feed-groups.js';
 import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions } from './feed-curation.js';
+import { followedFeedSources, paceByAuthor, rankFollowRecommendations } from './feed-ranking.js';
 import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
 import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-capsules.js';
 import { isStationAccessAllowed } from './station-access.js';
@@ -62,7 +63,7 @@ const PASS_CONTRACT_ADDRESS = String(import.meta.env.VITE_PASS_CONTRACT_ADDRESS 
 const CONTEST_ACCESS = String(import.meta.env.VITE_CONTEST_ACCESS || '').toLowerCase() === 'true';
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, passWallet: '', passWalletConnected: false, passExpiry: 0, passBusy: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, passWallet: '', passWalletConnected: false, passExpiry: 0, passBusy: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -705,6 +706,11 @@ function updateFeedTabs() {
   $('#friend-count').textContent = String(state.friendFids.length);
   $('#crew-count').textContent = String(state.crewFids.length);
   $('#show-crew').firstChild.textContent = `${state.crewName} `;
+  const discover = $('#show-suggested');
+  if (discover) {
+    discover.hidden = state.boardMode !== 'signals' || state.feedMode !== 'following';
+    if (discover.hidden) { $('#suggested-panel').hidden = true; discover.setAttribute('aria-expanded', 'false'); }
+  }
   $('#crew-name').value = state.crewName;
   $('#show-flight-log').classList.toggle('is-active', state.boardMode === 'flight-log');
   $('#show-flight-log').setAttribute('aria-pressed', String(state.boardMode === 'flight-log'));
@@ -714,7 +720,7 @@ function feedDescription(mode = state.feedMode) {
   if (mode === 'friends') return 'Your handpicked circle · saved on this device.';
   if (mode === 'crew') return `Your ${state.crewName} list · saved on this device.`;
   if (mode === 'profile') return 'Recent posts from this profile.';
-  return 'People you follow · newest first.';
+  return 'People you follow · latest posts, spaced across your circle.';
 }
 
 function feedScrollKey() {
@@ -941,6 +947,76 @@ function renderCast(message) {
   return card;
 }
 
+function renderSuggestedPeople() {
+  const list = $('#suggested-list');
+  if (!list) return;
+  if (state.suggestionsBusy) {
+    const loading = document.createElement('p'); loading.className = 'suggested-empty'; loading.textContent = 'Finding people across your circle…'; list.replaceChildren(loading); return;
+  }
+  if (!state.suggestedPeople.length) {
+    const empty = document.createElement('p'); empty.className = 'suggested-empty';
+    empty.textContent = state.suggestionsError
+      ? 'Could not reach your node for suggestions. Close this panel and try again.'
+      : !state.feedSources.length
+        ? 'Follow a few people first. Suggestions come from their public follow graphs.'
+        : 'No strong matches yet. As your circle grows, useful suggestions will show up here.';
+    list.replaceChildren(empty); return;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const suggestion of state.suggestedPeople.slice(0, 3)) {
+    const profile = state.people.get(suggestion.fid) || { fid: suggestion.fid, name: `Farcaster ${suggestion.fid}`, username: `fid-${suggestion.fid}` };
+    const row = document.createElement('article'); row.className = 'suggested-person';
+    const avatar = document.createElement('div'); avatar.className = 'suggested-avatar'; avatar.setAttribute('aria-hidden', 'true');
+    const avatarUrl = safeImageUrl(profile.avatar);
+    if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl)); else avatar.textContent = String(profile.name || profile.username || '?').slice(0, 1).toUpperCase();
+    const identity = document.createElement('div'); identity.className = 'suggested-identity';
+    const name = document.createElement('strong'); name.textContent = localProfileName(profile);
+    const handle = document.createElement('span'); handle.textContent = `@${profile.username || `fid-${suggestion.fid}`}`;
+    const context = document.createElement('small'); context.textContent = `Followed by ${suggestion.mutualCount} people you follow`;
+    identity.append(name, handle, context);
+    const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline suggested-follow'; follow.dataset.action = 'follow'; follow.dataset.fid = String(suggestion.fid); follow.textContent = state.following.get(suggestion.fid) ? 'Following' : 'Follow'; follow.disabled = state.following.get(suggestion.fid) || !state.signerReady; follow.setAttribute('aria-pressed', String(!!state.following.get(suggestion.fid)));
+    row.append(avatar, identity, follow); fragment.append(row);
+  }
+  list.replaceChildren(fragment);
+}
+
+async function loadSuggestedPeople() {
+  if (state.suggestionsBusy || !state.fid || state.feedMode !== 'following') return;
+  if (state.suggestionsLoadedFor === Number(state.fid)) { renderSuggestedPeople(); return; }
+  state.suggestionsBusy = true; state.suggestionsError = false; renderSuggestedPeople();
+  try {
+    const sources = state.feedSources.slice(0, 5).filter((fid) => fid !== Number(state.fid));
+    const groups = await mapLimit(sources, 3, async (sourceFid) => {
+      const response = await nodeRequest('links', { fid: sourceFid, link_type: 'follow', pageSize: 75, reverse: true });
+      return { sourceFid, messages: unwrapMessages(response) };
+    });
+    if (sources.length && !groups.some(Boolean)) throw new Error('No follow graphs responded.');
+    const alreadyKnown = new Set([...state.following.keys(), ...state.friendFids, ...state.crewFids, ...state.mutedAuthors]);
+    const candidates = rankFollowRecommendations(groups.filter(Boolean), { ownFid: state.fid, followingFids: alreadyKnown, limit: 5 });
+    const strongest = candidates.some((candidate) => candidate.mutualCount > 1)
+      ? candidates.filter((candidate) => candidate.mutualCount > 1)
+      : candidates;
+    state.suggestedPeople = strongest.slice(0, 5);
+    await mapLimit(state.suggestedPeople.map((person) => person.fid), 4, fetchProfile);
+    state.suggestionsLoadedFor = Number(state.fid);
+  } catch {
+    state.suggestedPeople = [];
+    state.suggestionsError = true;
+  } finally {
+    state.suggestionsBusy = false;
+    renderSuggestedPeople();
+  }
+}
+
+function toggleSuggestedPeople() {
+  const panel = $('#suggested-panel');
+  if (!panel) return;
+  const opening = panel.hidden;
+  panel.hidden = !opening;
+  $('#show-suggested')?.setAttribute('aria-expanded', String(opening));
+  if (opening) { loadSuggestedPeople(); panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+
 async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   state.conversation = null;
   $('#conversation-view').hidden = true;
@@ -966,6 +1042,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   }
   state.feedMode = ['profile', 'friends', 'crew'].includes(mode) ? mode : 'following';
   state.feedTargetFid = state.feedMode === 'profile' ? fid : Number(state.fid);
+  if (state.feedMode === 'following') { state.suggestedPeople = []; state.suggestionsLoadedFor = 0; $('#suggested-panel').hidden = true; $('#show-suggested')?.setAttribute('aria-expanded', 'false'); }
   state.feedSources = [];
   state.feedSourceOffset = 0;
   state.feedQuery = '';
@@ -982,6 +1059,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   $('#feed-pulse').hidden = true;
   renderProfileSummary();
   state.feedBusy = true;
+  $('#show-suggested').disabled = true;
   const list = $('#feed-list'); list.setAttribute('aria-busy', 'true');
   const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Friends' : state.feedMode === 'crew' ? state.crewName : 'Following';
   if (state.boardMode === 'signals') {
@@ -995,7 +1073,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
       state.feedMode === 'following' ? nodeRequest('links', { fid, link_type: 'follow', pageSize: 100, reverse: true }) : Promise.resolve({ messages: [] }),
       fetchProfile(state.feedMode === 'profile' ? fid : Number(state.fid)),
     ]);
-    const followFids = [...new Set(unwrapMessages(followResponse).map((message) => Number(message?.data?.linkBody?.targetFid)).filter((target) => Number.isSafeInteger(target) && target > 0 && target !== fid))];
+    const followFids = followedFeedSources(fid, unwrapMessages(followResponse), 100);
     if (state.feedMode === 'following') {
       state.following.clear();
       for (const target of followFids) state.following.set(target, true);
@@ -1003,11 +1081,14 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     const uniqueFids = state.feedMode === 'profile' ? [fid]
       : state.feedMode === 'friends' ? [...state.friendFids]
         : state.feedMode === 'crew' ? [...state.crewFids]
-          : [fid, ...new Set(followFids)].slice(0, 25);
+          : [...new Set(followFids)];
     const limitedFids = [...new Set(uniqueFids)].filter((target) => Number.isSafeInteger(target) && target > 0).slice(0, 25);
     state.feedSources = state.feedMode === 'following' ? limitedFids : [];
     state.feedSourceOffset = state.feedMode === 'following' ? Math.min(6, limitedFids.length) : 0;
     state.feedFollowTotal = state.feedMode === 'following' ? followFids.length : 0;
+    if (state.suggestionsLoadedFor !== Number(state.fid)) state.suggestedPeople = [];
+    $('#suggested-panel').hidden = true;
+    renderSuggestedPeople();
     if (state.boardMode === 'signals') {
       $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
       $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · FID ${fid}` : feedDescription(state.feedMode);
@@ -1021,11 +1102,12 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     }
     const firstPageFids = state.feedMode === 'following' ? limitedFids.slice(0, 6) : limitedFids;
     const castGroups = await mapLimit(firstPageFids, 6, async (target) => {
-      const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize: 12, reverse: true }), fetchProfile(target)]);
+      const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize: 10, reverse: true }), fetchProfile(target)]);
       return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
     });
     if (requestId !== state.feedRequest) return false;
-    const messages = castGroups.flat().sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0)).slice(0, 60);
+    const newestFirst = castGroups.flat().sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
+    const messages = (state.feedMode === 'profile' ? newestFirst : paceByAuthor(newestFirst)).slice(0, state.feedMode === 'profile' ? 60 : 30);
     state.casts = messages;
     if (Number($('#source-fid').value) > 0) await loadSignerSources(messages);
     const profileFids = [...new Set(messages.flatMap((message) => [
@@ -1062,6 +1144,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     return false;
   } finally {
     state.feedBusy = false;
+    $('#show-suggested').disabled = false;
     list.setAttribute('aria-busy', 'false');
     if (state.feedPending) {
       const [pendingFid, pendingMode] = state.feedPending;
@@ -1083,8 +1166,8 @@ function renderFeedMore() {
   button.textContent = state.feedMoreBusy ? 'Loading more people…' : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
   if (label) {
     label.hidden = hasMore;
-    label.textContent = state.feedMode === 'following' && state.feedFollowTotal > Math.max(0, state.feedSources.length - 1)
-      ? `FIRST ${Math.max(0, state.feedSources.length - 1)} OF ${state.feedFollowTotal} RETURNED FOLLOWS CHECKED`
+    label.textContent = state.feedMode === 'following' && state.feedFollowTotal > state.feedSources.length
+      ? `FIRST ${state.feedSources.length} OF ${state.feedFollowTotal} FOLLOWED ACCOUNTS CHECKED`
       : 'END OF TRANSMISSION';
   }
   footer.hidden = !hasMore && state.casts.length === 0;
@@ -1094,10 +1177,10 @@ function renderFeedMore() {
 function updateFollowingCoverage() {
   const caption = $('#feed-caption');
   if (!caption || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
-  const loaded = Math.max(0, Math.min(state.feedFollowTotal, state.feedSourceOffset - (state.feedSources.length ? 1 : 0)));
-  const available = Math.min(state.feedFollowTotal, Math.max(0, state.feedSources.length - 1));
-  const capNote = state.feedFollowTotal > available ? ` · first ${available} of ${state.feedFollowTotal} returned` : '';
-  caption.textContent = `Newest first · ${loaded} of ${available} follows checked in this lookup${capNote}.`;
+  const loaded = Math.max(0, Math.min(state.feedFollowTotal, state.feedSourceOffset));
+  const available = Math.min(state.feedFollowTotal, state.feedSources.length);
+  const capNote = state.feedFollowTotal > available ? ` · ${available}/${state.feedFollowTotal} follows in range` : '';
+  caption.textContent = `Latest · spread across follows · ${loaded}/${available} checked${capNote}.`;
 }
 
 async function loadMoreFollowed() {
@@ -1111,7 +1194,7 @@ async function loadMoreFollowed() {
   try {
     const groups = await mapLimit(batch, 6, async (target) => {
       const [response] = await Promise.all([
-        nodeRequest('casts', { fid: target, pageSize: 12, reverse: true }),
+        nodeRequest('casts', { fid: target, pageSize: 10, reverse: true }),
         fetchProfile(target),
       ]);
       return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
@@ -1122,7 +1205,7 @@ async function loadMoreFollowed() {
       const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
       if (!existing.has(key)) { existing.add(key); state.casts.push(message); }
     }
-    state.casts.sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
+    state.casts = paceByAuthor(state.casts.sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0))).slice(0, 60);
     state.feedSourceOffset = start + batch.length;
     await mapLimit([...new Set(state.casts.flatMap((message) => [Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid)]).filter((fid) => fid > 0 && !state.people.has(fid)))], 6, fetchProfile);
     if (requestId !== state.feedRequest) return;
@@ -1168,8 +1251,6 @@ function renderFeed() {
   });
   state.visibleCasts = messages;
   renderCapsuleShelf();
-  $('#ai-catch-up').hidden = state.boardMode !== 'signals' || messages.length === 0;
-  $('#ai-catch-up-result').hidden = true;
   const groups = state.boardMode === 'signals' && state.groupRepeats
     ? groupRepeatedCasts(messages)
     : messages.map((message) => ({ messages: [message], reason: null }));
@@ -1198,6 +1279,8 @@ function renderFeed() {
       renderEmpty('Your friends list is open.', 'Use ••• on a post to add someone. This list stays on this device.');
     } else if (state.feedMode === 'crew' && !state.crewFids.length) {
       renderEmpty(`${state.crewName} is ready.`, `Use ••• on a post to add people to ${state.crewName}. This group stays on this device.`);
+    } else if (state.feedMode === 'following' && state.feedSources.length) {
+      renderEmpty('No recent posts from your follows.', 'Your Following feed only shows people you chose. Try Friends or check back later.');
     } else if (state.orbitOnly && !state.deskPins.length) {
       renderEmpty('No pinned people yet.', 'Pin someone from a post, then turn on this filter to see only their posts.');
     } else if (state.orbitOnly) {
@@ -1343,7 +1426,15 @@ function renderProfileSummary() {
   for (const [value, label] of [['atlas', 'Atlas'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk']]) {
     const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = coverTone === value; coverSelect.append(option);
   }
-  coverLabel.append(coverSelect); actions.append(pin, follow, share, edit, coverLabel); shell.append(avatar, identity, actions);
+  coverLabel.append(coverSelect);
+  const more = document.createElement('details'); more.className = 'profile-more-options';
+  const moreLabel = document.createElement('summary'); moreLabel.textContent = 'Customize';
+  const morePanel = document.createElement('div'); morePanel.className = 'profile-more-panel';
+  morePanel.append(coverLabel, edit, share); more.append(moreLabel, morePanel);
+  morePanel.addEventListener('click', (event) => {
+    if (event.target.closest('button')) queueMicrotask(() => { more.open = false; });
+  });
+  actions.append(pin, follow, more); shell.append(avatar, identity, actions);
   const tabs = document.createElement('div'); tabs.className = 'profile-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Profile posts');
   const postCount = state.casts.length;
   const mediaCount = state.casts.filter(hasMedia).length;
@@ -1447,7 +1538,6 @@ async function openConversation(fidValue, hashValue, { updateRoute = true } = {}
   $('#composer').hidden = true;
   $('#feed-filters').hidden = true;
   $('#feed-pulse').hidden = true;
-  $('#ai-catch-up').hidden = true;
   root.replaceChildren(); replies.replaceChildren();
   status.textContent = 'Loading the post and replies…';
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2248,12 +2338,12 @@ function renderIdentity() {
   $('#pass-status-strip').hidden = !ready || CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
   const passPreview = $('.portal-pass-preview');
   if (passPreview) {
-    passPreview.hidden = CONTEST_ACCESS;
+    passPreview.hidden = CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
     const offerNote = passPreview.querySelector('small');
-    if (offerNote) offerNote.textContent = isConfiguredPassAddress(PASS_CONTRACT_ADDRESS)
-      ? 'One-time on Base · no auto-renewal'
-      : 'Planned price · free preview · checkout not live';
+    if (offerNote) offerNote.textContent = 'One-time on Base · no auto-renewal';
   }
+  const paidPreview = $('.plus-preview');
+  if (paidPreview) paidPreview.hidden = CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
   empty.hidden = !!state.fid; connected.hidden = !state.fid;
   $('#portal-enter').textContent = state.fid && !ready ? 'Check key status ↻' : 'Sign in ↗';
   const portalStatus = $('#portal-status');
@@ -2571,8 +2661,6 @@ function clearCurrentDraft() {
   $('#composer-media-url').value = '';
   $('#composer-media').hidden = true;
   setPendingCastControls(false);
-  $('#gif-results')?.replaceChildren();
-  $('#gif-search-query').value = '';
   $('#char-count').textContent = '0 / 320';
   state.parent = null;
   state.pendingCast = null;
@@ -2667,6 +2755,8 @@ $('#feed-refresh').addEventListener('click', () => {
   Promise.resolve(task).finally(() => { button.disabled = false; });
 });
 $('#feed-more')?.addEventListener('click', loadMoreFollowed);
+$('#show-suggested')?.addEventListener('click', toggleSuggestedPeople);
+$('#suggested-close')?.addEventListener('click', () => { $('#suggested-panel').hidden = true; $('#show-suggested')?.setAttribute('aria-expanded', 'false'); });
 $('#backup-export').addEventListener('click', exportLocalBackup);
 $('#backup-import-trigger').addEventListener('click', () => $('#backup-file').click());
 $('#backup-file').addEventListener('change', (event) => importLocalBackup(event.currentTarget.files?.[0]));
@@ -2753,6 +2843,9 @@ stationAudio.addEventListener('pause', () => {
 });
 document.querySelectorAll('[data-feed-tab]').forEach((button) => button.addEventListener('click', () => setFeedTab(button.dataset.feedTab)));
 $('#show-flight-log').addEventListener('click', () => setBoardMode('flight-log'));
+$('.feed-extra-menu')?.addEventListener('click', (event) => {
+  if (event.target.closest('button')) queueMicrotask(() => { $('.feed-extra-menu').open = false; });
+});
 $('#refresh-node').addEventListener('click', checkNode);
 $('#refresh-node-large')?.addEventListener('click', checkNode);
 $('#node-journey-check')?.addEventListener('click', async (event) => {
@@ -2998,7 +3091,6 @@ $('#composer-media-toggle').addEventListener('click', () => {
   if (!panel.hidden) $('#composer-media-url').focus();
 });
 $('#composer-media-url').addEventListener('input', () => {
-  $('#gif-results').querySelectorAll('.gif-result').forEach((item) => { item.classList.remove('selected'); item.setAttribute('aria-pressed', 'false'); });
   const candidate = safeExternalUrl($('#composer-media-url').value.trim());
   $('#composer-media-note').textContent = candidate
     ? `${candidate.hostname} will be attached. Remote image previews remain off unless you enable them.`
@@ -3009,68 +3101,8 @@ $('#composer-media-url').addEventListener('input', () => {
 $('#composer-media-clear').addEventListener('click', () => {
   $('#composer-media-url').value = ''; $('#composer-media').hidden = true;
   $('#composer-media-note').textContent = 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews stay off until you enable remote images.';
-  $('#gif-results').replaceChildren();
   $('#draft-discard').hidden = !$('#composer-text').value.trim();
   saveComposerDraft();
-});
-async function searchGifs(event) {
-  event.preventDefault();
-  const query = $('#gif-search-query').value.trim().slice(0, 50);
-  const note = $('#gif-search-note');
-  const submit = $('#gif-search-submit');
-  if (!query) { note.textContent = 'Enter a word or phrase to search GIFs.'; $('#gif-search-query').focus(); return; }
-  submit.disabled = true;
-  note.textContent = 'Searching GIPHY…';
-  $('#gif-results').replaceChildren();
-  try {
-    const apiKey = import.meta.env.VITE_GIPHY_API_KEY;
-    if (!apiKey) throw new Error('GIF search is not configured on this build yet. Direct GIF URLs still work.');
-    const searchUrl = new URL('https://api.giphy.com/v1/gifs/search');
-    searchUrl.searchParams.set('api_key', apiKey);
-    searchUrl.searchParams.set('q', query);
-    searchUrl.searchParams.set('limit', '9');
-    searchUrl.searchParams.set('rating', 'g');
-    const response = await fetch(searchUrl, { signal: AbortSignal.timeout(10_000), referrerPolicy: 'no-referrer' });
-    const result = await response.json();
-    if (!response.ok) throw new Error('GIPHY could not complete that search. Check the app’s GIPHY API key or try again shortly.');
-    const gifs = (Array.isArray(result.data) ? result.data : []).slice(0, 9).map((item) => ({
-      title: item?.title || 'GIPHY result',
-      url: item?.images?.original?.url,
-      preview: item?.images?.fixed_width?.webp || item?.images?.fixed_width?.url || item?.images?.original?.url,
-    }));
-    if (!gifs.length) { note.textContent = `No GIFs found for “${query.slice(0, 80)}”. Try another search.`; return; }
-    const fragment = document.createDocumentFragment();
-    for (const gif of gifs) {
-      const target = safeExternalUrl(gif?.url);
-      const preview = safeExternalUrl(gif?.preview);
-      if (!target || !preview || !target.hostname.endsWith('giphy.com') || !preview.hostname.endsWith('giphy.com')) continue;
-      const choice = document.createElement('button');
-      choice.type = 'button'; choice.className = 'gif-result'; choice.dataset.gifUrl = target.href;
-      choice.setAttribute('aria-label', `Attach GIF: ${String(gif.title || 'GIPHY result').slice(0, 120)}`);
-      choice.setAttribute('aria-pressed', 'false');
-      const image = document.createElement('img'); image.src = preview.href; image.alt = ''; image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
-      const caption = document.createElement('span'); caption.textContent = String(gif.title || 'Select GIF').slice(0, 80);
-      choice.append(image, caption); fragment.append(choice);
-    }
-    $('#gif-results').replaceChildren(fragment);
-    note.textContent = 'Choose a thumbnail to attach it. GIPHY thumbnails load from GIPHY; cast previews still follow your remote-media setting.';
-  } catch (error) {
-    note.textContent = error.message || 'GIF search is temporarily unavailable. Paste a direct GIF URL instead.';
-  } finally { submit.disabled = false; }
-}
-$('#gif-search-submit').addEventListener('click', searchGifs);
-$('#gif-search-query').addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') { event.preventDefault(); $('#gif-search-submit').click(); }
-});
-$('#gif-results').addEventListener('click', (event) => {
-  const choice = event.target.closest('button[data-gif-url]');
-  if (!choice) return;
-  const field = $('#composer-media-url');
-  field.value = choice.dataset.gifUrl;
-  field.dispatchEvent(new Event('input', { bubbles: true }));
-  $('#composer-media-note').textContent = 'GIPHY link attached. Castonaut does not upload media; cast previews stay off until you enable remote media.';
-  $('#gif-search-note').textContent = 'GIF attached to this draft. Remove it or choose another before posting.';
-  $('#gif-results').querySelectorAll('.gif-result').forEach((item) => { const selected = item === choice; item.classList.toggle('selected', selected); item.setAttribute('aria-pressed', String(selected)); });
 });
 $('.emoji-picker').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-emoji]');
@@ -3150,26 +3182,6 @@ $('#composer').addEventListener('submit', async (event) => {
     setNotice(error.message, 'error');
   }
   finally { submit.textContent = state.pendingCast ? 'Resume saved post' : 'Post'; submit.disabled = !state.signerReady; }
-});
-
-$('#generate-digest').addEventListener('click', async () => {
-  const button = $('#generate-digest'); const output = $('#ai-catch-up-result');
-  const visibleHashes = [...document.querySelectorAll('#feed-list .post-card')]
-    .filter((card) => !card.closest('.repeat-cluster-more:not([open])'))
-    .map((card) => card.dataset.castHash);
-  const visibleMessages = visibleHashes.map((hash) => state.visibleCasts.find((message) => postHash(message) === hash)).filter(Boolean);
-  const posts = visibleMessages.slice(0, 20).map((message) => ({ text: String(message?.data?.castAddBody?.text || '').slice(0, 320) })).filter((post) => post.text.trim());
-  output.hidden = false; output.textContent = '';
-  if (!posts.length) { output.textContent = 'There are no post texts to summarize in this view.'; return; }
-  button.disabled = true; button.textContent = 'Summarizing…';
-  output.textContent = 'Sending up to 20 visible post texts to Gemini for this request…';
-  try {
-    const response = await fetch('/api/digest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ posts }) });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Digest could not be created. Try again shortly.');
-    output.textContent = result.text;
-  } catch (error) { output.textContent = error.message || 'Digest could not be created. Try again shortly.'; }
-  finally { button.disabled = false; button.textContent = 'Summarize posts'; }
 });
 
 document.addEventListener('click', async (event) => {
@@ -3291,6 +3303,7 @@ document.addEventListener('click', async (event) => {
       else await signAndRelay(message, 'linkById', params, `Follow of FID ${targetFid} confirmed.`);
       state.following.set(targetFid, !following);
       updateCastRelationship(targetFid);
+      if (!following) { state.suggestedPeople = state.suggestedPeople.filter((person) => person.fid !== targetFid); renderSuggestedPeople(); }
       document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => {
         item.textContent = following ? 'Follow person' : 'Unfollow person';
         item.setAttribute('aria-pressed', String(!following));

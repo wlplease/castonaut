@@ -9,7 +9,7 @@ A Farcaster feed in time order, with a personal Desk for people and posts you wa
 - Read Following, Friends, or a device-only Crew feed.
 - Pin people, posts, and topics to your Desk; save posts for later.
 - Find public profiles, open conversations, and filter posts by replies, media, links, and source.
-- Write casts and threads, attach image or GIF links, and use an optional GIPHY search.
+- Write casts and threads, and attach direct image or GIF links without a media provider key.
 - Save a local page of the current feed to revisit later.
 
 The Desk, saved posts, drafts, filters, and feed preferences stay in this browser. They are not synced between devices. Export a backup from the Desk before clearing site data.
@@ -38,8 +38,7 @@ npm run build
 
 ## Optional services
 
-- **GIF search:** set `VITE_GIPHY_API_KEY` at build time. GIPHY requires browser-side requests, so this key is public in the built app. Use a dedicated key with provider-side limits. Direct HTTPS media links work without it.
-- **Catch-up digest:** set the server-only `GEMINI_API_KEY`. The user starts each summary; only up to 20 visible post texts are sent to the provider. The feature cannot post or take account actions.
+- **Contest build:** no third-party AI or media API keys are required. Feed, profile, follow, post, reaction, and direct media-link features use the configured Snapchain service and public chain RPCs where needed.
 - **30-day pass:** the optional paid build uses a one-time **$3.70 USDC on Base** pass with no auto-renewal. Checkout remains disabled until the contract is deployed, reviewed, and configured with `VITE_PASS_CONTRACT_ADDRESS`. Never enable payment before the operator and support details in the legal pages are complete.
 
 ## Deployment notes
