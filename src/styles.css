@@ -98,6 +98,12 @@ img{max-width:100%}
 .dialog-content h2{max-width:430px;margin:11px 0 9px;font:600 clamp(27px,5vw,34px)/1.05 var(--display);letter-spacing:-.05em}
 .dialog-intro{font-size:13px;line-height:1.65;margin:0 0 20px;max-width:465px}
 .connect-route{margin:-13px 0 15px;color:#786d7e;font-size:10px;line-height:1.5}
+.signer-request-card{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:11px;margin:0 0 13px;padding:12px;border:1px solid var(--station-line,#d7cce1);border-radius:8px;background:var(--station-soft,#f4eff7)}
+.signer-request-mark{display:grid;place-items:center;width:32px;height:32px;border:1px solid var(--station-line,#d7cce1);border-radius:8px;background:var(--station-card,#fffdf8);color:var(--station-accent,#7050a4);font-size:17px}
+.signer-request-copy{display:grid;gap:3px;min-width:0}
+.signer-request-copy .overline{font-size:8px;color:var(--station-accent,#7050a4)}
+.signer-request-copy strong{color:var(--station-ink,#302a3b);font-size:12px}
+.signer-request-copy small{color:var(--station-copy-muted,#62576c);font-size:9px;line-height:1.4}
 .wallet-review{display:grid;gap:6px;margin:13px 0;padding:13px;border:1px solid #cfc3d8;border-radius:7px;background:#f4eff7}
 .wallet-review .overline{font-size:8px;color:#7050a4}
 .wallet-review strong{color:#382d47;font-size:14px}

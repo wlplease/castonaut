@@ -9,7 +9,7 @@ A Farcaster feed in time order, with a personal Desk for people and posts you wa
 - Read Following, Friends, or a device-only Crew feed.
 - Pin people, posts, and topics to your Desk; save posts for later.
 - Find public profiles, open conversations, and filter posts by replies, media, links, and source.
-- Write casts and threads, attach direct media links, or use shared GIPHY search (the operator configures it once; users need no key).
+- Write short or long casts up to Farcaster’s 1,024-byte protocol limit, start threads, attach media, or use shared GIPHY search (the operator configures it once; users need no key).
 - Save a local page of the current feed to revisit later.
 
 The Desk, saved posts, drafts, filters, and feed preferences stay in this browser. They are not synced between devices. Export a backup from the Desk before clearing site data.
@@ -18,7 +18,7 @@ The Desk, saved posts, drafts, filters, and feed preferences stay in this browse
 
 Open the [client](https://castonaut.vercel.app/). Reading the sample preview does not require an account. To post, follow, or personalize the Desk, sign in with an existing Farcaster account that has storage.
 
-A linked wallet is the safest sign-in path because the recovery phrase stays out of the page. Phrase sign-in is available for an existing account: the page code can read the phrase while you enter it, so use it only on a site and device you trust. Castonaut checks the first five standard account slots automatically, finds the one linked to your Farcaster ID, clears the input, then asks you to authorize a limited app key. There is no account-index dropdown. The phrase is not saved or sent to Castonaut’s server. The app key stays in this browser; “Forget this browser” deletes the local key, while revoking the protocol signer must be done separately in Farcaster account settings.
+A linked wallet is the safest sign-in path because the recovery phrase stays out of the page. Phrase sign-in is available for an existing account: the page code can read the phrase while you enter it, so use it only on a site and device you trust. Castonaut checks the first five standard account slots automatically, finds the one linked to your Farcaster ID, clears the input, then asks you to authorize a limited app key. There is no account-index dropdown. The phrase is not saved or sent to Castonaut’s server. The app key stays in this browser; “Forget this browser” deletes the local key, while revoking the protocol signer must be done separately in Farcaster account settings. The approval screen names Castonaut and lists its permissions. Farcaster’s own signer label may remain generic until Castonaut has a registered app FID and custody-signed app-request metadata.
 
 ## Run locally
 

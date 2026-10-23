@@ -6,7 +6,7 @@ import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-c
 import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
 import { resultOrThrow } from './hub-result.js';
 import { BrowserEd25519Signer } from './browser-signer.js';
-import { CAST_USER_LIMIT, withCastonautAttribution } from './cast-attribution.js';
+import { CAST_EMBED_LIMIT, CAST_EMBED_URL_LIMIT, CAST_LIMIT, CAST_USER_LIMIT, castTypeForText, truncateUtf8, utf8ByteLength, withCastonautAttribution } from './cast-attribution.js';
 import { searchEmojis } from './emoji-catalog.js';
 import { inject, pageview } from '@vercel/analytics';
 
@@ -1854,8 +1854,8 @@ function toggleFlightLog(fidValue, hashValue) {
     if (state.savedCasts.length >= 100) { setNotice('Your saved list is full. Remove a post before adding another.'); return; }
     const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}` };
     const body = message.data?.castAddBody || {};
-    const embeds = (body.embeds || []).filter((embed) => typeof embed?.url === 'string' && embed.url.length <= 2048).slice(0, 4).map((embed) => ({ url: embed.url }));
-    state.savedCasts.unshift({ fid, hash, signer: signerHex(message.signer), text: String(body.text || '').slice(0, 320), timestamp: Number(message.data?.timestamp) || 0, name: String(profile.name || '').slice(0, 80), username: String(profile.username || '').slice(0, 80), embeds, savedAt: Date.now() });
+    const embeds = (body.embeds || []).filter((embed) => typeof embed?.url === 'string' && utf8ByteLength(embed.url) <= CAST_EMBED_URL_LIMIT).slice(0, CAST_EMBED_LIMIT).map((embed) => ({ url: embed.url }));
+    state.savedCasts.unshift({ fid, hash, signer: signerHex(message.signer), text: truncateUtf8(body.text || '', CAST_LIMIT), timestamp: Number(message.data?.timestamp) || 0, name: String(profile.name || '').slice(0, 80), username: String(profile.username || '').slice(0, 80), embeds, savedAt: Date.now() });
   }
   try { localStorage.setItem(flightLogStorageKey(), JSON.stringify(state.savedCasts)); }
   catch { state.savedCasts = prior; setNotice('Browser storage is unavailable. Your saved list could not be updated.', 'error'); return; }
@@ -2041,7 +2041,7 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
   actionButtons.forEach((button) => { button.disabled = true; });
   let relayAttempted = false;
   try {
-    setConnectionStatus('Preparing secure app-key authorization…', {
+    setConnectionStatus('Preparing Castonaut’s limited browser-key authorization…', {
       active: recoveryAccount || walletAccount ? 'approve' : 'sign',
       completed: recoveryAccount || walletAccount ? ['sign'] : [],
       busy: true,
@@ -2053,10 +2053,10 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     if (legacy || ((!refreshSignerFlow) && (state.signer || saved))) throw new Error('This browser already has an app key saved. Check its status before creating another one.');
     if (refreshSignerFlow && (!saved?.privateKey || !saved?.publicKey)) throw new Error('The saved app key could not be loaded. It has not been deleted; reload this page and check again.');
     setConnectionStatus(recoveryAccount
-      ? 'Rechecking the Farcaster account you verified…'
+      ? 'Confirming your Farcaster account for Castonaut…'
       : walletAccount
-        ? 'Rechecking your wallet and Farcaster account…'
-        : 'Finding the Farcaster account controlled by your wallet…', {
+        ? 'Confirming your wallet and Farcaster account for Castonaut…'
+        : 'Finding the Farcaster account for Castonaut…', {
       active: walletAccount ? 'approve' : 'sign',
       completed: walletAccount ? ['sign'] : [],
       busy: true,
@@ -2104,20 +2104,21 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     }
     const nonce = await readCurrentNonce(fid);
     const deadline = Number(resultOrThrow(protocol.getFarcasterTime(), 'Could not read Farcaster time')) + 60 * 60;
-    setConnectionStatus(recoveryAccount
-      ? 'Your Farcaster account will sign a scoped app key in this tab. This gasless request cannot move funds.'
-      : 'Review the wallet request. It authorizes the social actions listed here; it does not move funds.', {
+    setConnectionStatus('Authorize Castonaut’s limited browser key. It can post, follow, react, and recast; it cannot move funds.', {
       active: 'approve',
       completed: ['sign'],
       busy: true,
     });
     const scopes = [protocol.MessageType.CAST_ADD, protocol.MessageType.CAST_REMOVE, protocol.MessageType.REACTION_ADD, protocol.MessageType.REACTION_REMOVE, protocol.MessageType.LINK_ADD, protocol.MessageType.LINK_REMOVE];
     const appKeyBytes = resultOrThrow(protocol.hexStringToBytes(publicKey), 'Could not prepare the browser app key');
+    // Keep requestFid unset until Castonaut has its own registered app FID and
+    // custody-signed request metadata. The review above identifies Castonaut to
+    // the user; inventing an app FID here would make Snapchain reject the request.
     const keyBody = resultOrThrow(await protocol.makeKeyAddBody({ fid: BigInt(fid), key: appKeyBytes, scopes, ttl: KEY_TTL_SECONDS, nonce: nonce + 1, deadline }, eip712Signer), 'Could not authorize the app key');
     const message = resultOrThrow(await protocol.makeKeyAdd(keyBody, { fid, network: protocol.FarcasterNetwork.MAINNET }, signer), 'Could not sign key registration');
     const signedRequest = protocol.Message.encode(message).finish();
     await storeSigner({ ...(saved || {}), fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
-    setConnectionStatus(`${recoveryAccount ? 'Farcaster account authorization' : 'Wallet authorization'} signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'], busy: true });
+    setConnectionStatus(`Castonaut authorization signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'], busy: true });
     state.following.clear();
     state.fid = fid;
     loadFlightLog(fid);
@@ -2423,7 +2424,11 @@ function applyLocationRoute() {
 }
 
 function castBody(text, parent, protocol, embeds = []) {
-  const body = { text, type: protocol.CastType.CAST, embeds: embeds.slice(0, 4).map((url) => ({ url })), embedsDeprecated: [], mentions: [], mentionsPositions: [] };
+  if (utf8ByteLength(text) > CAST_LIMIT) throw new Error(`This cast is over Farcaster’s ${CAST_LIMIT}-byte limit.`);
+  if (embeds.length > CAST_EMBED_LIMIT || embeds.some((url) => utf8ByteLength(url) > CAST_EMBED_URL_LIMIT)) {
+    throw new Error(`Farcaster allows up to ${CAST_EMBED_LIMIT} embeds, each no longer than ${CAST_EMBED_URL_LIMIT} UTF-8 bytes.`);
+  }
+  const body = { text, type: castTypeForText(text, protocol.CastType), embeds: embeds.map((url) => ({ url })), embedsDeprecated: [], mentions: [], mentionsPositions: [] };
   if (parent) body.parentCastId = { fid: Number(parent.fid), hash: resultOrThrow(protocol.hexStringToBytes(parent.hash), 'Could not read the reply cast hash') };
   return body;
 }
@@ -2458,11 +2463,11 @@ function saveComposerDraft() {
   const status = $('#draft-status');
   if (!state.fid || !$('#composer-text')) return;
   const draft = {
-    text: $('#composer-text').value.slice(0, 320),
+    text: truncateUtf8($('#composer-text').value),
     mediaUrl: $('#composer-media-url').value.trim().slice(0, 2048),
     parent: state.parent && { fid: Number(state.parent.fid), hash: String(state.parent.hash).slice(0, 66) },
     root: state.threadRoot && { fid: Number(state.threadRoot.fid), hash: String(state.threadRoot.hash).slice(0, 66) },
-    items: state.threadItems.slice(0, 10).map((text) => String(text).slice(0, 320)),
+    items: state.threadItems.slice(0, 10).map((text) => truncateUtf8(text)),
     pending: state.threadPending && state.threadPending.encoded.length <= 100_000 ? state.threadPending : null,
     pendingCast: state.pendingCast && state.pendingCast.encoded.length <= 100_000 ? state.pendingCast : null,
   };
@@ -2480,24 +2485,24 @@ function restoreComposerDraft(fid) {
   try {
     const saved = JSON.parse(localStorage.getItem(`${COMPOSE_STORAGE}:${fid}`) || 'null');
     if (saved && typeof saved === 'object') {
-      if (typeof saved.text === 'string') $('#composer-text').value = saved.text.slice(0, 320);
+      if (typeof saved.text === 'string') $('#composer-text').value = truncateUtf8(saved.text);
       if (typeof saved.mediaUrl === 'string') { $('#composer-media-url').value = safeExternalUrl(saved.mediaUrl)?.href || ''; $('#composer-media').hidden = !$('#composer-media-url').value; }
       const validParent = (value) => value && Number.isSafeInteger(Number(value.fid)) && Number(value.fid) > 0 && /^0x[\da-f]{40,64}$/i.test(value.hash);
       if (validParent(saved.parent)) state.parent = { fid: Number(saved.parent.fid), hash: saved.parent.hash };
       if (validParent(saved.root)) state.threadRoot = { fid: Number(saved.root.fid), hash: saved.root.hash };
-      if (Array.isArray(saved.items)) state.threadItems = saved.items.filter((text) => typeof text === 'string' && text.trim()).slice(0, 10).map((text) => text.slice(0, 320));
+      if (Array.isArray(saved.items)) state.threadItems = saved.items.filter((text) => typeof text === 'string' && text.trim()).slice(0, 10).map((text) => truncateUtf8(text));
       if (saved.pending && typeof saved.pending === 'object' && /^0x[\da-f]{40,64}$/i.test(saved.pending.hash) && typeof saved.pending.encoded === 'string' && saved.pending.encoded.length <= 100_000 && typeof saved.pending.text === 'string') {
-        state.threadPending = { hash: saved.pending.hash, encoded: saved.pending.encoded, text: saved.pending.text.slice(0, 320) };
+        state.threadPending = { hash: saved.pending.hash, encoded: saved.pending.encoded, text: truncateUtf8(saved.pending.text) };
         if (!state.threadItems.length) { state.threadItems = [state.threadPending.text]; state.threadRoot = state.parent; }
       }
-      if (saved.pendingCast && typeof saved.pendingCast === 'object' && /^0x[\da-f]{40,64}$/i.test(saved.pendingCast.hash) && typeof saved.pendingCast.encoded === 'string' && /^[A-Za-z0-9+/]+=*$/.test(saved.pendingCast.encoded) && saved.pendingCast.encoded.length > 0 && saved.pendingCast.encoded.length <= 100_000 && typeof saved.pendingCast.text === 'string' && saved.pendingCast.text.length <= 320 && typeof saved.pendingCast.mediaUrl === 'string' && saved.pendingCast.mediaUrl.length <= 2048) {
+      if (saved.pendingCast && typeof saved.pendingCast === 'object' && /^0x[\da-f]{40,64}$/i.test(saved.pendingCast.hash) && typeof saved.pendingCast.encoded === 'string' && /^[A-Za-z0-9+/]+=*$/.test(saved.pendingCast.encoded) && saved.pendingCast.encoded.length > 0 && saved.pendingCast.encoded.length <= 100_000 && typeof saved.pendingCast.text === 'string' && utf8ByteLength(saved.pendingCast.text) <= CAST_USER_LIMIT && typeof saved.pendingCast.mediaUrl === 'string' && saved.pendingCast.mediaUrl.length <= 2048) {
         try {
           if (toBase64(fromBase64(saved.pendingCast.encoded)) === saved.pendingCast.encoded) state.pendingCast = { hash: saved.pendingCast.hash, encoded: saved.pendingCast.encoded, text: saved.pendingCast.text, mediaUrl: safeExternalUrl(saved.pendingCast.mediaUrl)?.href || '' };
         } catch { /* Corrupt pending data is ignored; keep the editable draft text. */ }
       }
     }
   } catch { /* An invalid or unavailable local draft never blocks sign-in. */ }
-  $('#char-count').textContent = `${[...$('#composer-text').value].length} / ${CAST_USER_LIMIT}`;
+  $('#char-count').textContent = `${utf8ByteLength($('#composer-text').value)} / ${CAST_USER_LIMIT} bytes`;
   $('#composer-text').placeholder = state.parent ? `Replying to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}…` : 'What’s on your mind?';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.pendingCast);
   if (state.pendingCast) {
@@ -2516,7 +2521,7 @@ function clearCurrentDraft() {
   $('#composer-media-url').value = '';
   $('#composer-media').hidden = true;
   setPendingCastControls(false);
-  $('#char-count').textContent = `0 / ${CAST_USER_LIMIT}`;
+  $('#char-count').textContent = `0 / ${CAST_USER_LIMIT} bytes`;
   state.parent = null;
   state.pendingCast = null;
   $('#composer-text').placeholder = 'What’s on your mind?';
@@ -2930,14 +2935,13 @@ $('#connect-dialog').addEventListener('close', () => { clearRecoveryImport(); cl
 $('#connect-dialog').addEventListener('click', (event) => { if (event.target === $('#connect-dialog')) $('#connect-dialog').close(); });
 $('#composer-text').addEventListener('input', (event) => {
   const field = event.currentTarget;
-  const characters = [...field.value];
-  if (characters.length > CAST_USER_LIMIT) {
-    const cursor = [...field.value.slice(0, field.selectionStart ?? field.value.length)].length;
-    field.value = characters.slice(0, CAST_USER_LIMIT).join('');
-    const position = [...field.value].slice(0, cursor).join('').length;
+  if (utf8ByteLength(field.value) > CAST_USER_LIMIT) {
+    const cursor = field.selectionStart ?? field.value.length;
+    field.value = truncateUtf8(field.value);
+    const position = Math.min(cursor, field.value.length);
     field.setSelectionRange(position, position);
   }
-  $('#char-count').textContent = `${[...$('#composer-text').value].length} / ${CAST_USER_LIMIT}`;
+  $('#char-count').textContent = `${utf8ByteLength($('#composer-text').value)} / ${CAST_USER_LIMIT} bytes`;
   $('#draft-discard').hidden = !$('#composer-text').value;
   saveComposerDraft();
 });
@@ -2996,7 +3000,8 @@ function renderGiphyResults(items) {
   const results = $('#giphy-results');
   results.replaceChildren();
   for (const item of items) {
-    const originalUrl = safeGiphyImage(item?.images?.original?.url);
+    const originalUrl = [item?.images?.original?.url, item?.images?.fixed_width_small?.url, item?.images?.preview_gif?.url]
+      .map(safeGiphyImage).find((url) => url && utf8ByteLength(url) <= CAST_EMBED_URL_LIMIT) || '';
     const previewUrl = safeGiphyImage(item?.images?.fixed_width_small?.url || item?.images?.preview_gif?.url || item?.images?.original?.url);
     if (!originalUrl || !previewUrl) continue;
     const title = String(item.title || 'GIF').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 100) || 'GIF';
@@ -3072,8 +3077,9 @@ $('#giphy-search-query').addEventListener('keydown', (event) => {
 });
 $('#composer-media-url').addEventListener('input', () => {
   const candidate = safeExternalUrl($('#composer-media-url').value.trim());
+  const withinLimit = candidate && utf8ByteLength(candidate.href) <= CAST_EMBED_URL_LIMIT;
   $('#composer-media-note').textContent = candidate
-    ? `${candidate.hostname} will be attached. Remote image previews remain off unless you enable them.`
+    ? withinLimit ? `${candidate.hostname} will be attached. Remote image previews remain off unless you enable them.` : `This link is over Farcaster’s ${CAST_EMBED_URL_LIMIT}-byte embed limit.`
     : 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews stay off until you enable remote images.';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value.trim());
   saveComposerDraft();
@@ -3141,10 +3147,8 @@ $('.emoji-picker').addEventListener('click', (event) => {
   const field = $('#composer-text');
   const start = field.selectionStart ?? field.value.length;
   const end = field.selectionEnd ?? start;
-  const existing = [...field.value];
-  const selectedLength = [...field.value.slice(start, end)].length;
-  if (existing.length - selectedLength + [...button.dataset.emoji].length > CAST_USER_LIMIT) {
-    setNotice(`The cast has room for ${CAST_USER_LIMIT} characters before the Castonaut link.`, 'pending');
+  if (utf8ByteLength(field.value) - utf8ByteLength(field.value.slice(start, end)) + utf8ByteLength(button.dataset.emoji) > CAST_USER_LIMIT) {
+    setNotice(`The cast has room for ${CAST_USER_LIMIT} UTF-8 bytes before the Castonaut link.`, 'pending');
     return;
   }
   field.setRangeText(button.dataset.emoji, start, end, 'end');
@@ -3184,7 +3188,7 @@ $('#composer').addEventListener('submit', async (event) => {
   const text = $('#composer-text').value.trim();
   const mediaValue = $('#composer-media-url').value.trim();
   const mediaUrl = mediaValue ? safeExternalUrl(mediaValue) : null;
-  if (mediaValue && (!mediaUrl || mediaUrl.href.length > 2048)) { setNotice('Use a valid HTTPS GIF or image URL up to 2,048 characters.', 'error'); return; }
+  if (mediaValue && (!mediaUrl || utf8ByteLength(mediaUrl.href) > CAST_EMBED_URL_LIMIT)) { setNotice(`Use a valid HTTPS GIF or image URL up to ${CAST_EMBED_URL_LIMIT} UTF-8 bytes.`, 'error'); return; }
   if (!text && !mediaUrl) return;
   const submit = $('#composer button[type="submit"]'); submit.disabled = true;
   try {

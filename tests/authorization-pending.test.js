@@ -41,7 +41,7 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   assert.match(refresh, /privateKey = saved\.privateKey/);
   assert.match(refresh, /new BrowserEd25519Signer\(privateKey, publicKeyBytes\)/);
   assert.match(refresh, /else \{\s*\(\{ signer, publicKey: publicKeyBytes, privateKey \} = await createBrowserSigner\(\)\)/);
-  assert.match(html, /id="refresh-signer"[^>]*>Approve saved key again/);
+  assert.match(html, /id="refresh-signer"[^>]*>Approve Castonaut key again/);
   assert.match(source, /\$\('#refresh-signer'\)\.addEventListener\('click', beginSignerRefresh\)/);
 });
 
