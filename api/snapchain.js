@@ -58,7 +58,8 @@ function validateParam(name, value) {
   if (name === 'reaction_type') return value === 'Like' || value === 'Recast';
   if (name === 'user_data_type') return /^[A-Z0-9_]{1,48}$/.test(value) || /^\d{1,2}$/.test(value);
   if (name === 'requesterFids') return /^[0-9,]{1,120}$/.test(value);
-  if (name === 'pageToken') return value.length <= 2048 && /^[A-Za-z0-9_=-]*$/.test(value);
+  // Snapchain cursors may use either URL-safe or standard Base64 encoding.
+  if (name === 'pageToken') return value.length <= 2048 && /^[A-Za-z0-9+/_=-]*$/.test(value);
   return false;
 }
 

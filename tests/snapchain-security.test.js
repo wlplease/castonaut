@@ -59,6 +59,26 @@ test('proxy validates FIDs and rejects duplicate or unrecognized query parameter
   assert.equal(extra.statusCode, 400);
 });
 
+test('proxy forwards standard Base64 Snapchain page cursors', async () => {
+  let forwarded;
+  globalThis.fetch = async (url) => {
+    forwarded = new URL(url);
+    return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+  };
+  const token = 'abc+/def==';
+  const result = await callApi(makeRequest({
+    url: `/api/snapchain?route=links&fid=1059075&link_type=follow&pageSize=100&reverse=true&pageToken=${encodeURIComponent(token)}`,
+    ip: '203.0.113.48',
+  }));
+  assert.equal(result.statusCode, 200);
+  assert.equal(forwarded.searchParams.get('pageToken'), token);
+});
+
+test('local Snapchain adapter accepts standard Base64 page cursors', async () => {
+  const config = await (await import('node:fs/promises')).readFile(new URL('../vite.config.mjs', import.meta.url), 'utf8');
+  assert.ok(config.includes("if (name === 'pageToken') return value.length <= 2048 && /^[A-Za-z0-9+/_=-]*$/.test(value);"));
+});
+
 test('proxy blocks cross-origin writes and non-binary message bodies', async () => {
   globalThis.fetch = async () => { throw new Error('fetch should not run'); };
   const foreign = await callApi(makeRequest({

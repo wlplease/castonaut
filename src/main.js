@@ -1,6 +1,8 @@
+import './runtime-polyfills.js';
 import { groupRepeatedCasts } from './feed-groups.js';
 import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions } from './feed-curation.js';
-import { followedFeedSources, paceByAuthor, rankFollowRecommendations } from './feed-ranking.js';
+import { paceByAuthor, rankFollowRecommendations } from './feed-ranking.js';
+import { loadFollowGraph } from './follow-graph.js';
 import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
 import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-capsules.js';
 import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
@@ -64,7 +66,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -320,6 +322,13 @@ async function nodeRequest(route, params = {}, options = {}) {
   }
 }
 
+async function fetchFollowGraph(fid) {
+  return loadFollowGraph(
+    (params) => nodeRequest('links', { fid: Number(fid), link_type: 'follow', ...params }),
+    { ownFid: Number(fid), maxPages: 20, maxFollows: 2000 },
+  );
+}
+
 function asFid(value) {
   const raw = String(value ?? '').trim();
   if (!/^[1-9]\d{0,14}$/.test(raw)) throw new Error('Enter a valid Farcaster ID (a positive whole number with up to 15 digits).');
@@ -529,7 +538,7 @@ function validateLocalBackup(value) {
     else if ([REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE].includes(key) && !['true', 'false'].includes(raw)) throw new Error('The backup contains an invalid on/off preference.');
     else if (key === VOICE_STORAGE && !STATION_VOICES.some((voice) => voice.id === raw)) throw new Error('The backup contains an unsupported station voice.');
     else if (key === CREW_NAME_STORAGE && raw.length > 20) throw new Error('The backup contains an invalid crew name.');
-    else if (key === PROFILE_COVERS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((cover) => !['atlas', 'dawn', 'orbit', 'dusk'].includes(cover)))) throw new Error('The backup contains an invalid profile appearance.');
+    else if (key === PROFILE_COVERS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((cover) => !['atlas', 'dawn', 'orbit', 'dusk', 'platinum'].includes(cover)))) throw new Error('The backup contains an invalid profile appearance.');
     else if (key === PROFILE_PINS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.entries(parsed).some(([fid, hash]) => !/^\d+$/.test(fid) || Number(fid) < 1 || !/^0x[\da-f]{40,64}$/i.test(String(hash))))) throw new Error('The backup contains invalid pinned posts.');
     else if (key === MUTED_TOPICS_STORAGE && (!Array.isArray(parsed) || parsed.length > 80 || parsed.some((topic) => typeof topic !== 'string' || topic.length > 260))) throw new Error('The backup contains invalid muted topics.');
     else if (key === FEED_OPTIONS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((setting) => typeof setting !== 'boolean'))) throw new Error('The backup contains invalid feed preferences.');
@@ -685,6 +694,12 @@ function originalCastUrl(profile, message) {
   return `https://farcaster.xyz/${encodeURIComponent(username)}/${hash}`;
 }
 
+function originalProfileUrl(profile) {
+  const username = String(profile?.username || '');
+  if (!/^[a-z\d._-]{1,32}$/i.test(username) || /^fid-\d+$/.test(username)) return '';
+  return `https://farcaster.xyz/${encodeURIComponent(username)}`;
+}
+
 function updateFeedTabs() {
   const modes = ['following', 'friends', 'crew'];
   for (const mode of modes) {
@@ -767,6 +782,7 @@ function saveFeedOptions() {
 }
 
 function setProfileCover(fid, cover) {
+  if (!['atlas', 'dawn', 'orbit', 'dusk', 'platinum'].includes(cover)) return;
   if (cover === 'atlas') delete state.profileCovers[fid];
   else state.profileCovers[fid] = cover;
   try { localStorage.setItem(PROFILE_COVERS_STORAGE, JSON.stringify(state.profileCovers)); }
@@ -795,7 +811,7 @@ function renderCast(message) {
   const card = document.createElement('article'); card.className = 'post-card';
   card.dataset.castFid = String(fid);
   card.dataset.castHash = postHash(message);
-  const avatar = document.createElement('div'); avatar.className = 'post-avatar';
+  const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'post-avatar'; avatar.dataset.openProfile = String(fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s recent posts`);
   avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
   const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
   if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl));
@@ -803,7 +819,7 @@ function renderCast(message) {
   const head = document.createElement('div'); head.className = 'post-head';
   const shownName = localProfileName(profile);
   const name = document.createElement('button'); name.type = 'button'; name.className = 'post-profile-link'; name.dataset.openProfile = String(fid); name.setAttribute('aria-label', `Open ${shownName}'s recent posts`); name.textContent = shownName;
-  const handle = document.createElement('span'); handle.className = 'post-handle'; handle.textContent = `@${profile.username}`;
+  const handle = document.createElement('button'); handle.type = 'button'; handle.className = 'post-handle post-handle-link'; handle.dataset.openProfile = String(fid); handle.setAttribute('aria-label', `Open @${profile.username}'s profile`); handle.textContent = `@${profile.username}`;
   const time = document.createElement('span'); time.className = 'post-time'; time.textContent = farcasterDate(data.timestamp);
   const source = document.createElement('span'); source.className = 'post-source';
   const sourceFid = state.sourceBySigner.get(signerHex(message.signer));
@@ -961,10 +977,10 @@ function renderSuggestedPeople() {
   for (const suggestion of state.suggestedPeople.slice(0, 5)) {
     const profile = state.people.get(suggestion.fid) || { fid: suggestion.fid, name: `Farcaster ${suggestion.fid}`, username: `fid-${suggestion.fid}` };
     const row = document.createElement('article'); row.className = 'suggested-person';
-    const avatar = document.createElement('div'); avatar.className = 'suggested-avatar'; avatar.setAttribute('aria-hidden', 'true');
+    const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'suggested-avatar profile-open-button'; avatar.dataset.openProfile = String(suggestion.fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
     const avatarUrl = safeImageUrl(profile.avatar);
     if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl)); else avatar.textContent = String(profile.name || profile.username || '?').slice(0, 1).toUpperCase();
-    const identity = document.createElement('div'); identity.className = 'suggested-identity';
+    const identity = document.createElement('button'); identity.type = 'button'; identity.className = 'suggested-identity profile-open-button'; identity.dataset.openProfile = String(suggestion.fid); identity.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
     const name = document.createElement('strong'); name.textContent = localProfileName(profile);
     const handle = document.createElement('span'); handle.textContent = `@${profile.username || `fid-${suggestion.fid}`}`;
     const context = document.createElement('small'); context.textContent = `Followed by ${suggestion.mutualCount} people you follow`;
@@ -982,8 +998,8 @@ async function loadSuggestedPeople() {
   try {
     let followed = [...state.following.keys()];
     if (!followed.length) {
-      const response = await nodeRequest('links', { fid: state.fid, link_type: 'follow', pageSize: 100, reverse: true });
-      followed = followedFeedSources(state.fid, unwrapMessages(response), 100);
+      const graph = await fetchFollowGraph(state.fid);
+      followed = graph.fids;
       state.following.clear();
       for (const target of followed) state.following.set(target, true);
     }
@@ -1027,6 +1043,11 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   if (state.feedBusy) { state.feedPending = [fidValue, mode]; feedScrollSaved = false; return; }
   if (!feedScrollSaved) saveFeedScroll();
   feedScrollSaved = false;
+  const previousFeed = {
+    mode: state.feedMode,
+    targetFid: Number(state.feedTargetFid),
+    casts: state.casts,
+  };
   let fid;
   try {
     fid = asFid(fidValue);
@@ -1066,20 +1087,21 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Loading your feed.');
   try {
     if (!state.nodeInfo) checkNode();
-    const [followResponse, profile] = await Promise.all([
-      state.feedMode === 'following' ? nodeRequest('links', { fid, link_type: 'follow', pageSize: 100, reverse: true }) : Promise.resolve({ messages: [] }),
+    const [followGraph, profile] = await Promise.all([
+      state.feedMode === 'following' ? fetchFollowGraph(fid) : Promise.resolve({ fids: [], complete: true }),
       fetchProfile(state.feedMode === 'profile' ? fid : Number(state.fid)),
     ]);
-    const followFids = followedFeedSources(fid, unwrapMessages(followResponse), 100);
+    const followFids = followGraph.fids;
     if (state.feedMode === 'following') {
       state.following.clear();
       for (const target of followFids) state.following.set(target, true);
+      state.feedFollowComplete = followGraph.complete;
     }
     const uniqueFids = state.feedMode === 'profile' ? [fid]
       : state.feedMode === 'friends' ? [...state.friendFids]
         : state.feedMode === 'crew' ? [...state.crewFids]
           : [...new Set(followFids)];
-    const limitedFids = [...new Set(uniqueFids)].filter((target) => Number.isSafeInteger(target) && target > 0).slice(0, 25);
+    const limitedFids = [...new Set(uniqueFids)].filter((target) => Number.isSafeInteger(target) && target > 0);
     state.feedSources = state.feedMode === 'following' ? limitedFids : [];
     state.feedSourceOffset = state.feedMode === 'following' ? Math.min(6, limitedFids.length) : 0;
     state.feedFollowTotal = state.feedMode === 'following' ? followFids.length : 0;
@@ -1125,13 +1147,22 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     return true;
   } catch (error) {
     if (requestId !== state.feedRequest) return false;
+    const sameFeed = previousFeed.mode === state.feedMode && previousFeed.targetFid === Number(state.feedTargetFid);
+    if (sameFeed && previousFeed.casts.length) {
+      state.casts = previousFeed.casts;
+      renderFeed();
+      if (state.feedMode === 'profile') renderProfileSummary();
+      setNotice(`Could not refresh. Showing the posts already loaded. ${clientErrorText(error)}`, 'error');
+      restoreFeedScroll();
+      return false;
+    }
     const needsSetup = /SNAPCHAIN_URL|not configured|not been configured/i.test(error.message);
     const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
       ? localPreview
         ? 'This local preview has no Snapchain endpoint, so profiles and posts cannot load yet. Use the node guide to connect one.'
         : 'The app’s Snapchain endpoint needs configuration before profiles and posts can load.'
-      : error.message;
+      : clientErrorText(error);
     const action = needsSetup
       ? (localPreview ? { type: 'guide', label: 'Open feed setup guide' } : null)
       : { type: 'retry', label: 'Try this account again' };
@@ -1176,7 +1207,7 @@ function updateFollowingCoverage() {
   if (!caption || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
   const loaded = Math.max(0, Math.min(state.feedFollowTotal, state.feedSourceOffset));
   const available = Math.min(state.feedFollowTotal, state.feedSources.length);
-  const capNote = state.feedFollowTotal > available ? ` · ${available}/${state.feedFollowTotal} follows in range` : '';
+  const capNote = !state.feedFollowComplete ? ` · first ${available.toLocaleString()}+ follows` : state.feedFollowTotal > available ? ` · ${available}/${state.feedFollowTotal} follows in range` : '';
   caption.textContent = `Latest · spread across follows · ${loaded}/${available} checked${capNote}.`;
 }
 
@@ -1273,7 +1304,7 @@ function renderFeed() {
       const isMediaTab = state.profileTab === 'media';
       renderEmpty(isMediaTab ? 'No media in this profile yet.' : 'No recent posts here.', isMediaTab ? 'Media appears here when this profile shares an image or link.' : profile ? `Recent posts from @${profile.username} will appear here.` : 'Recent posts from this profile will appear here.');
     } else if (state.feedMode === 'friends' && !state.friendFids.length) {
-      renderEmpty('Your friends list is open.', 'Use ••• on a post to add someone. This list stays on this device.');
+      renderEmpty('Your Friends list is empty.', 'Search for someone and choose “Add to Friends” on their profile. This circle stays on this device.');
     } else if (state.feedMode === 'crew' && !state.crewFids.length) {
       renderEmpty(`${state.crewName} is ready.`, `Use ••• on a post to add people to ${state.crewName}. This group stays on this device.`);
     } else if (state.feedMode === 'following' && state.feedSources.length) {
@@ -1400,7 +1431,7 @@ function renderProfileSummary() {
   const local = state.profileNotes[profile.fid] || {};
   const shell = document.createElement('div'); shell.className = 'profile-summary-main';
   const cover = document.createElement('div');
-  const coverTone = ['atlas', 'dawn', 'orbit', 'dusk'].includes(state.profileCovers[profile.fid]) ? state.profileCovers[profile.fid] : 'atlas';
+  const coverTone = ['atlas', 'dawn', 'orbit', 'dusk', 'platinum'].includes(state.profileCovers[profile.fid]) ? state.profileCovers[profile.fid] : 'atlas';
   cover.className = 'profile-cover'; cover.dataset.cover = coverTone;
   const bannerUrl = state.remoteMediaEnabled ? safeImageUrl(profile.banner) : '';
   if (bannerUrl) { const banner = makeRemoteImage(bannerUrl, 'profile-cover-image'); banner.alt = `${localProfileName(profile)}’s profile cover`; cover.append(banner); }
@@ -1416,22 +1447,29 @@ function renderProfileSummary() {
   const actions = document.createElement('div'); actions.className = 'profile-summary-actions';
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'button button-outline'; pin.dataset.profilePin = String(profile.fid); pin.textContent = state.deskPins.includes(profile.fid) ? 'On your Desk ✓' : 'Pin to Desk';
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline'; follow.dataset.action = 'follow'; follow.dataset.fid = String(profile.fid); follow.textContent = Number(profile.fid) === Number(state.fid) ? 'This is you' : state.following.get(Number(profile.fid)) ? '✓ Following' : '＋ Follow'; follow.disabled = Number(profile.fid) === Number(state.fid) || !state.signerReady; follow.setAttribute('aria-pressed', String(!!state.following.get(Number(profile.fid))));
+  const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Friends' : '＋ Add to Friends'; friend.disabled = Number(profile.fid) === Number(state.fid);
   const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button button-outline'; edit.dataset.editProfile = String(profile.fid); edit.textContent = 'Personalize';
   const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.copyProfile = String(profile.fid); share.textContent = 'Share profile';
-  const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = 'Cover';
-  const coverSelect = document.createElement('select'); coverSelect.dataset.coverFid = String(profile.fid); coverSelect.setAttribute('aria-label', 'Choose a local profile cover');
-  for (const [value, label] of [['atlas', 'Atlas'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk']]) {
+  const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = 'Local cover';
+  const coverSelect = document.createElement('select'); coverSelect.dataset.coverFid = String(profile.fid); coverSelect.setAttribute('aria-label', 'Choose a profile cover shown only on this device');
+  for (const [value, label] of [['atlas', 'Default'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk'], ['platinum', 'Platinum Mac']]) {
     const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = coverTone === value; coverSelect.append(option);
   }
   coverLabel.append(coverSelect);
   const more = document.createElement('details'); more.className = 'profile-more-options';
   const moreLabel = document.createElement('summary'); moreLabel.textContent = 'Customize';
   const morePanel = document.createElement('div'); morePanel.className = 'profile-more-panel';
-  morePanel.append(coverLabel, edit, share); more.append(moreLabel, morePanel);
+  morePanel.append(coverLabel, edit, share);
+  const profileUrl = originalProfileUrl(profile);
+  if (profileUrl) {
+    const openOriginal = document.createElement('a'); openOriginal.className = 'button button-outline'; openOriginal.href = profileUrl; openOriginal.target = '_blank'; openOriginal.rel = 'noopener noreferrer'; openOriginal.textContent = 'Open on Farcaster ↗';
+    morePanel.append(openOriginal);
+  }
+  more.append(moreLabel, morePanel);
   morePanel.addEventListener('click', (event) => {
-    if (event.target.closest('button')) queueMicrotask(() => { more.open = false; });
+    if (event.target.closest('button, a')) queueMicrotask(() => { more.open = false; });
   });
-  actions.append(pin, follow, more); shell.append(avatar, identity, actions);
+  actions.append(pin, follow, friend, more); shell.append(avatar, identity, actions);
   const tabs = document.createElement('div'); tabs.className = 'profile-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Profile posts');
   const postCount = state.casts.length;
   const mediaCount = state.casts.filter(hasMedia).length;
@@ -1469,6 +1507,14 @@ function setProfileRoute(fid) {
   history.pushState(null, '', `#profile=${Number(fid)}`);
 }
 
+async function resolveProfileFid(rawQuery) {
+  const query = normalizeProfileSearch(rawQuery);
+  if (!query) throw new Error('Enter a username, FID, or Farcaster profile link.');
+  if (/^[1-9]\d{0,14}$/.test(query)) return asFid(query);
+  const proof = await nodeRequest('username', { name: query });
+  return asFid(proof.fid);
+}
+
 async function searchProfile(rawQuery) {
   const status = $('#people-search-status');
   const form = $('#people-search');
@@ -1488,14 +1534,9 @@ async function searchProfile(rawQuery) {
   submit.disabled = true;
   $('#people-query').disabled = true;
   status.dataset.state = 'loading';
-  status.textContent = 'Looking up profile…';
+  status.textContent = 'Searching Snapchain…';
   try {
-    let fid;
-    if (/^[1-9]\d{0,14}$/.test(query)) fid = asFid(query);
-    else {
-      const proof = await nodeRequest('username', { name: query });
-      fid = asFid(proof.fid);
-    }
+    const fid = await resolveProfileFid(query);
     await fetchProfile(fid);
     $('#people-query').value = '';
     status.textContent = `Opening @${state.people.get(fid)?.username || `fid-${fid}`} · FID ${fid}.`;
@@ -1520,6 +1561,32 @@ async function searchProfile(rawQuery) {
     form.removeAttribute('aria-busy');
     submit.disabled = false;
     $('#people-query').disabled = false;
+  }
+}
+
+async function addDeskPerson(rawQuery) {
+  const form = $('#desk-add-person');
+  const input = $('#desk-person-query');
+  const status = $('#desk-person-status');
+  const submit = form.querySelector('button[type="submit"]');
+  status.hidden = false; status.dataset.state = 'loading'; status.textContent = 'Finding profile…';
+  form.setAttribute('aria-busy', 'true'); submit.disabled = true; input.disabled = true;
+  try {
+    const fid = await resolveProfileFid(rawQuery);
+    await fetchProfile(fid);
+    if (state.deskPins.includes(fid)) {
+      status.dataset.state = 'success'; status.textContent = `@${state.people.get(fid)?.username || `fid-${fid}`} is already on your Desk.`;
+    } else {
+      const added = await toggleDeskPin(fid, null);
+      if (!added) throw new Error(state.deskPins.length >= 24 ? 'Your Desk is full. Remove someone before adding another.' : 'This browser could not save your Desk. Check local storage and try again.');
+      input.value = '';
+      status.dataset.state = 'success'; status.textContent = `Added @${state.people.get(fid)?.username || `fid-${fid}`} to your Desk.`;
+    }
+  } catch (error) {
+    status.dataset.state = 'error';
+    status.textContent = isNotFound(error) ? 'No profile found. Check the handle or FID.' : clientErrorText(error);
+  } finally {
+    form.removeAttribute('aria-busy'); submit.disabled = false; input.disabled = false;
   }
 }
 
@@ -1653,6 +1720,7 @@ function renderFirstOrbit() {
 function renderDesk() {
   const container = $('#desk-pins');
   if (!container) return;
+  $('#desk-people-count').textContent = `${state.deskPins.length} pinned`;
   container.replaceChildren();
   if (!state.deskPins.length) {
     const empty = document.createElement('span'); empty.className = 'desk-empty'; empty.textContent = 'Pin a person from any post to keep them here.'; container.append(empty);
@@ -1762,6 +1830,14 @@ function renderDeskShortcuts() {
   const active = $('#desk-active-topic');
   if (!casts || !topics || !active) return;
   casts.replaceChildren(); topics.replaceChildren();
+  $('#desk-cast-count').textContent = `${state.deskCasts.length} saved`;
+  $('#desk-topic-count').textContent = `${state.deskTopics.length} pinned`;
+  if (!state.deskCasts.length) {
+    const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'Save a post from its ••• menu.'; casts.append(empty);
+  }
+  if (!state.deskTopics.length) {
+    const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'Pin a topic from a post menu.'; topics.append(empty);
+  }
   for (const saved of state.deskCasts) {
     const item = document.createElement('article'); item.className = 'desk-signal';
     const meta = document.createElement('span'); meta.className = 'desk-signal-meta'; meta.textContent = `SIGNAL · @${saved.username || `fid-${saved.fid}`}`;
@@ -1779,8 +1855,8 @@ function renderDeskShortcuts() {
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'desk-topic-remove'; remove.dataset.action = 'toggle-desk-topic'; remove.dataset.topic = topic; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove ${topic.replace(/^site:/, '')} from your Desk`);
     chip.append(view, remove); topics.append(chip);
   }
-  casts.hidden = state.deskCasts.length === 0;
-  topics.hidden = state.deskTopics.length === 0;
+  casts.hidden = false;
+  topics.hidden = false;
   active.hidden = !state.activeDeskTopic || state.boardMode !== 'signals';
   if (state.activeDeskTopic && state.boardMode === 'signals') {
     active.replaceChildren(document.createTextNode(`Showing ${state.activeDeskTopic.replace(/^site:/, '')} in this feed `));
@@ -1909,10 +1985,12 @@ function toggleFlightLog(fidValue, hashValue) {
 
 async function toggleDeskPin(fidValue, button) {
   const fid = asFid(fidValue);
+  const previous = [...state.deskPins];
   if (state.deskPins.includes(fid)) state.deskPins = state.deskPins.filter((value) => value !== fid);
   else if (state.deskPins.length < 24) state.deskPins.unshift(fid);
-  else { setNotice('Your desk is full. Remove a person before pinning someone else.'); return; }
-  try { localStorage.setItem(DESK_STORAGE, JSON.stringify(state.deskPins)); } catch { setNotice('Browser storage is unavailable, so this desk change may not be saved.'); }
+  else { setNotice('Your Desk is full. Remove someone before pinning another person.'); return false; }
+  try { localStorage.setItem(DESK_STORAGE, JSON.stringify(state.deskPins)); }
+  catch { state.deskPins = previous; renderDesk(); setNotice('Browser storage is unavailable, so this Desk change could not be saved.', 'error'); return false; }
   if (!state.people.has(fid)) await fetchProfile(fid);
   renderDesk();
   if (button) {
@@ -1921,6 +1999,7 @@ async function toggleDeskPin(fidValue, button) {
     button.setAttribute('aria-pressed', String(pinned));
   }
   setNotice(state.deskPins.includes(fid) ? 'Pinned to your desk on this device.' : 'Removed from your desk.', 'success');
+  return true;
 }
 
 function fromBase64(value) { const binary = atob(value); return Uint8Array.from(binary, (char) => char.charCodeAt(0)); }
@@ -2683,6 +2762,13 @@ $('#desk-backup-open')?.addEventListener('click', () => {
   $('#backup-export')?.focus({ preventScroll: true });
 });
 $('#people-search').addEventListener('submit', (event) => { event.preventDefault(); searchProfile($('#people-query').value); });
+$('#search-examples')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-profile-example]');
+  if (!button) return;
+  $('#people-query').value = button.dataset.profileExample;
+  searchProfile(button.dataset.profileExample);
+});
+$('#desk-add-person')?.addEventListener('submit', (event) => { event.preventDefault(); addDeskPerson($('#desk-person-query').value); });
 $('#feed-search-launch')?.addEventListener('submit', (event) => { event.preventDefault(); searchLoadedFeed($('#feed-search-query').value); });
 $('#search-network-refresh')?.addEventListener('click', () => {
   if (!state.signerReady) { setNotice('Sign in to discover people through your follows.', 'pending'); return; }
@@ -3343,6 +3429,7 @@ document.addEventListener('click', async (event) => {
   const profileButton = event.target.closest('[data-open-profile]');
   if (profileButton) {
     const fid = Number(profileButton.dataset.openProfile);
+    if (currentArea !== 'feed') navigate('feed', { preserveHash: true });
     if (state.boardMode !== 'signals') setBoardMode('signals');
     setProfileRoute(fid);
     await loadFeed(fid, 'profile');
@@ -3357,7 +3444,11 @@ document.addEventListener('click', async (event) => {
     if (button.dataset.action === 'toggle-friend') {
       const next = state.friendFids.includes(targetFid) ? state.friendFids.filter((fid) => fid !== targetFid) : [...state.friendFids, targetFid];
       const saved = writeFidList(FRIENDS_STORAGE, next); if (saved) state.friendFids = saved;
-      updateFeedTabs(); renderFeed(); setNotice(state.friendFids.includes(targetFid) ? 'Added to Friends on this device.' : 'Removed from Friends.', 'success'); return;
+      updateFeedTabs();
+      if (state.feedMode === 'friends') await loadFeed(state.fid, 'friends');
+      else renderFeed();
+      if (state.feedMode === 'profile' && Number(state.feedTargetFid) === targetFid) renderProfileSummary();
+      setNotice(state.friendFids.includes(targetFid) ? 'Added to Friends on this device.' : 'Removed from Friends.', 'success'); return;
     }
     if (button.dataset.action === 'toggle-crew') {
       const next = state.crewFids.includes(targetFid) ? state.crewFids.filter((fid) => fid !== targetFid) : [...state.crewFids, targetFid];

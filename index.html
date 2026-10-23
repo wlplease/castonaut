@@ -109,16 +109,16 @@
               <span>READ ONLY · NO SIGN-IN PHRASE</span>
               <p>Explore profiles. Sign in to follow or post.</p>
             </aside>
-            <div class="area-heading" data-area="search"><span class="overline">EXPLORE FARCASTER</span><h1>Find your people.</h1><p>Look up an account or discover people already connected to your circle.</p></div>
+            <div class="area-heading search-heading" data-area="search"><span class="overline">EXPLORE FARCASTER</span><h1>Find someone.</h1><p>Open a profile, follow them, or add them to your circle.</p></div>
             <form class="people-search" id="people-search" role="search" data-area="search">
               <label class="sr-only" for="people-query">Find a public Farcaster profile by username or FID</label>
-              <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="64" placeholder="@username or FID" autocomplete="off" />
-              <button type="submit" class="button button-outline">Find person</button>
+              <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="200" placeholder="Search @username or paste a profile link" autocomplete="off" />
+              <button type="submit" class="button button-orange">Search</button>
               <p id="people-search-status" role="status" aria-live="polite" hidden></p>
             </form>
-            <p class="search-hints" data-area="search">Look up by <strong>@username</strong>, <strong>FID</strong>, or a Farcaster profile link.</p>
+            <div class="search-examples" id="search-examples" data-area="search" aria-label="Example profiles"><span>Try</span><button type="button" data-profile-example="balajis.eth">@balajis.eth</button><button type="button" data-profile-example="dwr.eth">@dwr.eth</button><button type="button" data-profile-example="vitalik.eth">@vitalik.eth</button></div>
             <form class="feed-search-launch" id="feed-search-launch" role="search" data-area="search">
-              <label for="feed-search-query"><span class="overline">SEARCH POSTS</span><strong>Find a word, person, or link</strong><small>Searches posts already loaded in your current feed, on this device.</small></label>
+              <label for="feed-search-query"><span class="overline">POSTS ON THIS DEVICE</span><strong>Find a word or link</strong><small>Search posts already loaded in your current feed.</small></label>
               <div><input id="feed-search-query" type="search" maxlength="100" placeholder="e.g. onchain, @name, or example.com" autocomplete="off" /><button type="submit" class="button button-outline">Search feed</button></div>
               <p id="feed-search-status" role="status" aria-live="polite" hidden></p>
             </form>
@@ -148,7 +148,12 @@
 
             <div id="member-workspace" hidden>
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title" data-area="desk">
-              <div class="desk-strip-head"><div><span class="overline">YOUR DESK</span><h2 id="desk-title">Keep what matters close.</h2></div><p>Pin a person, post, or topic from its menu. <button type="button" class="desk-backup-link" id="desk-backup-open">Move your Desk ↗</button></p></div>
+              <div class="desk-strip-head"><div><span class="overline">YOUR DESK</span><h2 id="desk-title">Your people. Your keepsakes.</h2></div><p><button type="button" class="desk-backup-link" id="desk-backup-open">Move your Desk ↗</button></p></div>
+              <form class="desk-add-person" id="desk-add-person" role="search">
+                <label for="desk-person-query"><span class="overline">ADD SOMEONE</span><small>Pin a Farcaster profile by handle or FID.</small></label>
+                <div><input id="desk-person-query" type="search" maxlength="200" placeholder="@username or FID" autocomplete="off" /><button type="submit" class="button button-outline">Add to Desk</button></div>
+                <p id="desk-person-status" role="status" aria-live="polite" hidden></p>
+              </form>
               <section class="first-orbit" id="first-orbit" aria-labelledby="first-orbit-title">
                 <div class="first-orbit-heading"><div><span class="overline">GET STARTED</span><h3 id="first-orbit-title">Make this place yours.</h3></div><span class="first-orbit-progress" id="first-orbit-progress">0 / 3</span></div>
                 <p class="first-orbit-intro">Follow someone. Save a post. Keep a page.</p>
@@ -159,8 +164,8 @@
                 </div>
                 <small class="first-orbit-privacy">Optional · progress stays on this device</small>
               </section>
-              <div class="desk-pins" id="desk-pins"><span class="desk-empty">Your Desk is empty. Pin someone or save a post to start.</span></div>
-              <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Saved posts and topics"><div class="desk-saved-signals" id="desk-casts"></div><div class="desk-topic-list" id="desk-topics"></div></div>
+              <section class="desk-people-section" aria-labelledby="desk-people-title"><div class="desk-section-heading"><h3 id="desk-people-title">People</h3><span id="desk-people-count">0 pinned</span></div><div class="desk-pins" id="desk-pins"><span class="desk-empty">Your pinned people will live here.</span></div></section>
+              <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Saved posts and topics"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><span id="desk-cast-count">0 saved</span></div><div class="desk-saved-signals" id="desk-casts"></div></section><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Topics</h3><span id="desk-topic-count">0 pinned</span></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
               <p class="desk-active-topic" id="desk-active-topic" hidden></p>
               <details class="time-capsule" aria-labelledby="capsule-title">
                 <summary class="capsule-heading"><span class="overline">TODAY’S PAGE</span><span class="capsule-heading-title" id="capsule-title">Keep a page from today.</span><span class="capsule-count">14 days · this device</span></summary>
