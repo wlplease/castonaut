@@ -1906,8 +1906,6 @@ async function waitForSigner(fid, publicKey, tries = 8) {
 }
 
 async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
-  const protocol = await import('./protocol.js');
-  const { createPublicClient, createWalletClient, custom, optimism } = await optimismToolkit();
   const status = $('#dialog-status');
   const connectButton = $('#wallet-connect');
   const recoveryButton = $('#recovery-authorize');
@@ -1915,6 +1913,13 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
   actionButtons.forEach((button) => { button.disabled = true; });
   let relayAttempted = false;
   try {
+    setConnectionStatus('Preparing secure app-key authorization…', {
+      active: recoveryAccount || walletAccount ? 'approve' : 'sign',
+      completed: recoveryAccount || walletAccount ? ['sign'] : [],
+      busy: true,
+    });
+    const protocol = await import('./protocol.js');
+    const { createPublicClient, createWalletClient, custom, optimism } = await optimismToolkit();
     const saved = await loadSigner();
     const legacy = localStorage.getItem(LEGACY_KEY_STORAGE);
     if (state.signer || saved || legacy) throw new Error('This browser already has an app key saved. Reload to check its status, or use “Forget this browser” before creating another one.');
@@ -2003,11 +2008,11 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
       state.signerReady = false;
       renderIdentity();
       setConnectionStatus(`The request may have reached the node, but confirmation failed. Your key is saved here. Check again before trying anything else. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
-    } else setConnectionStatus(error.message, {
-      active: pendingWalletAccount ? 'approve' : 'sign',
-      completed: pendingWalletAccount ? ['sign'] : [],
+    } else setConnectionStatus(error?.message || 'Authorization could not start. Reload and try again.', {
+      active: pendingWalletAccount || recoveryAccount || walletAccount ? 'approve' : 'sign',
+      completed: pendingWalletAccount || recoveryAccount || walletAccount ? ['sign'] : [],
     });
-    setNotice(error.message, 'error');
+    setNotice(error?.message || 'Authorization could not start. Reload and try again.', 'error');
   } finally {
     actionButtons.forEach((button) => { button.disabled = false; });
     if (recoveryAccount) clearRecoveryImport();
