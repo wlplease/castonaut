@@ -18,6 +18,13 @@ test('a profile page offers a clear path to compose a standalone cast', async ()
   assert.match(source, /composer\?\.focus\(\{ preventScroll: true \}\)/);
 });
 
+test('replying from a profile opens the addressed reply composer and retains the parent cast', async () => {
+  const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /if \(button\.dataset\.action === 'reply'\) \{[\s\S]{0,300}state\.parent = \{ fid: targetFid, hash: button\.dataset\.hash \};[\s\S]{0,300}\$\('#composer'\)\.hidden = false/);
+  assert.match(source, /\(state\.feedMode === 'profile' && !state\.parent\)/);
+  assert.match(source, /if \(parent\) body\.parentCastId = \{ fid: Number\(parent\.fid\), hash:/);
+});
+
 test('profile photos offer an explicit opt-in with the IP privacy tradeoff', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.match(source, /showPhoto\.textContent = 'Show profile photo'/);

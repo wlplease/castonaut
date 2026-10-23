@@ -1130,7 +1130,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   if (state.feedMode === 'profile' && fid !== Number(state.fid)) refreshFollowState(fid);
   updateFeedTabs();
   $('#page-label').textContent = state.feedMode === 'profile' ? 'PROFILE' : state.feedMode === 'crew' ? state.crewName.toUpperCase() : state.feedMode.toUpperCase();
-  $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log' || state.feedMode === 'profile';
+  $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log' || (state.feedMode === 'profile' && !state.parent);
   const requestId = ++state.feedRequest;
   state.casts = [];
   $('#feed-pulse').hidden = true;
@@ -2004,7 +2004,7 @@ function setBoardMode(mode) {
     ? 'Saved on this device.'
     : state.feedMode === 'profile' ? `@${state.people.get(state.feedTargetFid)?.username || 'this profile'}` : '';
   $('#feed-filters').hidden = logMode || !state.casts.length;
-  $('#composer').hidden = !state.signerReady || logMode || state.feedMode === 'profile';
+  $('#composer').hidden = !state.signerReady || logMode || (state.feedMode === 'profile' && !state.parent);
   renderFeed();
   restoreFeedScroll();
 }
@@ -2013,7 +2013,7 @@ function setFeedTab(mode) {
   saveFeedScroll();
   feedScrollSaved = true;
   state.boardMode = 'signals';
-  $('#composer').hidden = !state.signerReady || mode === 'profile';
+  $('#composer').hidden = !state.signerReady || (mode === 'profile' && !state.parent);
   loadFeed(state.fid, mode);
 }
 
@@ -2553,7 +2553,7 @@ function renderIdentity() {
   $('#profile-avatar').textContent = profile.name.slice(0, 1).toUpperCase();
   const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
   if (avatarUrl) setRemoteAvatar($('#profile-avatar'), avatarUrl);
-  $('#composer').hidden = !ready || state.boardMode === 'flight-log' || state.feedMode === 'profile';
+  $('#composer').hidden = !ready || state.boardMode === 'flight-log' || (state.feedMode === 'profile' && !state.parent);
   $('#composer-context').textContent = state.signerReady ? 'Scoped key · stored in this browser' : 'App key is awaiting merge confirmation';
   $('#composer-text').disabled = !ready;
   $('#composer button[type="submit"]').disabled = !ready;
@@ -2780,6 +2780,7 @@ function clearCurrentDraft() {
   $('#char-count').textContent = `0 / ${CAST_USER_LIMIT} bytes`;
   state.parent = null;
   state.pendingCast = null;
+  $('#composer-label').textContent = 'Write a cast';
   $('#composer-text').placeholder = 'What’s on your mind?';
   $('#draft-discard').hidden = true;
   saveComposerDraft();
@@ -3499,7 +3500,9 @@ $('.emoji-picker').addEventListener('click', (event) => {
 $('#composer-text').addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && state.parent) {
     state.parent = null;
+    $('#composer-label').textContent = 'Write a cast';
     $('#composer-text').placeholder = 'What’s on your mind?';
+    if (state.feedMode === 'profile') $('#composer').hidden = true;
     saveComposerDraft();
     setNotice('Reply cancelled.');
   }
@@ -3666,15 +3669,17 @@ document.addEventListener('click', async (event) => {
       renderProfileSummary(); renderFeed(); setNotice('Profile pin updated on this device.', 'success'); return;
     }
     if (button.dataset.action === 'pin-person' || button.dataset.action === 'unpin-person') { await toggleDeskPin(button.dataset.fid, button.dataset.action === 'pin-person' ? button : null); if (button.dataset.action === 'unpin-person') renderFeed(); return; }
-    if (!state.signerReady) { $('#connect-dialog').showModal(); return; }
-    const hash = button.dataset.hash;
     if (button.dataset.action === 'reply') {
-      state.parent = { fid: targetFid, hash };
+      if (!state.signerReady) { $('#connect-dialog').showModal(); return; }
+      state.parent = { fid: targetFid, hash: button.dataset.hash };
+      $('#composer-label').textContent = `Reply to ${profileLabel(state.people.get(targetFid), targetFid)}`;
       $('#composer').hidden = false;
       $('#composer-text').placeholder = `Replying to ${profileLabel(state.people.get(targetFid), targetFid)}…`;
       $('#composer-text').focus(); $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    if (!state.signerReady) { $('#connect-dialog').showModal(); return; }
+    const hash = button.dataset.hash;
     button.disabled = true;
     const protocol = await import('./protocol.js');
     if (button.dataset.action === 'follow') {
