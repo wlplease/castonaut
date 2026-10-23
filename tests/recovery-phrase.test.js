@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from '../src/recovery-phrase.js';
+import { deriveRecoveryAccountCandidates, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from '../src/recovery-phrase.js';
 import { readFile } from 'node:fs/promises';
 
 test('taking a recovery phrase normalizes and clears the field immediately', () => {
@@ -14,11 +14,18 @@ test('supported phrase lengths are checked without retaining or transmitting phr
   for (const size of [0, 1, 11, 13, 25]) assert.equal(isSupportedRecoveryPhraseLength(Array(size).fill('word').join(' ')), false);
 });
 
+test('phrase sign-in checks the old account slots automatically without an index selector', () => {
+  const candidates = deriveRecoveryAccountCandidates('phrase', (value, options) => ({ value, ...options }));
+  assert.deepEqual(candidates.map(({ accountIndex, account }) => [accountIndex, account.accountIndex]), [
+    [0, 0], [1, 1], [2, 2], [3, 3], [4, 4],
+  ]);
+});
+
 test('active recovery flow does not store or transmit the phrase and clears the derived account on dialog close', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const headers = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
-  assert.match(source, /import \{ isSupportedRecoveryPhraseLength, takeRecoveryPhrase \} from '\.\/recovery-phrase\.js';/);
+  assert.match(source, /import \{ deriveRecoveryAccountCandidates, isSupportedRecoveryPhraseLength, takeRecoveryPhrase \} from '\.\/recovery-phrase\.js';/);
   assert.match(source, /let phrase = takeRecoveryPhrase\(phraseField\);/);
   assert.match(source, /function optimismReadTransport\(fallback, http\)[\s\S]*?https:\/\/mainnet\.optimism\.io[\s\S]*?https:\/\/optimism-rpc\.publicnode\.com/);
   assert.match(source, /phrase = '';/);
@@ -39,19 +46,20 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(source, /const safeMessage = error\?\.message === 'That phrase could not be imported/);
   assert.doesNotMatch(source, /Could not check the account on Optimism: \$\{error\.message\}/);
   assert.doesNotMatch(source, /fetch\([^\n]*(?:phrase|mnemonic)/i);
-  const warningIndex = html.indexOf('Only continue on a deployment you trust');
+  const warningIndex = html.indexOf('Only enter this on a site you trust');
   const fieldIndex = html.indexOf('id="recovery-phrase"');
   assert.ok(warningIndex >= 0 && fieldIndex > warningIndex, 'warning appears before the phrase input');
   assert.match(html.slice(fieldIndex - 100, fieldIndex + 1000), /type="password"[\s\S]*autocomplete="off"[\s\S]*id="recovery-reveal"/);
   assert.match(source, /recovery-phrase'\)\.addEventListener\('keydown',[\s\S]*?event\.key === 'Enter'[\s\S]*?connectWithRecoveryPhrase\(\)/);
   assert.match(source, /recovery-reveal'\)\.addEventListener\('click'/);
-  assert.match(html, /Cleared after the connection attempt/);
-  assert.match(html, /This page can read your phrase\. It checks your Farcaster account, then creates a browser key for posts, follows and reactions/);
+  assert.match(html, /cleared after sign-in/);
+  assert.match(html, /Page code can read your phrase\. Castonaut checks it in this tab, then asks to add a limited browser key/);
   assert.ok(html.indexOf('id="recovery-import"') < html.indexOf('id="wallet-connect"'), 'phrase sign-in is the primary path and wallet is secondary');
   assert.match(source, /await authorizeSigner\(pendingRecoveryAccount\)/);
   assert.match(html, /Read freely\. Connect to post and follow/);
   assert.doesNotMatch(html, /recovery-account-index/);
-  assert.match(source, /mnemonicToAccount\(phrase, \{ accountIndex: 0 \}\)/);
+  assert.match(source, /deriveRecoveryAccountCandidates\(phrase, mnemonicToAccount\)/);
+  assert.match(source, /Promise\.allSettled\(candidates\.map/);
   assert.match(source, /connectButton\.textContent = 'Connecting…'/);
   assert.match(source, /\$\('#recovery-import'\)\.hidden = busy \|\| canRetry \|\| !!pendingWalletAccount \|\| !!state\.signer \|\| state\.signerReady/);
   assert.doesNotMatch(html, /<script[^>]+src="https?:\/\//i, 'setup page has no remote script tags');

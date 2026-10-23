@@ -2,19 +2,19 @@
 
 ## The feeling
 
-Castonaut is a personal social journal for Farcaster: follow your people at your own pace, keep the signals you care about, and return to them later. It borrows the care of a Japanese pocket notebook, the clarity of classic personal computing, and the wonder of an atlas. The result should feel warm and distinctly Castonaut, never like a generic social dashboard or a themed copy of another client.
+Castonaut is an independent Farcaster client: a chronological feed, a personal Desk for people and posts, and optional support for running your own node. The visual identity mixes the clarity of classic personal computing with the warmth of a printed field atlas. The app controls stay plain and familiar; the art and small details carry the space-and-map character.
 
 The soundtrack follows the same balance. Make it a modern, catchy indie-electronic pop song first. Add one small old-computer sound as a recognizable motif, then keep the rest human, melodic, and clear. The song should welcome people who never owned a PC in the 1990s as much as people who remember modem tones and late-night chat rooms.
 
 ## Visual system
 
-- **Default: Pocket Atlas.** Washed paper, sumi ink, a measured indigo signal color, and a vermilion accent used like a small hanko. The chronological feed is the main event; the Desk keeps people and saved casts close; Field Notes makes the day easy to revisit.
+- **Default: Pocket Atlas.** Warm paper, ink blue, and a restrained vermilion accent. The chronological feed is the main event; the Desk keeps people and saved casts close; daily pages make it easy to revisit a feed.
 - **Appearance:** one identity with two atmospheres: Pocket Atlas daylight and Pocket Atlas after dark. Keep the selector small and the typography, orbital mark, spacing, and reading surfaces consistent across both.
-- **Daylight:** warm off-white paper, charcoal ink, quiet indigo, and a sparing vermilion mark. Use texture so lightly that it never competes with text.
+- **Daylight:** warm off-white paper, charcoal ink, ink blue, and a sparing vermilion mark. Use texture so lightly that it never competes with text.
 - **After dark:** deep ink-blue, moonlit paper text, muted indigo surfaces, and a tiny vermilion signal. Avoid neon glows behind paragraphs.
 - **Type:** Space Grotesk for expressive headings, DM Sans for reading, and DM Mono for short instrument labels and timestamps.
-- **Shapes:** calm editorial spacing, fine atlas lines, one distinctive orbital signet, restrained paper panels, and near-invisible shadows. Use Japanese printmaking and manga as subtle craft references—composition, negative space, a tiny stamped mark, or original spot illustrations—not borrowed characters or decorative Japanese text. Avoid fake windows, decorative status copy, stacked cards, and repeated console labels.
-- **Product promise:** “Your people, your pace, your memory.” Read in time order, shape a personal Desk, and save a page from today on this device. Self-hosting is a meaningful option, not a prerequisite for understanding or using the client.
+- **Shapes:** calm editorial spacing, fine atlas lines, one orbital signet, flat paper panels, and quiet shadows. Keep space art in illustrations. Avoid decorative status copy, stacked cards, and repeated console labels.
+- **Product promise:** “Catch up in time order. Keep your people and posts close.” Read the feed, personalize a Desk, and save a page from today on this device. Running a node is optional for using the client.
 - **Hierarchy:** feed first for returning members; a welcoming, plain-language orientation for first visits; node status and advanced settings stay secondary. Keep essential social actions easy to find and seldom-used controls tucked away.
 - **Motion:** brief and purposeful. Respect reduced-motion preferences.
 - **Accessibility:** retain strong contrast, visible keyboard focus, touch-sized controls, semantic headings, and screen-reader labels across every theme.

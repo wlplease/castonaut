@@ -3,7 +3,7 @@ import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, top
 import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
 import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-capsules.js';
 import { isStationAccessAllowed } from './station-access.js';
-import { isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
+import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -1774,7 +1774,7 @@ async function createCustodySigner(recoveryAccount = null) {
     } catch {
       throw new Error('Could not verify this account on Optimism. Please try again.');
     }
-    if (!registeredFid || BigInt(registeredFid) < 1n) throw new Error('This phrase’s first account is not linked to a Farcaster ID. Check that you entered the right phrase and account index, or use a linked wallet.');
+    if (!registeredFid || BigInt(registeredFid) < 1n) throw new Error('No Farcaster account was found for this phrase. Check the words or use a linked wallet.');
     const fid = asFid(registeredFid.toString());
     const eip712Signer = new protocol.ViemLocalEip712Signer(recoveryAccount);
     return { eip712Signer, custodyAddress, fid };
@@ -1847,25 +1847,21 @@ async function connectWithRecoveryPhrase() {
   try {
     const { mnemonicToAccount } = await import('viem/accounts');
     const { createPublicClient, fallback, http, optimism } = await optimismToolkit();
-    let account;
-    try { account = mnemonicToAccount(phrase, { accountIndex: 0 }); }
+    let candidates;
+    try { candidates = deriveRecoveryAccountCandidates(phrase, mnemonicToAccount); }
     catch { throw new Error('That phrase could not be imported. Check the words and try again.'); }
     phrase = '';
     const publicClient = createPublicClient({ chain: optimism, transport: optimismReadTransport(fallback, http) });
-    let fid;
-    try {
-      fid = await publicClient.readContract({ address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [account.address] });
-    } catch {
-      throw new Error('Could not reach the Optimism account registry. Check your connection or try a linked wallet.');
-    }
-    if (!fid || BigInt(fid) < 1n) throw new Error('The first account in this phrase is not linked to a Farcaster ID. Check the phrase or use a linked wallet.');
+    const { account, fid } = await findRegisteredRecoveryAccount(candidates, (candidate) => publicClient.readContract({
+      address: ID_REGISTRY_ADDRESS, abi: ID_REGISTRY_ABI, functionName: 'idOf', args: [candidate.address],
+    }));
     pendingRecoveryAccount = { account, address: account.address, fid: asFid(fid.toString()) };
     setConnectionStatus(`Farcaster account found · FID ${pendingRecoveryAccount.fid}. Preparing your limited browser key…`, { active: 'approve', completed: ['sign'], busy: true });
     await authorizeSigner(pendingRecoveryAccount);
   } catch (error) {
     const safeMessage = error?.message === 'That phrase could not be imported. Check the words and try again.'
       || error?.message === 'Could not reach the Optimism account registry. Check your connection or try a linked wallet.'
-      || error?.message === 'The first account in this phrase is not linked to a Farcaster ID. Check the phrase or use a linked wallet.'
+      || error?.message === 'No Farcaster account was found for this phrase. Check the words or use a linked wallet.'
       ? error.message
       : 'Could not verify this account. Please try again or use a linked wallet.';
     setConnectionStatus(`${safeMessage} The phrase field has been cleared.`, { active: 'sign' });
@@ -1994,9 +1990,9 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     const passActive = confirmed && await refreshSavedPass();
     renderIdentity();
     if (confirmed) {
-      setConnectionStatus('Account verified. Connect its payment wallet to open the 30-day station pass.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+      setConnectionStatus('Account verified. Connect a payment wallet to check your pass.', { active: 'done', completed: ['sign', 'approve', 'done'] });
       if (passActive) { setNotice('Farcaster account and Time Pass verified.', 'success'); await loadFeed(fid); }
-      else setNotice('Farcaster account verified. A Time Pass is needed to open the station.', 'pending');
+      else setNotice('Farcaster account verified. A pass is needed to open the full client.', 'pending');
       setTimeout(() => { if ($('#connect-dialog').open) $('#connect-dialog').close(); }, 2200);
     } else {
       setConnectionStatus('The request reached Snapchain, but confirmation is taking longer. Your key is saved here. Check again in a moment; posting stays paused until confirmed.', { active: 'approve', completed: ['sign'], canRetry: true });
@@ -2041,9 +2037,9 @@ async function checkSavedSigner() {
     const passActive = confirmed && await refreshSavedPass();
     renderIdentity();
     if (confirmed) {
-      setConnectionStatus('Account verified. Connect its payment wallet to open the 30-day station pass.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+      setConnectionStatus('Account verified. Connect a payment wallet to check your pass.', { active: 'done', completed: ['sign', 'approve', 'done'] });
       if (passActive) { setNotice('Farcaster account and Time Pass verified.', 'success'); await loadFeed(state.fid); }
-      else setNotice('Farcaster account verified. A Time Pass is needed to open the station.', 'pending');
+      else setNotice('Farcaster account verified. A pass is needed to open the full client.', 'pending');
     } else {
       setConnectionStatus('Snapchain has not confirmed this key yet. Try again in a moment; do not create another key while this one is pending.', { active: 'approve', completed: ['sign'], canRetry: true });
     }
@@ -2185,7 +2181,7 @@ function renderPassStatus() {
   const active = state.passExpiry > Date.now() / 1000;
   const status = $('#pass-status');
   if (status) {
-    if (!configured) status.textContent = 'The station pass is being prepared. Checkout will open after its Base contract is deployed and verified.';
+    if (!configured) status.textContent = 'Pass checkout is being prepared. It will open after the Base contract is deployed and verified.';
     else if (state.passBusy) status.textContent = 'Checking the Base wallet…';
     else if (!state.passWallet) status.textContent = 'Connect a wallet to check your pass or get started.';
     else if (!state.passWalletConnected) status.textContent = 'Reconnect the wallet holding your pass to check access on Base.';

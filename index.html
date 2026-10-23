@@ -19,18 +19,18 @@
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#405b89" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Castonaut" />
-    <meta property="og:title" content="Castonaut — Your feed, with a place to land." />
+    <meta property="og:title" content="Castonaut — A Farcaster feed and your personal Desk." />
     <meta property="og:description" content="A Farcaster feed in time order, with a personal Desk for people and posts you want to return to." />
     <meta property="og:image" content="/og-castonaut-pocket-atlas.png" />
     <meta property="og:image:alt" content="Castonaut’s paper atlas and orbital map." />
     <meta property="og:image:width" content="1730" />
     <meta property="og:image:height" content="909" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Castonaut — Your feed, with a place to land." />
+    <meta name="twitter:title" content="Castonaut — A Farcaster feed and your personal Desk." />
     <meta name="twitter:description" content="A Farcaster feed in time order, with a personal Desk for people and posts you want to return to." />
     <meta name="twitter:image" content="/og-castonaut-pocket-atlas.png" />
     <meta name="twitter:image:alt" content="Castonaut’s paper atlas and orbital map." />
-    <title>Castonaut — Your feed, with a place to land.</title>
+    <title>Castonaut — A Farcaster feed and your personal Desk.</title>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to the atlas</a>
@@ -91,9 +91,9 @@
             </div>
 
             <section class="client-preview" id="client-preview" aria-labelledby="preview-title">
-              <div class="preview-heading"><div><span class="overline">SAMPLE POSTS</span><h2 id="preview-title">A timeline with a personal Desk.</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
+              <div class="preview-heading"><div><span class="overline">SAMPLE FEED · EXAMPLE POSTS</span><h2 class="sr-only" id="preview-title">Sample Farcaster feed and personal Desk</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
               <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>People and posts you pin.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>M</b> marav</span><span class="preview-pin"><b>R</b> ravi</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
-              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">FOLLOWING</span><h3>Newest first</h3><p>Posts from people you follow.</p></div></div>
+              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newest posts first.</p></div></div>
                 <article class="preview-post"><div class="preview-avatar avatar-amber">M</div><div class="preview-post-main"><div class="preview-byline"><strong>Mara V.</strong><span>@marav</span><time>8 min</time></div><p>The little weather display is finally working. Three LEDs and a completely unnecessary sunrise animation. 🌤️</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">SAMPLE</span></div></div></article>
                 <article class="preview-post"><div class="preview-avatar avatar-lilac">R</div><div class="preview-post-main"><div class="preview-byline"><strong>Ravi</strong><span>@ravi</span><time>21 min</time></div><p>Weekend question: what are you tinkering with right now?</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">SAMPLE</span></div></div></article>
                 <div class="preview-end"><span>✦</span> You’re all caught up <span>✦</span></div>
@@ -123,7 +123,7 @@
                   <summary>Account &amp; safety</summary>
                   <div class="portal-extras-content">
                     <small>Phrase sign-in is optional. Page code can read a phrase while you enter it, so use only a deployment and device you trust.</small>
-                    <small>The prepaid station pass uses a separate Base wallet.</small>
+                    <small>The optional pass uses a separate Base wallet.</small>
                     <div class="station-voice"><label for="voice-profile">Listen <span>·</span></label><select id="voice-profile" aria-label="Choose a station voice"><option value="navigator">Mae · Navigator</option><option value="radio">Quinn · Radio host</option><option value="archivist">Jules · Archivist</option></select><button type="button" id="voice-play" aria-label="Listen to the station introduction">▶</button><audio id="station-audio" preload="none"></audio></div>
                   </div>
                 </details>
@@ -165,7 +165,7 @@
             <details class="local-backup-drawer">
               <summary>Move your journal to another device <span>Backup · optional</span></summary>
             <section class="local-backup" aria-labelledby="local-backup-title">
-              <div><span class="overline">YOUR FIELD NOTES</span><h2 id="local-backup-title">Take your atlas with you.</h2><p>Export or restore your Desk, Flight Log, capsules, and appearance/feed preferences. Signers, wallet details, drafts, and recovery phrases are never included.</p></div>
+              <div><span class="overline">YOUR SETTINGS</span><h2 id="local-backup-title">Move your Desk to another device.</h2><p>Export or restore your Desk, saved posts, pages, and appearance/feed preferences. Signers, wallet details, drafts, and recovery phrases are never included.</p></div>
               <div class="local-backup-actions"><button type="button" class="button button-outline" id="backup-export">Export backup</button><button type="button" class="button button-outline" id="backup-import-trigger">Restore backup</button><input id="backup-file" type="file" accept="application/json,.json" hidden aria-label="Choose a Castonaut backup file" /></div>
               <p class="backup-status" id="backup-status" role="status" aria-live="polite"></p>
             </section>
@@ -262,7 +262,7 @@
             </section>
             <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, Friends, and Crew in time order.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
             <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Personal space, kept personal.</h2><p>Your Desk, notes, and saves stay in this browser. Pulse counts loaded posts; Lens filters to pinned people. Remote images are off by default. Image hosts can see your IP when enabled. Analytics are opt-in.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share basic visit statistics</strong><small>Optional Vercel page analytics. Your choice is saved in this browser; page paths are sent without query strings or fragments.</small></span></label><a class="legal-inline-link" href="/privacy.html">Read the Privacy Notice</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
-            <section class="plus-preview"><div><span class="overline">CASTONAUT TIME PASS</span><h2>A month in your own signal room.</h2><p>One pass opens the full client: your Desk, the live timeline, GIF posts, and the Time Capsule replay.</p></div><div class="plus-price"><strong>$3.70</strong><span>30 days</span><small>One-time · no auto-renew</small></div><p class="plus-footnote">Paid once in native USDC on Base. The pass follows its payment wallet and counts down on-chain. You need a little Base ETH for network fees. Checkout remains locked until the contract is deployed and configured.</p></section>
+            <section class="plus-preview"><div><span class="overline">OPTIONAL 30-DAY PASS</span><h2>Support Castonaut.</h2><p>One pass unlocks the full client: your Desk, saved posts, GIFs, and daily pages.</p></div><div class="plus-price"><strong>$3.70</strong><span>30 days</span><small>One-time · no auto-renew</small></div><p class="plus-footnote">Paid once in native USDC on Base. The pass follows its payment wallet and counts down on-chain. You need a little Base ETH for network fees. Checkout remains locked until the contract is deployed and configured.</p></section>
             <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>How Castonaut works</strong><small>Feeds, sign-in, and running a node.</small></span><span class="guide-arrow">↗</span></a>
             <footer class="page-footer"><span>CASTONAUT · ABOUT</span><span class="legal-links"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
@@ -276,7 +276,7 @@
       <div class="dialog-content"><span class="overline">CASTONAUT ACCOUNT</span><h2 id="connect-title" tabindex="-1">Sign in to Farcaster.</h2><p class="dialog-intro">Read freely. Connect to post and follow.</p>
         <p class="dialog-status" id="dialog-status" role="status" tabindex="-1"></p>
         <div class="wallet-review" id="wallet-review" hidden><span class="overline">CHECK THIS IS YOUR ACCOUNT</span><strong id="wallet-review-fid"></strong><code id="wallet-review-address"></code><small>Next, your wallet will show one gasless app-key authorization to review.</small></div>
-        <section class="recovery-import" id="recovery-import" aria-labelledby="recovery-title"><div class="recovery-import-body"><aside class="recovery-warning" id="recovery-warning" role="note"><strong>Only continue on a deployment you trust.</strong><span>This page can read your phrase. It checks your Farcaster account, then creates a browser key for posts, follows and reactions. It cannot move funds. Your phrase is cleared after the attempt.</span></aside><label id="recovery-title" for="recovery-phrase">Farcaster recovery phrase</label><div class="recovery-phrase-entry"><input id="recovery-phrase" type="password" name="recovery-input" maxlength="240" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="go" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" aria-describedby="recovery-warning recovery-input-help" placeholder="12–24 words" /><button type="button" class="button button-outline recovery-reveal" id="recovery-reveal" aria-controls="recovery-phrase" aria-pressed="false">Show</button></div><small class="recovery-input-help" id="recovery-input-help" aria-live="polite">Cleared after the connection attempt.</small><button type="button" class="button button-orange" id="recovery-connect">Connect &amp; authorize</button></div></section>
+        <section class="recovery-import" id="recovery-import" aria-labelledby="recovery-title"><div class="recovery-import-body"><aside class="recovery-warning" id="recovery-warning" role="note"><strong>Only enter this on a site you trust.</strong><span>Page code can read your phrase. Castonaut checks it in this tab, then asks to add a limited browser key. No funds access. The phrase is cleared after sign-in.</span></aside><label id="recovery-title" for="recovery-phrase">Farcaster recovery phrase</label><div class="recovery-phrase-entry"><input id="recovery-phrase" type="password" name="recovery-input" maxlength="240" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="go" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" aria-describedby="recovery-warning recovery-input-help" placeholder="Paste your 12–24 words" /><button type="button" class="button button-outline recovery-reveal" id="recovery-reveal" aria-controls="recovery-phrase" aria-pressed="false">Show</button></div><small class="recovery-input-help" id="recovery-input-help" aria-live="polite">Checked in this tab · cleared after sign-in</small><button type="button" class="button button-orange" id="recovery-connect">Connect &amp; authorize</button></div></section>
         <div class="dialog-actions"><button type="button" class="button button-outline" id="wallet-connect">Use a linked wallet <span>↗</span></button><button type="button" class="button button-orange" id="wallet-authorize" hidden>Authorize this browser key</button><button type="button" class="button button-outline" id="wallet-change" hidden>Use a different wallet</button><button type="button" class="button button-outline" id="check-signer" hidden>Check connection again <span>↻</span></button></div>
         <details class="connect-security"><summary>What can the app key do?</summary><ul><li><strong>Social actions:</strong> post and delete your casts, follow or unfollow, like or remove likes, and recast or undo recasts.</li><li><strong>Cannot:</strong> move funds or change account custody.</li><li><strong>Stored here:</strong> a separate app key in this browser’s IndexedDB. The server gets signed messages, never your private key or phrase.</li><li><strong>Your control:</strong> a compromised page or extension could request social actions. Revoke the signer in Farcaster settings; “Forget this browser” only deletes its local key.</li></ul></details>
       </div>
