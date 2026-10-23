@@ -68,6 +68,8 @@ let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
 let feedScrollSaved = false;
+let currentArea = 'feed';
+const areaScroll = new Map();
 const profileRequests = new Map();
 const signerSourceRequests = new Map();
 const signerSourcesLoaded = new Set();
@@ -1502,6 +1504,7 @@ async function searchProfile(rawQuery) {
     status.textContent = `Opening @${state.people.get(fid)?.username || `fid-${fid}`} · FID ${fid}.`;
     if (state.boardMode !== 'signals') setBoardMode('signals');
     setProfileRoute(fid);
+    navigate('feed', { preserveHash: true });
     const feedLoaded = await loadFeed(fid, 'profile');
     status.dataset.state = feedLoaded ? 'success' : 'error';
     if (!feedLoaded) status.textContent = `Found @${state.people.get(fid)?.username || `fid-${fid}`} · the profile is open, but its posts could not be loaded.`;
@@ -1574,7 +1577,7 @@ function closeConversation() {
   $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log';
   $('#feed-filters').hidden = state.boardMode === 'flight-log' || !state.casts.length;
   $('#feed-pulse').hidden = !state.casts.length || state.boardMode === 'flight-log';
-  history.pushState(null, '', state.feedMode === 'profile' ? `#profile=${Number(state.feedTargetFid)}` : '#desk');
+  history.pushState(null, '', state.feedMode === 'profile' ? `#profile=${Number(state.feedTargetFid)}` : '#feed');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2334,6 +2337,8 @@ function renderIdentity() {
   $('#portal-gate').hidden = accountReady;
   $('#pass-gate').hidden = !accountReady || ready;
   $('#member-workspace').hidden = !ready && !publicProfilePreview;
+  const deskGate = $('#desk-guest-gate');
+  if (deskGate) deskGate.hidden = currentArea !== 'desk' || ready;
   $('#public-browse-note').hidden = ready || accountReady;
   $('#pass-status-strip').hidden = !ready || CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
   const passPreview = $('.portal-pass-preview');
@@ -2526,37 +2531,36 @@ async function clearLocalSigner() {
 }
 
 function navigate(view, { preserveHash = false } = {}) {
-  const target = view === 'node' ? 'node' : 'desk';
+  const area = view === 'node' ? 'node' : ['desk', 'search'].includes(view) ? view : 'feed';
+  const target = area === 'node' ? 'node' : 'desk';
+  if (area !== currentArea && currentArea !== 'node') areaScroll.set(currentArea, window.scrollY);
+  currentArea = area;
   document.querySelectorAll('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== target; });
+  document.querySelectorAll('[data-area]').forEach((panel) => { panel.hidden = panel.dataset.area !== area; });
+  const deskGate = $('#desk-guest-gate');
+  if (deskGate) deskGate.hidden = area !== 'desk' || (!!state.fid && !!state.signerReady && hasStationAccess());
   document.querySelectorAll('[data-view]').forEach((link) => {
-    const active = link.dataset.view === target;
+    const active = link.dataset.view === area;
     link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
-  document.querySelectorAll('[data-scroll-to]').forEach((link) => {
-    const active = target === 'desk' && link.hash === location.hash;
-    link.classList.toggle('active', active);
-    if (active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
-  });
-  $('#page-label').textContent = target === 'node' ? 'ABOUT' : state.boardMode === 'flight-log' ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
-  const expectedHash = target === 'node' ? '#about' : '#desk';
-  if (!preserveHash && location.hash !== expectedHash) history.replaceState(null, '', expectedHash);
-  if (analyticsEnabled) pageview({ route: target, path: location.pathname });
-  if (target === 'node') $('#node-view').scrollIntoView({ block: 'start' });
+  $('#page-label').textContent = area === 'node' ? 'NODE' : area === 'desk' ? 'DESK' : area === 'search' ? 'SEARCH' : state.boardMode === 'flight-log' ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
+  const expectedHash = area === 'node' ? '#about' : area === 'desk' ? '#my-desk' : area === 'search' ? '#people-search' : '#feed';
+  if (!preserveHash && location.hash !== expectedHash) history.pushState(null, '', expectedHash);
+  if (analyticsEnabled) pageview({ route: area, path: location.pathname });
+  if (area === 'node') $('#node-view').scrollIntoView({ block: 'start' });
+  else requestAnimationFrame(() => window.scrollTo(0, areaScroll.get(area) || 0));
 }
 
 function applyLocationRoute() {
   if (location.hash === '#node' || location.hash === '#about') { navigate('node', { preserveHash: true }); return; }
-  navigate('desk', { preserveHash: true });
-  if (location.hash === '#my-desk' || location.hash === '#people-search') {
-    requestAnimationFrame(() => {
-      const target = document.getElementById(location.hash.slice(1));
-      if (target?.getClientRects().length) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      else { navigate('node'); setNotice('Connect a synced node to use this section.', 'pending'); }
-    });
-    if (location.hash === '#people-search') requestAnimationFrame(() => $('#people-query')?.focus({ preventScroll: true }));
+  if (location.hash === '#my-desk') { navigate('desk', { preserveHash: true }); return; }
+  if (location.hash === '#people-search' || location.hash === '#search') {
+    navigate('search', { preserveHash: true });
+    requestAnimationFrame(() => $('#people-query')?.focus({ preventScroll: true }));
     return;
   }
+  navigate('feed', { preserveHash: true });
   const profile = location.hash.match(/^#profile=(\d{1,15})$/);
   if (profile) { if (state.boardMode !== 'signals') setBoardMode('signals'); loadFeed(Number(profile[1]), 'profile'); return; }
   const cast = location.hash.match(/^#cast=(\d{1,15})\/(0x[\da-f]{40,64})$/i);
@@ -2858,14 +2862,16 @@ $('#node-journey-check')?.addEventListener('click', async (event) => {
 document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener('click', (event) => {
   event.preventDefault();
   navigate(link.dataset.view);
-  if (link.dataset.view === 'desk' && state.signerReady && (state.feedMode !== 'following' || state.boardMode !== 'signals')) {
+  if (link.dataset.view === 'search') requestAnimationFrame(() => $('#people-query')?.focus({ preventScroll: true }));
+  if (link.dataset.view === 'feed' && state.signerReady && (state.feedMode !== 'following' || state.boardMode !== 'signals')) {
     if (state.boardMode !== 'signals') setBoardMode('signals');
     loadFeed(state.fid, 'following');
   }
 }));
+$('#desk-signin')?.addEventListener('click', openConnectDialog);
 document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventListener('click', (event) => {
   event.preventDefault();
-  navigate('desk', { preserveHash: true });
+  navigate(link.dataset.scrollTo === 'people-search' ? 'search' : 'desk', { preserveHash: true });
   const target = document.getElementById(link.dataset.scrollTo);
   if (!target?.getClientRects().length) {
     navigate('node');
@@ -2882,6 +2888,7 @@ document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventLis
   if (link.dataset.scrollTo === 'people-search') $('#people-query').focus({ preventScroll: true });
 }));
 window.addEventListener('hashchange', applyLocationRoute);
+window.addEventListener('popstate', applyLocationRoute);
 if (window.ethereum?.on) window.ethereum.on('accountsChanged', (accounts) => {
   const next = Array.isArray(accounts) && isAddress(accounts[0]) ? accounts[0] : '';
   state.passWallet = next;
@@ -2895,7 +2902,8 @@ document.addEventListener('click', async (event) => {
   const deskButton = event.target.closest('[data-desk-fid]');
   if (!deskButton) return;
   const fid = Number(deskButton.dataset.deskFid);
-  navigate('desk');
+  navigate('feed');
+  setProfileRoute(fid);
   if (state.boardMode !== 'signals') setBoardMode('signals');
   await loadFeed(fid, 'profile');
 });
@@ -3344,6 +3352,9 @@ $('#clear-profile-custom').addEventListener('click', () => {
 $('#profile-edit-dialog').addEventListener('click', (event) => { if (event.target === $('#profile-edit-dialog')) $('#profile-edit-dialog').close(); });
 
 if (location.hash === '#node' || location.hash === '#about') navigate('node', { preserveHash: true });
+else if (location.hash === '#my-desk') navigate('desk', { preserveHash: true });
+else if (location.hash === '#people-search' || location.hash === '#search') navigate('search', { preserveHash: true });
+else navigate('feed', { preserveHash: true });
 renderDesk();
 renderFlightLogCount();
 setBoardMode('signals');

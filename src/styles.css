@@ -2404,3 +2404,16 @@ html[data-theme="night-radio"] .post-card{border-color:color-mix(in srgb,var(--s
   .profile-more-panel{right:0}
 }
 @media(max-width:380px){.feed-toolbar-actions{grid-template-columns:minmax(0,1fr) auto 38px}.profile-more-panel{min-width:205px}}
+
+/* Feed, Desk, and Search are destinations, not scroll targets. */
+[data-area][hidden]{display:none!important}
+[hidden]{display:none!important}
+.area-heading{max-width:850px;margin:28px auto 10px;padding:0 2px}
+.area-heading h1{margin:5px 0 2px;color:var(--station-ink);font:600 clamp(25px,3vw,34px) var(--display);letter-spacing:-.045em}
+.area-heading p{margin:0;color:var(--station-copy-muted);font-size:12px}
+.desk-guest-gate{max-width:850px;margin:28px auto;padding:clamp(22px,4vw,38px);border:1px solid var(--station-line);border-radius:13px;background:var(--station-card);box-shadow:0 8px 28px color-mix(in srgb,var(--station-ink) 6%,transparent)}
+.desk-guest-gate h2{margin:8px 0;color:var(--station-ink);font:600 clamp(26px,4vw,38px) var(--display);letter-spacing:-.05em}
+.desk-guest-gate p{max-width:42ch;margin:0 0 18px;color:var(--station-copy-muted);font-size:14px;line-height:1.55}
+body[data-account-view="member"] #desk-view .room-heading,
+body[data-account-view="member"] #desk-view #client-preview{display:none!important}
+@media(max-width:620px){.area-heading{margin:20px 0 8px}.area-heading h1{font-size:27px}.desk-guest-gate{margin:16px 0;padding:20px;border-radius:11px}.desk-guest-gate p{font-size:13px}}

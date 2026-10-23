@@ -42,9 +42,9 @@
           <span><strong>castonaut</strong><small>FIELD JOURNAL · FARCASTER</small></span>
         </a>
         <nav class="nav-list">
-          <a class="nav-item active" href="#desk" data-view="desk" aria-label="Home"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Home</span></a>
-          <a class="nav-item" href="#my-desk" data-scroll-to="my-desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
-          <a class="nav-item" href="#people-search" data-scroll-to="people-search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span></a>
+          <a class="nav-item active" href="#feed" data-view="feed" aria-label="Feed"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Feed</span></a>
+          <a class="nav-item" href="#my-desk" data-view="desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
+          <a class="nav-item" href="#people-search" data-view="search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span></a>
           <a class="nav-item" href="/tutorial.html" aria-label="How it works"><span class="nav-symbol">↗</span><span>Guide</span></a>
           <a class="nav-item" href="/endorsements.html" aria-label="Community notes"><span class="nav-symbol" aria-hidden="true">✳</span><span>Field notes</span></a>
           <a class="nav-item" href="#about" data-view="node" aria-label="Node setup and app details"><span class="nav-symbol" aria-hidden="true">⌘</span><span>Node</span></a>
@@ -64,7 +64,7 @@
 
         <main id="main">
           <section class="view" id="desk-view" data-panel="desk">
-            <div class="room-heading">
+            <div class="room-heading" data-area="feed">
               <div class="hero-copy">
                 <div class="overline"><span class="live-pip"></span> AN INDEPENDENT FARCASTER CLIENT</div>
                 <h1>A Farcaster feed and your personal Desk.</h1>
@@ -86,12 +86,12 @@
               </div>
             </div>
 
-            <div class="node-ribbon" id="node-ribbon">
+            <div class="node-ribbon" id="node-ribbon" data-area="feed">
               <div class="node-ribbon-left"><span class="node-led" id="node-led"></span><div><strong id="node-state">Checking the connection…</strong><small id="node-detail">Checking the feed service. You can still explore profiles while it connects.</small></div></div>
               <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" aria-label="Open the feed setup guide" hidden>Feed setup ↗</a><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
             </div>
 
-            <section class="client-preview" id="client-preview" aria-labelledby="preview-title">
+            <section class="client-preview" id="client-preview" aria-labelledby="preview-title" data-area="feed">
               <div class="preview-heading"><div><span class="overline">SAMPLE FEED · EXAMPLE POSTS</span><h2 class="sr-only" id="preview-title">Sample Farcaster feed and personal Desk</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
               <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>People and posts you pin.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>M</b> marav</span><span class="preview-pin"><b>R</b> ravi</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
               <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newest posts first.</p></div></div>
@@ -101,18 +101,19 @@
               </div>
             </section>
 
-            <aside class="public-browse-note" id="public-browse-note" hidden>
+            <aside class="public-browse-note" id="public-browse-note" data-area="search" hidden>
               <span>READ ONLY · NO SIGN-IN PHRASE</span>
               <p>Explore profiles. Sign in to follow or post.</p>
             </aside>
-            <form class="people-search" id="people-search" role="search">
+            <div class="area-heading" data-area="search"><span class="overline">EXPLORE FARCASTER</span><h1>Find a person.</h1><p>Search by username or Farcaster ID.</p></div>
+            <form class="people-search" id="people-search" role="search" data-area="search">
               <label class="sr-only" for="people-query">Find a public Farcaster profile by username or FID</label>
               <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="64" placeholder="Username or FID" autocomplete="off" />
               <button type="submit" class="button button-outline">Explore</button>
               <p id="people-search-status" role="status" aria-live="polite" hidden></p>
             </form>
 
-            <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title">
+            <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title" data-area="feed">
               <div class="portal-art" aria-hidden="true"><img class="portal-illustration" src="/astral-atlas-art.webp" alt="" /><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span><span class="portal-art-caption">PLATE 037 <i>·</i> YOUR CORNER OF THE NETWORK</span></div>
               <div class="portal-copy">
                 <span class="overline">YOUR FARCASTER ACCOUNT</span>
@@ -132,15 +133,15 @@
               <div class="portal-footer"><span>YOUR SIGNER STAYS ON THIS DEVICE</span></div>
             </section>
 
-            <section class="pass-gate" id="pass-gate" aria-labelledby="pass-title" hidden>
+            <section class="pass-gate" id="pass-gate" aria-labelledby="pass-title" data-area="feed" hidden>
               <div class="pass-art" aria-hidden="true"><span class="pass-orbit pass-orbit-a"></span><span class="pass-orbit pass-orbit-b"></span><strong>37</strong><small>TIME / PASS</small></div>
               <div class="pass-copy"><span class="overline">CASTONAUT · OPTIONAL PASS</span><h2 id="pass-title">Your time here is yours.</h2><p>One prepaid pass opens the client for 30 days. No auto-renewal. The pass follows your payment wallet, so bring that same wallet when you return.</p><div class="pass-offer"><strong>$3.70</strong><span>USDC on Base<br />30 days · one-time</span></div><p class="pass-status" id="pass-status" role="status" aria-live="polite">Connect a wallet to check your pass or get started.</p><div class="pass-actions"><button type="button" class="button button-outline" id="pass-check">Connect wallet / check pass</button><button type="button" class="button button-orange" id="pass-buy">Get a 30-day pass</button></div><small class="pass-note">Two wallet confirmations: exact USDC approval, then purchase. You also need a little Base ETH for network fees. Payments go directly to the published contract’s treasury.</small><details class="pass-setup" id="pass-setup"><summary>Pass checkout details</summary><p>Checkout is locked until a CastonautTimePass contract is deployed and its public address is set as <code>VITE_PASS_CONTRACT_ADDRESS</code> in the site build.</p></details></div>
               <div class="pass-footer"><span>NO RECURRING CHARGE</span><span>VERIFIABLE ON BASE</span></div>
             </section>
 
             <div id="member-workspace" hidden>
-            <div class="pass-status-strip" id="pass-status-strip"><span class="pass-status-mark" aria-hidden="true">◷</span><span><small>YOUR TIME PASS</small><strong id="pass-countdown">Checking…</strong></span><span class="pass-wallet-label" id="pass-wallet-label"></span><button type="button" id="pass-extend" class="pass-extend">Add 30 days · $3.70</button></div>
-            <section class="desk-strip" id="my-desk" aria-labelledby="desk-title">
+            <div class="pass-status-strip" id="pass-status-strip" data-area="feed"><span class="pass-status-mark" aria-hidden="true">◷</span><span><small>YOUR TIME PASS</small><strong id="pass-countdown">Checking…</strong></span><span class="pass-wallet-label" id="pass-wallet-label"></span><button type="button" id="pass-extend" class="pass-extend">Add 30 days · $3.70</button></div>
+            <section class="desk-strip" id="my-desk" aria-labelledby="desk-title" data-area="desk">
               <div class="desk-strip-head"><div><span class="overline">YOUR DESK</span><h2 id="desk-title">Keep what matters close.</h2></div><p>Pin a person, post, or topic from its menu. <button type="button" class="desk-backup-link" id="desk-backup-open">Move your Desk ↗</button></p></div>
               <section class="first-orbit" id="first-orbit" aria-labelledby="first-orbit-title">
                 <div class="first-orbit-heading"><div><span class="overline">GET STARTED</span><h3 id="first-orbit-title">Make this place yours.</h3></div><span class="first-orbit-progress" id="first-orbit-progress">0 / 3</span></div>
@@ -163,7 +164,7 @@
               </details>
             </section>
 
-            <details class="local-backup-drawer">
+            <details class="local-backup-drawer" data-area="desk">
               <summary>Move your journal to another device <span>Backup · optional</span></summary>
             <section class="local-backup" aria-labelledby="local-backup-title">
               <div><span class="overline">YOUR SETTINGS</span><h2 id="local-backup-title">Move your Desk to another device.</h2><p>Export or restore your Desk, saved posts, pages, and appearance/feed preferences. Signers, wallet details, drafts, and recovery phrases are never included.</p></div>
@@ -172,7 +173,7 @@
             </section>
             </details>
 
-            <div class="feed-layout">
+            <div class="feed-layout" data-area="feed">
                 <section class="feed-window" id="feed-window" aria-labelledby="feed-title">
                 <div class="feed-toolbar">
                   <div><div class="overline">YOUR TIMELINE</div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
@@ -249,6 +250,9 @@
               </aside>
             </div>
             </div>
+            <section class="desk-guest-gate" id="desk-guest-gate" data-area="desk" hidden aria-labelledby="desk-guest-title">
+              <span class="overline">YOUR DESK</span><h2 id="desk-guest-title">A space that’s yours.</h2><p>Sign in to pin people, save posts, and keep pages here on this device.</p><button class="button button-orange" id="desk-signin">Sign in to personalize</button>
+            </section>
             <footer class="page-footer"><span>CASTONAUT · FARCASTER CLIENT</span><span class="legal-links"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
 

@@ -16,7 +16,7 @@ function link(label, href, attributes = {}) {
 
 const header = document.createElement('header');
 header.className = `site-header${isClient ? ' site-header--client' : ''}`;
-const brand = link('', '/#desk', { class: 'site-brand', 'aria-label': 'Castonaut home' });
+const brand = link('', '/#feed', { class: 'site-brand', 'aria-label': 'Castonaut home' });
 const logo = document.createElement('img');
 logo.src = '/favicon.svg';
 logo.alt = '';
@@ -32,12 +32,12 @@ brand.append(logo, brandText);
 const siteNav = document.createElement('nav');
 siteNav.className = 'site-nav';
 siteNav.setAttribute('aria-label', 'Main navigation');
+if (!isClient) siteNav.append(link('Client', '/#feed', { 'data-site-link': 'client' }));
 siteNav.append(
-  link('Client', '/#desk', { 'data-view': 'desk', 'data-site-link': 'client' }),
   link('Guide', '/tutorial.html#quickstart', { 'data-site-link': 'guide' }),
   link('Field notes', '/endorsements.html', { 'data-site-link': 'notes' }),
-  link('About', '/#about', { 'data-view': 'node', 'data-site-link': 'about' }),
 );
+if (!isClient) siteNav.append(link('About', '/#about', { 'data-site-link': 'about' }));
 
 const tools = document.createElement('div');
 tools.className = 'site-tools';
@@ -77,7 +77,7 @@ else document.body.prepend(header);
 
 const footer = document.createElement('footer');
 footer.className = 'site-footer';
-const footerBrand = link('', '/#desk', { class: 'site-footer-brand' });
+const footerBrand = link('', '/#feed', { class: 'site-footer-brand' });
 footerBrand.append(document.createTextNode('CASTONAUT '));
 const footerTagline = document.createElement('span');
 footerTagline.textContent = '· AN INDEPENDENT FARCASTER CLIENT';
@@ -85,7 +85,7 @@ footerBrand.append(footerTagline);
 const footerNav = document.createElement('nav');
 footerNav.setAttribute('aria-label', 'Footer navigation');
 footerNav.append(
-  link('Client', '/#desk'), link('Guide', '/tutorial.html'), link('Field notes', '/endorsements.html'),
+  link('Feed', '/#feed'), link('Desk', '/#my-desk'), link('Search', '/#people-search'), link('Guide', '/tutorial.html'), link('Field notes', '/endorsements.html'),
   link('Privacy', '/privacy.html'), link('Terms', '/terms.html'),
   link('Source ↗', 'https://github.com/wlplease/castonaut', { target: '_blank', rel: 'noopener noreferrer' }),
 );
