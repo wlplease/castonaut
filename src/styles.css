@@ -97,6 +97,7 @@ img{max-width:100%}
 .dialog-content{padding:clamp(20px,5vw,34px)}
 .dialog-content h2{max-width:430px;margin:11px 0 9px;font:600 clamp(27px,5vw,34px)/1.05 var(--display);letter-spacing:-.05em}
 .dialog-intro{font-size:13px;line-height:1.65;margin:0 0 20px;max-width:465px}
+.connect-route{margin:-13px 0 15px;color:#786d7e;font-size:10px;line-height:1.5}
 .connect-steps{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .connect-step{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:start;gap:11px;padding:12px;border:1px solid #e0ded4;border-radius:7px;background:#f8f7ef;transition:border-color .16s,background .16s,transform .16s}
 .connect-step.is-current{border-color:#9a80be;background:#f1ebf7;box-shadow:inset 3px 0 #7050a4}
@@ -584,6 +585,7 @@ html[data-station-tone="night"]{--station-accent:#5d4c7b;--station-soft:#f0edf7;
 .recovery-warning strong{font-size:12px;color:#63392d}
 .recovery-warning span{color:#74584d}
 .recovery-import-body .button{min-height:42px}
+.recovery-import-body>#recovery-lookup{width:100%;font-weight:700}
 .recovery-account{display:grid;gap:6px;border:1px solid #d8cfdf;border-radius:6px;background:#f3eff6;padding:11px}
 .recovery-account[hidden]{display:none}
 .recovery-account strong{color:#493b5a;font-size:11px}

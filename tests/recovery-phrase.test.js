@@ -45,7 +45,9 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(html.slice(fieldIndex - 100, fieldIndex + 1000), /type="password"[\s\S]*autocomplete="off"[\s\S]*id="recovery-reveal"/);
   assert.match(source, /recovery-phrase'\)\.addEventListener\('keydown',[\s\S]*?event\.key === 'Enter'[\s\S]*?lookupRecoveryAccount\(\)/);
   assert.match(source, /recovery-reveal'\)\.addEventListener\('click'/);
-  assert.match(html, /Cleared as soon as you check/);
+  assert.match(html, /Cleared after the connection attempt/);
+  assert.match(html, /One tap verifies your Farcaster account and creates a limited key for social actions/);
+  assert.match(source, /await authorizeSigner\(pendingRecoveryAccount\)/);
   assert.match(html, /Browsing needs no phrase/);
   assert.match(html, /id="recovery-account-index"[\s\S]*?value="4"/);
   assert.match(source, /mnemonicToAccount\(phrase, \{ accountIndex \}\)/);

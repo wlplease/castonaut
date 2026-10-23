@@ -324,10 +324,25 @@ async function nodeRequest(route, params = {}, options = {}) {
   const url = new URL('/api/snapchain', window.location.origin);
   url.searchParams.set('route', route);
   for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
-  const response = await fetch(url, { ...options, headers: { accept: 'application/json', ...(options.headers || {}) } });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || body.details || `Node request failed (${response.status})`);
-  return body;
+  const { timeoutMs = 18_000, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const signal = fetchOptions.signal
+    ? AbortSignal.any([fetchOptions.signal, controller.signal])
+    : controller.signal;
+  try {
+    const response = await fetch(url, { ...fetchOptions, signal, headers: { accept: 'application/json', ...(fetchOptions.headers || {}) } });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || body.details || `Node request failed (${response.status})`);
+    return body;
+  } catch (error) {
+    if (controller.signal.aborted && !fetchOptions.signal?.aborted) {
+      throw new Error('The node took too long to respond. Your signed key is saved in this browser; choose “Check connection again” before trying to authorize again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function asFid(value) {
@@ -1862,11 +1877,9 @@ async function lookupRecoveryAccount() {
     }
     if (!fid || BigInt(fid) < 1n) throw new Error(`Account ${accountIndex} is not linked to a Farcaster ID. Check the account index, or use a linked wallet.`);
     pendingRecoveryAccount = { account, address: account.address, fid: asFid(fid.toString()) };
-    $('#recovery-account-fid').textContent = `Farcaster account · FID ${pendingRecoveryAccount.fid}`;
-    $('#recovery-account-address').textContent = `Custody address · ${account.address} · index ${accountIndex}`;
-    $('#recovery-authorize').textContent = `Authorize key for FID ${pendingRecoveryAccount.fid}`;
-    accountPanel.hidden = false;
-    setConnectionStatus('Account found. Check the FID and custody address, then explicitly authorize this browser key.', { active: 'approve', completed: ['sign'] });
+    accountPanel.hidden = true;
+    setConnectionStatus(`Farcaster account found · FID ${pendingRecoveryAccount.fid}. Preparing your limited browser key…`, { active: 'approve', completed: ['sign'], busy: true });
+    await authorizeSigner(pendingRecoveryAccount);
   } catch (error) {
     const safeMessage = error?.message === 'That phrase could not be imported. Check the words and try again.'
       || error?.message === 'Could not reach the Optimism account registry. Check your connection or try a linked wallet.'
@@ -1889,7 +1902,7 @@ async function readCurrentNonce(fid) {
 }
 
 async function findSigner(fid, publicKey) {
-  const result = await nodeRequest('signers', { fid, pageSize: 100 });
+  const result = await nodeRequest('signers', { fid, pageSize: 100 }, { timeoutMs: 8_000 });
   const rows = Array.isArray(result.signers) ? result.signers : (result.messages || []);
   return rows.some((row) => {
     const body = row?.data?.keyAddBody || row?.data?.signerAddBody || row;
@@ -1897,16 +1910,20 @@ async function findSigner(fid, publicKey) {
   });
 }
 
-async function waitForSigner(fid, publicKey, tries = 8) {
+async function waitForSigner(fid, publicKey, tries = 6, onProgress = () => {}) {
   for (let i = 0; i < tries; i++) {
-    if (await findSigner(fid, publicKey)) return true;
-    await new Promise((resolve) => setTimeout(resolve, 1800));
+    onProgress(i + 1, tries);
+    try {
+      if (await findSigner(fid, publicKey)) return true;
+    } catch {
+      // A temporarily unavailable read should not discard the saved signed registration.
+    }
+    if (i < tries - 1) await new Promise((resolve) => setTimeout(resolve, 1500));
   }
   return false;
 }
 
 async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
-  const status = $('#dialog-status');
   const connectButton = $('#wallet-connect');
   const recoveryButton = $('#recovery-authorize');
   const actionButtons = [connectButton, $('#wallet-authorize'), $('#wallet-change'), recoveryButton].filter(Boolean);
@@ -1983,11 +2000,13 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     state.custodyAddress = custodyAddress;
     state.signerReady = false;
     renderIdentity();
-    status.textContent = 'Checking for network confirmation…';
+    setConnectionStatus('Signed key saved in this browser. Sending it to your Snapchain node…', { active: 'approve', completed: ['sign'], busy: true });
     relayAttempted = true;
     const relayed = await submitMessage(message);
     if (!relayed.hash) throw new Error('The node accepted no message hash. Check node health and try again.');
-    const confirmed = await waitForSigner(fid, publicKey);
+    const confirmed = await waitForSigner(fid, publicKey, 6, (attempt, total) => {
+      setConnectionStatus(`Node accepted the request. Waiting for confirmation · ${attempt}/${total}`, { active: 'approve', completed: ['sign'], busy: true });
+    });
     state.signerReady = confirmed;
     if (confirmed) loadFlightLog(state.fid);
     if (confirmed) await clearPendingRegistration();
@@ -2000,7 +2019,7 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
       else setNotice('Farcaster account verified. A Time Pass is needed to open the station.', 'pending');
       setTimeout(() => { if ($('#connect-dialog').open) $('#connect-dialog').close(); }, 2200);
     } else {
-      setConnectionStatus('Snapchain accepted the request, but confirmation is still pending. Your key is saved here. Check again in a moment; posting stays paused until confirmation.', { active: 'approve', completed: ['sign'], canRetry: true });
+      setConnectionStatus('The request reached Snapchain, but confirmation is taking longer. Your key is saved here. Check again in a moment; posting stays paused until confirmed.', { active: 'approve', completed: ['sign'], canRetry: true });
       setNotice('Key relayed; merge is still pending. Writes stay locked until the node confirms it.', 'pending');
     }
   } catch (error) {
@@ -2032,7 +2051,9 @@ async function checkSavedSigner() {
       setConnectionStatus('The key is not visible yet. Retrying its signed registration request, then checking for confirmation…', { active: 'approve', completed: ['sign'], canRetry: true });
       const encoded = fromBase64(saved.signedKeyAdd);
       try { await submitEncodedMessage(encoded); } catch { /* The first relay may already have accepted it; verify network state below. */ }
-      confirmed = await waitForSigner(state.fid, state.publicKey);
+      confirmed = await waitForSigner(state.fid, state.publicKey, 6, (attempt, total) => {
+        setConnectionStatus(`Checking the saved key with Snapchain · ${attempt}/${total}`, { active: 'approve', completed: ['sign'], canRetry: true });
+      });
     }
     state.signerReady = confirmed;
     if (confirmed) await clearPendingRegistration();
