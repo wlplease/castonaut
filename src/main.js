@@ -273,23 +273,9 @@ function setNotice(message, kind = 'info') {
   setNotice.timer = setTimeout(() => { toast.hidden = true; }, 5600);
 }
 
-function updateConnectSteps(activeStep, completed = []) {
-  const done = new Set(completed);
-  document.querySelectorAll('[data-connect-step]').forEach((item) => {
-    const step = item.dataset.connectStep;
-    const isDone = done.has(step);
-    item.classList.toggle('is-complete', isDone);
-    item.classList.toggle('is-current', step === activeStep && !isDone);
-    const label = item.querySelector('.step-state');
-    if (label) label.textContent = isDone ? 'DONE' : step === activeStep ? 'NOW' : 'NEXT';
-    const number = item.querySelector('.step-number');
-    if (number) number.textContent = isDone ? '✓' : String([...document.querySelectorAll('[data-connect-step]')].indexOf(item) + 1);
-  });
-}
-
-function setConnectionStatus(message, { active = 'sign', completed = [], canRetry = false, busy = false } = {}) {
+function setConnectionStatus(message, { canRetry = false, busy = false } = {}) {
   $('#dialog-status').textContent = message;
-  updateConnectSteps(active, completed);
+  $('#recovery-import').hidden = busy || canRetry || !!pendingWalletAccount || !!state.signer || state.signerReady;
   const canAuthorizeWallet = !!pendingWalletAccount && !canRetry && !state.signerReady && !busy;
   $('#wallet-connect').hidden = canRetry || state.signerReady || !!pendingWalletAccount || busy;
   $('#wallet-review').hidden = !canAuthorizeWallet;
@@ -1831,7 +1817,7 @@ async function createCustodySigner(recoveryAccount = null) {
 async function beginWalletConnection() {
   const button = $('#wallet-connect');
   button.disabled = true;
-  setConnectionStatus('Connect the wallet linked to your Farcaster account. The recovery phrase form above works without a wallet.', { active: 'sign' });
+  setConnectionStatus('Connect the wallet linked to your Farcaster account.', { active: 'sign', busy: true });
   try {
     const { custodyAddress, fid } = await createCustodySigner();
     pendingWalletAccount = { custodyAddress, fid };
@@ -1846,27 +1832,23 @@ async function beginWalletConnection() {
   }
 }
 
-async function lookupRecoveryAccount() {
+async function connectWithRecoveryPhrase() {
   const phraseField = $('#recovery-phrase');
-  const lookupButton = $('#recovery-lookup');
-  const accountPanel = $('#recovery-account');
+  const connectButton = $('#recovery-connect');
   let phrase = takeRecoveryPhrase(phraseField);
   pendingRecoveryAccount = null;
-  accountPanel.hidden = true;
   if (!phrase) { setConnectionStatus('Enter your Farcaster recovery phrase, or use a linked wallet below.'); return; }
   if (!isSupportedRecoveryPhraseLength(phrase)) { phrase = ''; setConnectionStatus('Use a standard 12, 15, 18, 21, or 24-word phrase. The field has been cleared.'); return; }
-  lookupButton.disabled = true;
-  const originalLabel = lookupButton.textContent;
-  lookupButton.textContent = 'Checking…';
-  lookupButton.setAttribute('aria-busy', 'true');
+  connectButton.disabled = true;
+  const originalLabel = connectButton.textContent;
+  connectButton.textContent = 'Connecting…';
+  connectButton.setAttribute('aria-busy', 'true');
   setConnectionStatus('Checking account…', { active: 'sign', busy: true });
   try {
     const { mnemonicToAccount } = await import('viem/accounts');
     const { createPublicClient, fallback, http, optimism } = await optimismToolkit();
     let account;
-    const accountIndex = Number.parseInt($('#recovery-account-index')?.value || '0', 10);
-    if (!Number.isInteger(accountIndex) || accountIndex < 0 || accountIndex > 4) throw new Error('Choose an account index from 0 to 4.');
-    try { account = mnemonicToAccount(phrase, { accountIndex }); }
+    try { account = mnemonicToAccount(phrase, { accountIndex: 0 }); }
     catch { throw new Error('That phrase could not be imported. Check the words and try again.'); }
     phrase = '';
     const publicClient = createPublicClient({ chain: optimism, transport: optimismReadTransport(fallback, http) });
@@ -1876,24 +1858,22 @@ async function lookupRecoveryAccount() {
     } catch {
       throw new Error('Could not reach the Optimism account registry. Check your connection or try a linked wallet.');
     }
-    if (!fid || BigInt(fid) < 1n) throw new Error(`Account ${accountIndex} is not linked to a Farcaster ID. Check the account index, or use a linked wallet.`);
+    if (!fid || BigInt(fid) < 1n) throw new Error('The first account in this phrase is not linked to a Farcaster ID. Check the phrase or use a linked wallet.');
     pendingRecoveryAccount = { account, address: account.address, fid: asFid(fid.toString()) };
-    accountPanel.hidden = true;
     setConnectionStatus(`Farcaster account found · FID ${pendingRecoveryAccount.fid}. Preparing your limited browser key…`, { active: 'approve', completed: ['sign'], busy: true });
     await authorizeSigner(pendingRecoveryAccount);
   } catch (error) {
     const safeMessage = error?.message === 'That phrase could not be imported. Check the words and try again.'
       || error?.message === 'Could not reach the Optimism account registry. Check your connection or try a linked wallet.'
-      || /^Account [0-4] is not linked to a Farcaster ID\./.test(error?.message || '')
-      || error?.message === 'Choose an account index from 0 to 4.'
+      || error?.message === 'The first account in this phrase is not linked to a Farcaster ID. Check the phrase or use a linked wallet.'
       ? error.message
       : 'Could not verify this account. Please try again or use a linked wallet.';
     setConnectionStatus(`${safeMessage} The phrase field has been cleared.`, { active: 'sign' });
   } finally {
     phrase = '';
-    lookupButton.disabled = false;
-    lookupButton.textContent = originalLabel;
-    lookupButton.removeAttribute('aria-busy');
+    connectButton.disabled = false;
+    connectButton.textContent = originalLabel;
+    connectButton.removeAttribute('aria-busy');
   }
 }
 
@@ -1926,8 +1906,7 @@ async function waitForSigner(fid, publicKey, tries = 6, onProgress = () => {}) {
 
 async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
   const connectButton = $('#wallet-connect');
-  const recoveryButton = $('#recovery-authorize');
-  const actionButtons = [connectButton, $('#wallet-authorize'), $('#wallet-change'), recoveryButton].filter(Boolean);
+  const actionButtons = [connectButton, $('#wallet-authorize'), $('#wallet-change')].filter(Boolean);
   actionButtons.forEach((button) => { button.disabled = true; });
   let relayAttempted = false;
   try {
@@ -2858,11 +2837,11 @@ $('#wallet-change').addEventListener('click', () => {
   beginWalletConnection();
 });
 $('#check-signer').addEventListener('click', () => checkSavedSigner());
-$('#recovery-lookup').addEventListener('click', () => lookupRecoveryAccount());
+$('#recovery-connect').addEventListener('click', () => connectWithRecoveryPhrase());
 $('#recovery-phrase').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
-    lookupRecoveryAccount();
+    connectWithRecoveryPhrase();
   }
 });
 $('#recovery-reveal').addEventListener('click', (event) => {
@@ -2874,14 +2853,9 @@ $('#recovery-reveal').addEventListener('click', (event) => {
   button.setAttribute('aria-pressed', String(reveal));
   field.focus({ preventScroll: true });
 });
-$('#recovery-authorize').addEventListener('click', () => {
-  if (!pendingRecoveryAccount) { setConnectionStatus('Verify your Farcaster account again before authorizing a key.'); return; }
-  authorizeSigner(pendingRecoveryAccount);
-});
 function clearRecoveryImport() {
   pendingRecoveryAccount = null;
   clearRecoveryPhraseField();
-  const accountPanel = $('#recovery-account'); if (accountPanel) accountPanel.hidden = true;
 }
 function clearRecoveryPhraseField() {
   const phraseField = $('#recovery-phrase');
