@@ -9,6 +9,7 @@ import { BrowserEd25519Signer } from './browser-signer.js';
 import { CAST_EMBED_LIMIT, CAST_EMBED_URL_LIMIT, CAST_LIMIT, CAST_USER_LIMIT, castTypeForText, truncateUtf8, utf8ByteLength, withCastonautAttribution } from './cast-attribution.js';
 import { searchEmojis } from './emoji-catalog.js';
 import { isNotFound } from './snapchain-errors.js';
+import { normalizeProfileSearch } from './profile-search.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -258,11 +259,12 @@ function setConnectionStatus(message, { canRetry = false, canRefresh = false, bu
   const refreshChoice = refreshSignerFlow && !busy && !canRetry && !state.signerReady;
   $('#dialog-status').textContent = message;
   $('#recovery-import').hidden = busy || canRetry || !!pendingWalletAccount || (!!state.signer && !refreshChoice) || state.signerReady;
-  const canAuthorizeWallet = !!pendingWalletAccount && !canRetry && !state.signerReady && !busy;
-  $('#wallet-connect').hidden = canRetry || state.signerReady || !!pendingWalletAccount || (!!state.signer && !refreshChoice) || busy;
-  $('#wallet-review').hidden = !canAuthorizeWallet;
-  $('#wallet-authorize').hidden = !canAuthorizeWallet || busy;
-  $('#wallet-change').hidden = !canAuthorizeWallet || busy;
+  // Keep the unsupported wallet entry path out of the new-user sign-in UI.
+  // Existing saved browser signers still restore and can be checked normally.
+  $('#wallet-connect').hidden = true;
+  $('#wallet-review').hidden = true;
+  $('#wallet-authorize').hidden = true;
+  $('#wallet-change').hidden = true;
   $('#check-signer').hidden = !canRetry;
   $('#refresh-signer').hidden = !canRefresh;
 }
@@ -1467,18 +1469,6 @@ function setProfileRoute(fid) {
   history.pushState(null, '', `#profile=${Number(fid)}`);
 }
 
-function normalizeProfileSearch(rawQuery) {
-  let query = String(rawQuery || '').trim();
-  if (/^https:\/\//i.test(query)) {
-    const url = new URL(query);
-    if (!['farcaster.xyz', 'www.farcaster.xyz'].includes(url.hostname.toLowerCase())) {
-      throw new Error('Paste a Farcaster profile link, or search by @username or FID.');
-    }
-    query = decodeURIComponent(url.pathname.split('/').filter(Boolean)[0] || '');
-  }
-  return query.replace(/^@/, '').trim();
-}
-
 async function searchProfile(rawQuery) {
   const status = $('#people-search-status');
   const form = $('#people-search');
@@ -1949,7 +1939,7 @@ async function createCustodySigner(recoveryAccount = null) {
     } catch {
       throw new Error('Could not verify this account on Optimism. Please try again.');
     }
-    if (!registeredFid || BigInt(registeredFid) < 1n) throw new Error('No Farcaster account was found for this phrase. Check the words or use a linked wallet.');
+    if (!registeredFid || BigInt(registeredFid) < 1n) throw new Error('No Farcaster account was found for this phrase. Check the words and try again.');
     const fid = asFid(registeredFid.toString());
     const eip712Signer = new protocol.ViemLocalEip712Signer(recoveryAccount);
     return { eip712Signer, custodyAddress, fid };
@@ -2014,7 +2004,7 @@ async function connectWithRecoveryPhrase() {
   let candidates = null;
   let recoveryStage = 'loading the account checker';
   pendingRecoveryAccount = null;
-  if (!phrase) { setConnectionStatus('Enter your Farcaster recovery phrase, or use a linked wallet below.'); return; }
+  if (!phrase) { setConnectionStatus('Enter your Farcaster recovery phrase.'); return; }
   if (!isSupportedRecoveryPhraseLength(phrase)) { phrase = ''; setConnectionStatus('Use a standard 12, 15, 18, 21, or 24-word phrase. The field has been cleared.'); return; }
   connectButton.disabled = true;
   const originalLabel = connectButton.textContent;
@@ -2040,15 +2030,15 @@ async function connectWithRecoveryPhrase() {
     await authorizeSigner(pendingRecoveryAccount);
   } catch (error) {
     const safeMessage = error?.message === 'That phrase could not be imported. Check the words and try again.'
-      || error?.message === 'Could not reach the Optimism account registry. Check your connection or try a linked wallet.'
-      || error?.message === 'No Farcaster account was found for this phrase. Check the words or use a linked wallet.'
+      || error?.message === 'Could not reach the Optimism account registry. Check your connection and try again.'
+      || error?.message === 'No Farcaster account was found for this phrase. Check the words and try again.'
       ? error.message
       : recoveryStage === 'loading the account checker'
         ? 'Could not load the sign-in tools. Reload Castonaut and try again.'
         : recoveryStage === 'deriving your Farcaster account'
           ? 'Could not read that recovery phrase. Check the words and try again.'
           : recoveryStage === 'checking your account on Optimism'
-            ? 'Could not finish the Optimism account check. Check your connection and try again, or use a linked wallet.'
+            ? 'Could not finish the Optimism account check. Check your connection and try again.'
             : 'Your account was found, but the limited key setup could not start. Reload Castonaut and check the saved key before retrying.';
     setConnectionStatus(`${safeMessage} The phrase field has been cleared.`, { active: 'sign' });
   } finally {
@@ -2251,7 +2241,7 @@ async function checkSavedSigner() {
 
 function beginSignerRefresh() {
   refreshSignerFlow = true;
-  setConnectionStatus('Approve a fresh registration for the key already saved in this browser. Castonaut will reuse it, not create another key. Use your linked custody wallet or verify your account again.', { active: 'approve', completed: ['sign'] });
+  setConnectionStatus('Approve a fresh registration for the key already saved in this browser. Castonaut will reuse it, not create another key. Verify your Farcaster account again with your recovery phrase if asked.', { active: 'approve', completed: ['sign'] });
 }
 
 async function submitMessage(message) {
@@ -2355,7 +2345,7 @@ function renderIdentity() {
   const portalStatus = $('#portal-status');
   if (portalStatus) portalStatus.textContent = state.fid && !ready
     ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.'
-    : 'Sign in to follow, post, and save. A linked wallet avoids typing your recovery phrase into the page.';
+    : 'Sign in with your Farcaster recovery phrase to follow, post, and save.';
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
   const shownName = localProfileName(profile);
@@ -2442,7 +2432,7 @@ async function clearLocalSigner() {
   setNotice('This browser forgot its signing key. The Farcaster signer remains active until you revoke it from account settings or it expires.', 'pending');
 }
 
-function navigate(view, { preserveHash = false } = {}) {
+function navigate(view, { preserveHash = false, restoreScroll = true } = {}) {
   const area = view === 'node' ? 'node' : ['desk', 'search'].includes(view) ? view : 'feed';
   const target = area === 'node' ? 'node' : 'desk';
   if (area !== currentArea && currentArea !== 'node') areaScroll.set(currentArea, window.scrollY);
@@ -2465,7 +2455,7 @@ function navigate(view, { preserveHash = false } = {}) {
   if (!preserveHash && location.hash !== expectedHash) history.pushState(null, '', expectedHash);
   if (analyticsEnabled) pageview({ route: area, path: location.pathname });
   if (area === 'node') $('#node-view').scrollIntoView({ block: 'start' });
-  else requestAnimationFrame(() => window.scrollTo(0, areaScroll.get(area) || 0));
+  else if (restoreScroll) requestAnimationFrame(() => window.scrollTo(0, areaScroll.get(area) || 0));
 }
 
 function applyLocationRoute() {
@@ -2798,7 +2788,8 @@ document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener
 $('#desk-signin')?.addEventListener('click', openConnectDialog);
 document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventListener('click', (event) => {
   event.preventDefault();
-  navigate(link.dataset.scrollTo === 'people-search' ? 'search' : 'desk', { preserveHash: true });
+  const destination = link.dataset.scrollTo;
+  navigate(destination === 'people-search' ? 'search' : destination === 'client-preview' ? 'feed' : 'desk', { preserveHash: true, restoreScroll: false });
   const target = document.getElementById(link.dataset.scrollTo);
   if (!target?.getClientRects().length) {
     navigate('node');

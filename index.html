@@ -73,7 +73,7 @@
                 <div class="overline"><span class="live-pip"></span> AN INDEPENDENT FARCASTER CLIENT</div>
                 <h1>A Farcaster feed and your personal Desk.</h1>
                 <p class="lead">Catch up in time order. Pin people and posts you want to find again. The hosted client works without running a node.</p>
-                <div class="hero-actions"><a class="button button-orange" href="#client-preview">See the client <span>↓</span></a><a class="hero-secondary" href="/tutorial.html#quickstart">Run your own node <span>↗</span></a></div>
+                <div class="hero-actions"><a class="button button-orange" href="#client-preview" data-scroll-to="client-preview">See the client <span>↓</span></a><a class="hero-secondary" href="/tutorial.html#quickstart">Run your own node <span>↗</span></a></div>
               </div>
               <div class="hero-route" aria-label="A cast moves from your browser through your read node to the network, then is confirmed back in the feed.">
               <div class="route-heading"><span>HOW A CAST TRAVELS</span><span>37 · NETWORK MAP</span></div>
@@ -134,7 +134,7 @@
                 <h2 id="portal-title">Welcome to Castonaut.</h2>
                 <p>Sign in to follow, post, and make your Desk yours.</p>
                 <button class="button button-orange" id="portal-enter">Sign in <span>↗</span></button>
-                <small id="portal-status" role="status">A linked wallet keeps your recovery phrase off this page.</small>
+                <small id="portal-status" role="status">Use your Farcaster recovery phrase to sign in.</small>
                 <details class="portal-extras">
                   <summary>Account &amp; safety</summary>
                   <div class="portal-extras-content">
@@ -245,7 +245,7 @@
                 <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">
                   <div class="welcome-card" id="welcome-card">
                     <div class="welcome-illustration" aria-hidden="true"><div class="mini-monitor"><span></span><i></i><b></b></div><div class="mini-cursor">↖</div></div>
-                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Your account is the key.</h3><p>Connect a wallet or use a recovery phrase.</p><div class="welcome-foot"><span>FARCASTER SIGN-IN · APP KEY ON THIS DEVICE</span></div></div>
+                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Your account is the key.</h3><p>Sign in with your Farcaster recovery phrase.</p><div class="welcome-foot"><span>FARCASTER SIGN-IN · APP KEY ON THIS DEVICE</span></div></div>
                   </div>
                 </div>
                 <div class="feed-end" id="feed-end" hidden><span></span><span class="feed-end-label">END OF TRANSMISSION</span><button type="button" class="feed-more-button" id="feed-more" hidden>Load posts from more people</button><span></span></div>
@@ -254,7 +254,7 @@
               <aside class="right-column" aria-label="Your account and connection details">
                 <section class="side-card identity-card">
                   <div class="side-card-head"><span class="overline">YOUR ACCOUNT</span><span class="identity-mark">✳</span></div>
-                    <div id="identity-empty"><h3>Account not connected</h3><p>Connect to follow and post. A linked wallet keeps your phrase out of Castonaut.</p></div>
+                    <div id="identity-empty"><h3>Account not connected</h3><p>Sign in to follow and post.</p></div>
                   <div id="identity-connected" hidden><div class="connected-profile"><div class="profile-avatar" id="profile-avatar">?</div><div><strong id="profile-name">Connected</strong><small id="profile-handle">FID —</small></div></div><button class="button button-outline" id="manage-key">Forget this browser</button></div>
                   <div class="security-line"><span>⌑</span><span>Limited access. Remove it in your Farcaster account settings.</span></div>
                 </section>
@@ -299,7 +299,7 @@
         <p class="dialog-status" id="dialog-status" role="status" tabindex="-1"></p>
         <div class="wallet-review" id="wallet-review" hidden><span class="overline">CHECK THIS IS YOUR ACCOUNT</span><strong id="wallet-review-fid"></strong><code id="wallet-review-address"></code><small>Castonaut is requesting this key. It can only make the social actions above; it cannot move funds. Your wallet will ask you to approve it.</small></div>
         <section class="recovery-import" id="recovery-import" aria-labelledby="recovery-title"><div class="recovery-import-body"><aside class="recovery-warning" id="recovery-warning" role="note"><strong>Only enter this on a site you trust.</strong><span>Page code can read your phrase. Castonaut checks it in this tab, then asks to add the limited key shown above. No funds access. The phrase is cleared after sign-in.</span></aside><label id="recovery-title" for="recovery-phrase">Farcaster recovery phrase</label><div class="recovery-phrase-entry"><input id="recovery-phrase" type="password" name="recovery-input" maxlength="240" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="go" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" aria-describedby="recovery-warning recovery-input-help" placeholder="Paste your 12–24 words" /><button type="button" class="button button-outline recovery-reveal" id="recovery-reveal" aria-controls="recovery-phrase" aria-pressed="false">Show</button></div><small class="recovery-input-help" id="recovery-input-help" aria-live="polite">Checked in this tab · cleared after sign-in</small><button type="button" class="button button-orange" id="recovery-connect">Authorize Castonaut</button></div></section>
-        <div class="dialog-actions"><button type="button" class="button button-outline" id="wallet-connect">Use a linked wallet <span>↗</span></button><button type="button" class="button button-orange" id="wallet-authorize" hidden>Authorize Castonaut</button><button type="button" class="button button-outline" id="wallet-change" hidden>Use a different wallet</button><button type="button" class="button button-outline" id="check-signer" hidden>Check connection again <span>↻</span></button><button type="button" class="button button-orange" id="refresh-signer" hidden>Approve Castonaut key again</button></div>
+        <div class="dialog-actions"><button type="button" class="button button-outline" id="wallet-connect" hidden>Use a linked wallet <span>↗</span></button><button type="button" class="button button-orange" id="wallet-authorize" hidden>Authorize Castonaut</button><button type="button" class="button button-outline" id="wallet-change" hidden>Use a different wallet</button><button type="button" class="button button-outline" id="check-signer" hidden>Check connection again <span>↻</span></button><button type="button" class="button button-orange" id="refresh-signer" hidden>Approve Castonaut key again</button></div>
         <details class="connect-security"><summary>What can the app key do?</summary><ul><li><strong>Social actions:</strong> post and delete your casts, follow or unfollow, like or remove likes, and recast or undo recasts.</li><li><strong>Cannot:</strong> move funds or change account custody.</li><li><strong>Stored here:</strong> a separate app key in this browser’s IndexedDB. The server gets signed messages, never your private key or phrase.</li><li><strong>Your control:</strong> a compromised page or extension could request social actions. Revoke the signer in Farcaster settings; “Forget this browser” only deletes its local key.</li></ul></details>
       </div>
     </dialog>

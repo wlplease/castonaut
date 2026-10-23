@@ -70,7 +70,9 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(source, /recovery-reveal'\)\.addEventListener\('click'/);
   assert.match(html, /cleared after sign-in/);
   assert.match(html, /Page code can read your phrase\. Castonaut checks it in this tab, then asks to add the limited key shown above/);
-  assert.ok(html.indexOf('id="recovery-import"') < html.indexOf('id="wallet-connect"'), 'phrase sign-in is the primary path and wallet is secondary');
+  assert.match(html, /id="wallet-connect" hidden>Use a linked wallet/);
+  assert.match(source, /\$\('#wallet-connect'\)\.hidden = true/);
+  assert.match(html, /Sign in with your Farcaster recovery phrase/);
   assert.match(source, /await authorizeSigner\(pendingRecoveryAccount\)/);
   assert.match(html, /Read freely\. Connect to post and follow/);
   assert.doesNotMatch(html, /recovery-account-index/);
