@@ -2331,10 +2331,13 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     }
   } catch (error) {
     if (relayAttempted && error?.status >= 400 && error.status < 500 && error.status !== 429) {
-      await clearPendingRegistration();
+      // Keep the exact signed request. A 4xx can come from a node-side merge
+      // failure after the message was accepted; deleting it would force the
+      // user back through recovery-phrase authorization and risk new keys.
+      state.hasPendingKeyAdd = true;
       state.signerReady = false;
       renderIdentity();
-      setConnectionStatus(`Snapchain rejected this authorization (${error.status}). The app key is still saved in this browser. Check its status before trying again. ${clientErrorText(error)}`, { active: 'approve', completed: ['sign'], canRetry: true });
+      setConnectionStatus(`Snapchain rejected this authorization (${error.status}). Your app key and signed request are still saved in this browser. Do not enter your recovery phrase again or create another key. Check the saved key, then resume this same request after the node is healthy. ${clientErrorText(error)}`, { active: 'approve', completed: ['sign'], canRetry: true, canResume: true });
     } else if (relayAttempted) {
       state.signerReady = false;
       renderIdentity();
@@ -2419,11 +2422,13 @@ async function resumeSavedKeyAdd() {
     }
   } catch (error) {
     const rejected = error?.status >= 400 && error.status < 500 && error.status !== 429;
-    if (rejected) await clearPendingRegistration();
+    // Even a rejected replay is retained: node merge/replica errors can
+    // surface as 4xx responses after the signed message reached Snapchain.
+    state.hasPendingKeyAdd = true;
     setConnectionStatus(rejected
-      ? `Snapchain rejected the saved authorization (${error.status}). The key remains stored here. Check status before making another request. ${clientErrorText(error)}`
+      ? `Snapchain rejected the saved authorization (${error.status}). The key and exact signed request remain stored here. Do not enter your recovery phrase or create another key. Check again after the node is healthy. ${clientErrorText(error)}`
       : `Could not resume the saved authorization. The same request and key remain in this browser. Try again later. ${clientErrorText(error)}`,
-    { active: 'approve', canRetry: true, canResume: !rejected, canRefresh: false });
+    { active: 'approve', canRetry: true, canResume: true, canRefresh: false });
   } finally { button.disabled = false; }
 }
 

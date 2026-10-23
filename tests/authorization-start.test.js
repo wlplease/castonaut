@@ -32,6 +32,9 @@ test('saved authorization can be resumed without entering the recovery phrase ag
   assert.doesNotMatch(flow, /connectWithRecoveryPhrase|createBrowserSigner|ViemLocalEip712Signer/);
   assert.match(html, /id="resume-signer"[^>]*>Resume saved request/);
   assert.match(source, /\$\('#resume-signer'\)\.addEventListener\('click', \(\) => resumeSavedKeyAdd\(\)\)/);
+  const catchFlow = flow.slice(flow.lastIndexOf('} catch (error) {'));
+  assert.match(catchFlow, /const rejected = error\?\.status[\s\S]*?state\.hasPendingKeyAdd = true/);
+  assert.doesNotMatch(catchFlow, /await clearPendingRegistration\(\)/);
 });
 
 test('linked-wallet sign-in proceeds directly to the wallet authorization prompt after account lookup', async () => {
