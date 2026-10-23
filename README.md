@@ -28,6 +28,12 @@ For a paid build, set `VITE_PASS_CONTRACT_ADDRESS` to the deployed address and l
 
 ## Develop the client
 
+## Community field notes
+
+`/endorsements.html` is a lightweight, static page for first-hand notes from people who have tried the guide or run a node. It starts empty by design. Contributors can open the **Share your experience** form and submit a link to their own public Farcaster post; a maintainer checks the post and obtains permission before adding a concise listing to `public/endorsements.json`. Each card links to the original post. No account, API key, database, or extra hosting service is required. The page only accepts HTTPS posts on `farcaster.xyz` or `warpcast.com`, and renders all submitted text as text rather than HTML.
+
+The GitHub issue form is public, so contributors should submit only a post they intend to make public. Do not add someone else's post or imply endorsement without their permission. If no entries have been approved, visitors see an honest empty state.
+
 Contributors need Node.js 22. To work on the interface, install dependencies and start Vite:
 
 ```sh

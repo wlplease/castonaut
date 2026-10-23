@@ -45,6 +45,7 @@
           <a class="nav-item" href="#my-desk" data-scroll-to="my-desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
           <a class="nav-item" href="#people-search" data-scroll-to="people-search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span></a>
           <a class="nav-item" href="/tutorial.html" aria-label="How it works"><span class="nav-symbol">↗</span><span>Guide</span></a>
+          <a class="nav-item" href="/endorsements.html" aria-label="Community notes"><span class="nav-symbol" aria-hidden="true">✳</span><span>Field notes</span></a>
           <a class="nav-item" href="#about" data-view="node" aria-label="Node setup and app details"><span class="nav-symbol" aria-hidden="true">⌘</span><span>Node</span></a>
         </nav>
       </aside>
@@ -55,7 +56,7 @@
           <div class="crumb"><span class="crumb-dot"></span><span id="page-label">YOUR HOME</span></div>
           <div class="top-actions">
             <a class="top-link" href="/tutorial.html">Guide <span>↗</span></a>
-            <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Field Journal · daylight</option><option value="night-radio">Field Journal · after dark</option></select></label>
+            <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Atlas · daylight</option><option value="night-radio">Night radio · violet dusk</option></select></label>
             <button class="avatar-button" id="open-account" aria-label="Account and signer settings"><span id="avatar-initial">?</span></button>
           </div>
         </header>
@@ -64,10 +65,10 @@
           <section class="view" id="desk-view" data-panel="desk">
             <div class="room-heading">
               <div class="hero-copy">
-                <div class="overline"><span class="live-pip"></span> FARCASTER · YOUR NODE · YOUR CLIENT</div>
-                <h1>Your Farcaster.<br class="desktop-break" /> Your own way.</h1>
-                <p class="lead">A personal social desk, powered by your own node.</p>
-                <div class="hero-actions"><a class="button button-orange" href="/tutorial.html#quickstart">Build your station <span>→</span></a><a class="hero-secondary" href="#client-preview">Take a look inside <span>↓</span></a></div>
+                <div class="overline"><span class="live-pip"></span> AN INDEPENDENT FARCASTER CLIENT</div>
+                <h1>Keep up.<br class="desktop-break" /> Keep what matters.</h1>
+                <p class="lead">A chronological Farcaster feed, with a personal Desk for people and posts you want to return to.</p>
+                <div class="hero-actions"><a class="button button-orange" href="#client-preview">Preview the client <span>↓</span></a><a class="hero-secondary" href="/tutorial.html#quickstart">Run your own node <span>↗</span></a></div>
               </div>
               <div class="hero-route" aria-label="A cast moves from your browser through your read node to the network, then is confirmed back in the feed.">
               <div class="route-heading"><span>THE CASTONAUT DIFFERENCE</span><span>OPEN BY DESIGN</span></div>
@@ -87,17 +88,13 @@
             <section class="client-preview" id="client-preview" aria-labelledby="preview-title">
               <div class="preview-heading"><div><span class="overline">A LOOK INSIDE · SAMPLE CONTENT</span><h2 id="preview-title">Your social desk, at a glance.</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
               <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>A little corner of your own.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>J</b> jules.builds</span><span class="preview-pin"><b>M</b> moxie.eth</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
-              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newer signals first. Your pace.</p></div><div class="preview-tabs"><span class="selected">Following</span><span>Friends</span><span>Desk</span></div></div>
+              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newer signals first. Your pace.</p></div></div>
                 <article class="preview-post"><div class="preview-avatar avatar-amber">J</div><div class="preview-post-main"><div class="preview-byline"><strong>Jules Rivera</strong><span>@julesbuilds</span><time>8 min</time></div><p>Spent the morning making a tiny corner of the internet feel like home. The best tools leave room for people to make them their own.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
                 <article class="preview-post"><div class="preview-avatar avatar-lilac">M</div><div class="preview-post-main"><div class="preview-byline"><strong>Moxie</strong><span>@moxie.eth</span><time>21 min</time></div><p>Good morning, builders ☀️ What are you making this week? I’m collecting small ideas with big heart.</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">FARCASTER</span></div></div></article>
                 <div class="preview-end"><span>✦</span> You’re all caught up <span>✦</span></div>
               </div>
               <p class="preview-caption">Example posts · Preview only</p>
             </section>
-
-            <ol class="home-steps" aria-label="Three steps to run Castonaut with your own node">
-              <li><span>01</span><strong>Provision</strong></li><li aria-hidden="true">→</li><li><span>02</span><strong>Sync Snapchain</strong></li><li aria-hidden="true">→</li><li><span>03</span><strong>Open Castonaut</strong></li>
-            </ol>
 
             <aside class="public-browse-note" id="public-browse-note" hidden>
               <span>READ ONLY · NO SIGN-IN PHRASE</span>
@@ -112,7 +109,7 @@
 
             <div class="node-ribbon" id="node-ribbon">
               <div class="node-ribbon-left"><span class="node-led" id="node-led"></span><div><strong id="node-state">Checking the connection…</strong><small id="node-detail">Checking the feed service. You can still explore profiles while it connects.</small></div></div>
-              <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" hidden>Feed setup ↗</a><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
+              <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" aria-label="Open the feed setup guide" hidden>Feed setup ↗</a><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
             </div>
 
             <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title">
@@ -253,7 +250,7 @@
               </aside>
             </div>
             </div>
-            <footer class="page-footer"><span>CASTONAUT · FARCASTER CLIENT</span><span class="legal-links"><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
+            <footer class="page-footer"><span>CASTONAUT · FARCASTER CLIENT</span><span class="legal-links"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
 
           <section class="view node-view" id="node-view" data-panel="node" hidden>
@@ -268,7 +265,7 @@
             <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Personal space, kept personal.</h2><p>Your Desk, notes, and saves stay in this browser. Pulse counts loaded posts; Lens filters to pinned people. Remote images are off by default. Image hosts can see your IP when enabled. Analytics are opt-in.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share basic visit statistics</strong><small>Optional Vercel page analytics. Your choice is saved in this browser; page paths are sent without query strings or fragments.</small></span></label><a class="legal-inline-link" href="/privacy.html">Read the Privacy Notice</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
             <section class="plus-preview"><div><span class="overline">CASTONAUT TIME PASS</span><h2>A month in your own signal room.</h2><p>One pass opens the full client: your Desk, the live timeline, GIF posts, and the Time Capsule replay.</p></div><div class="plus-price"><strong>$3.70</strong><span>30 days</span><small>One-time · no auto-renew</small></div><p class="plus-footnote">Paid once in native USDC on Base. The pass follows its payment wallet and counts down on-chain. You need a little Base ETH for network fees. Checkout remains locked until the contract is deployed and configured.</p></section>
             <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>How Castonaut works</strong><small>Feeds, sign-in, and running a node.</small></span><span class="guide-arrow">↗</span></a>
-            <footer class="page-footer"><span>CASTONAUT · ABOUT</span><span class="legal-links"><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
+            <footer class="page-footer"><span>CASTONAUT · ABOUT</span><span class="legal-links"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
         </main>
       </div>

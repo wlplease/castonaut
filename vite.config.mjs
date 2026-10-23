@@ -152,6 +152,7 @@ export default defineConfig(({ mode }) => {
           tutorial: resolve(process.cwd(), 'tutorial.html'),
           privacy: resolve(process.cwd(), 'privacy.html'),
           terms: resolve(process.cwd(), 'terms.html'),
+          endorsements: resolve(process.cwd(), 'endorsements.html'),
         },
       },
     },

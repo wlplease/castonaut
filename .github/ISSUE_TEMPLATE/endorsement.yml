@@ -1,0 +1,32 @@
+name: Share an experience
+description: Submit your own public Farcaster post about trying Castonaut.
+title: "Community note: "
+labels: ["community note"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Castonaut. Submit a public post you wrote yourself. We will check the link and ask before listing it on the site. This form is public; do not include account secrets or private information.
+  - type: input
+    id: post_url
+    attributes:
+      label: Link to your public Farcaster post
+      description: Use the direct URL to your post on Farcaster.
+      placeholder: https://farcaster.xyz/you/0x...
+    validations:
+      required: true
+  - type: input
+    id: farcaster_name
+    attributes:
+      label: Farcaster name
+      description: Optional display name for the listing.
+    validations:
+      required: false
+  - type: textarea
+    id: listing_note
+    attributes:
+      label: Short description (optional)
+      description: A brief factual label for the card. Your original post remains the source.
+      placeholder: "Ran the quickstart on my own machine"
+    validations:
+      required: false

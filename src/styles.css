@@ -1100,11 +1100,6 @@ html{scroll-padding-top:78px}
 .room-heading .lead{margin:10px 0 0;font-size:14px}
 .hero-actions{gap:10px 18px;margin-top:19px}
 .hero-note{display:none}
-.home-steps{display:flex;align-items:center;justify-content:center;gap:clamp(8px,2vw,26px);margin:0 0 18px;padding:12px 16px;list-style:none;border-bottom:1px solid var(--station-line);color:var(--station-muted,#756c7d)}
-.home-steps li{display:flex;align-items:center;gap:8px;white-space:nowrap}
-.home-steps li[aria-hidden="true"]{color:var(--station-accent);font-size:13px}
-.home-steps li span{color:var(--station-accent);font:9px var(--mono);letter-spacing:.08em}
-.home-steps li strong{color:var(--station-ink);font-size:10px;font-weight:600}
 .client-preview[hidden]{display:none}
 body:not([data-node-state="good"]) .people-search,body:not([data-node-state="good"]) .public-browse-note,body:not([data-node-state="good"]) #portal-gate{display:none}
 body:not([data-node-state="good"]) .node-ribbon{min-height:36px;padding-top:3px;padding-bottom:5px}
@@ -1113,10 +1108,6 @@ body:not([data-node-state="good"]) .node-ribbon{min-height:36px;padding-top:3px;
   .room-heading h1{font-size:clamp(40px,10vw,52px)}
   .room-heading .lead{font-size:12px}
   .hero-actions{margin-top:15px}
-  .home-steps{justify-content:flex-start;gap:9px;overflow-x:auto;padding:11px 4px;scrollbar-width:none}
-  .home-steps::-webkit-scrollbar{display:none}
-  .home-steps li{gap:5px}
-  .home-steps li strong{font-size:9px}
 }
 
 /* A no-account, no-network window into the client for first-time visitors. */
@@ -1827,7 +1818,6 @@ html,body{max-width:100%;overflow-x:clip}
 .preview-post{transition:background .16s ease}
 .preview-post:hover{background:color-mix(in srgb,var(--station-soft) 30%,transparent)}
 .preview-caption{font-size:10px}
-.home-steps{margin-top:3px}
 .hero-secondary{display:inline-flex;align-items:center;gap:7px;min-height:42px}
 .hero-secondary span{transition:transform .18s ease}
 .hero-secondary:hover span{transform:translateY(3px)}
@@ -1854,3 +1844,98 @@ html,body{max-width:100%;overflow-x:clip}
   .preview-post-foot{gap:9px;font-size:8px}
 }
 @media(prefers-reduced-motion:reduce){.hero-secondary span{transition:none}}
+
+/* Castonaut's signature: a warm paper atlas with a violet, radio-lit night mode. */
+html[data-theme="atlas"]{
+  --station-accent:#51436f;
+  --station-focus:#51436f;
+  --station-wash:#eee8f2;
+}
+html[data-theme="atlas"] body{
+  background-image:
+    radial-gradient(circle at 1px 1px,#30253b0a .75px,transparent .85px),
+    radial-gradient(ellipse at 82% -10%,#e7ddf2 0,transparent 42%),
+    radial-gradient(ellipse at 5% 46%,#f1dfd5 0,transparent 36%);
+  background-size:22px 22px,100% 700px,100% 900px;
+}
+html[data-theme="atlas"] .hero-route{
+  border-color:#51436f;
+  background:#282336;
+  color:#d7c9e2;
+  box-shadow:inset 0 0 0 4px #282336,inset 0 0 0 5px #d0bc8440,0 14px 28px #28233620;
+}
+html[data-theme="atlas"] .route-grid-bg{stroke:#d7c9e226}
+html[data-theme="atlas"] .route-line{stroke:#e6a16f}
+html[data-theme="atlas"] .route-node circle{fill:#342d46;stroke:#d7c9e2}
+html[data-theme="atlas"] .route-owned circle:first-child{fill:#483a5b;stroke:#f1bd7e}
+html[data-theme="atlas"] .route-owned .route-ring{stroke:#f1bd7e66}
+html[data-theme="atlas"] .route-node path{stroke:#f0e6d5}
+html[data-theme="atlas"] .route-node text{fill:#f4ecdf}
+html[data-theme="atlas"] .route-node .route-sub{fill:#c8b8d0}
+html[data-theme="atlas"] .route-map .route-return,html[data-theme="atlas"] .route-heading{fill:#f1bd7e;color:#f1bd7e}
+html[data-theme="atlas"] .route-legend{color:#c8b8d0}
+html[data-theme="atlas"] .legend-dot{background:#f1bd7e;box-shadow:0 0 9px #f1bd7e99}
+.preview-badge i{background:var(--station-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--station-accent) 12%,transparent)}
+
+/* Feed entries have their own quiet paper surface, with clear separation while scanning. */
+.feed-list{display:grid;gap:7px;padding:7px 8px 12px}
+.post-card{
+  margin:0;
+  padding:17px 14px;
+  border:1px solid color-mix(in srgb,var(--station-line) 82%,transparent);
+  border-left:3px solid transparent;
+  border-radius:9px;
+  background:var(--station-card);
+  box-shadow:0 2px 8px color-mix(in srgb,var(--station-ink) 5%,transparent);
+  transition:border-color .16s ease,background .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+.post-card:hover{
+  border-color:color-mix(in srgb,var(--station-accent) 34%,var(--station-line));
+  border-left-color:var(--station-accent);
+  background:color-mix(in srgb,var(--station-card) 94%,var(--station-soft));
+  box-shadow:0 8px 20px color-mix(in srgb,var(--station-ink) 8%,transparent);
+  transform:translateY(-1px);
+}
+.post-card:focus-within{outline:2px solid var(--station-focus);outline-offset:2px}
+.post-action{min-height:34px}
+
+html[data-theme="night-radio"]{
+  --station-paper:#171321;--station-card:#211c2e;--station-line:#40364f;--station-ink:#f1eafa;
+  --station-accent:#c5a5ff;--station-soft:#302640;--station-gold:#ffbd83;--station-muted:#c4b5d1;
+  --station-copy:#eee7f4;--station-copy-muted:#c8bbd1;--station-copy-soft:#a99ab6;--station-wash:#2a2337;
+  --station-focus:#e0ccff;--bg:#171321;--panel:#211c2e;--panel-2:#302640;--panel-3:#3c3150;
+  --line:#40364f;--text:#eee7f4;--muted:#c8bbd1;--faint:#a99ab6;--orange:#ffbd83;--cream:#171321;
+  --shadow:0 20px 56px #08050eb3;color-scheme:dark;
+}
+html[data-theme="night-radio"] body{
+  background-color:var(--station-paper);
+  background-image:radial-gradient(circle at 1px 1px,#e8d9ff0a .8px,transparent .9px),radial-gradient(ellipse at 78% 0%,#6b4e8c55,transparent 43%),radial-gradient(ellipse at 8% 58%,#813f5a30,transparent 48%);
+  background-size:22px 22px,100% 720px,100% 820px;
+}
+html[data-theme="night-radio"] .hero-route{
+  border-color:#57456d;background:#211b30;color:#ddcbed;
+  box-shadow:inset 0 0 0 4px #211b30,inset 0 0 0 5px #ffbd8340,0 14px 28px #08050e66;
+}
+html[data-theme="night-radio"] .route-grid-bg{stroke:#ddcbed26}
+html[data-theme="night-radio"] .route-line{stroke:#ffbd83}
+html[data-theme="night-radio"] .route-node circle{fill:#302640;stroke:#ddcbed}
+html[data-theme="night-radio"] .route-owned circle:first-child{fill:#433351;stroke:#ffbd83}
+html[data-theme="night-radio"] .route-owned .route-ring{stroke:#ffbd8366}
+html[data-theme="night-radio"] .route-node path{stroke:#f1eafa}
+html[data-theme="night-radio"] .route-node text{fill:#f5edf9}
+html[data-theme="night-radio"] .route-node .route-sub{fill:#c8bbd1}
+html[data-theme="night-radio"] .route-map .route-return,html[data-theme="night-radio"] .route-heading{fill:#ffbd83;color:#ffbd83}
+html[data-theme="night-radio"] .route-legend{color:#c8bbd1}
+html[data-theme="night-radio"] .legend-dot{background:#ffbd83;box-shadow:0 0 9px #ffbd8399}
+html[data-theme="night-radio"] .board-tab.is-active,html[data-theme="night-radio"] .board-tab[aria-pressed="true"]{background:#c5a5ff;color:#211b30}
+html[data-theme="night-radio"] .hero-actions .button{background:#ffbd83;border-color:#ffbd83;color:#211b30;box-shadow:0 3px 0 #9e6546}
+html[data-theme="night-radio"] .mini-monitor i{background:#efddff;box-shadow:0 6px 0 #c5a5ff,0 12px 0 #8f72c1}
+html[data-theme="night-radio"] .toggle-label input:checked+.toggle-track{background:#8869b5}
+@media(max-width:620px){
+  .crumb{display:none}
+  .feed-list{gap:6px;padding:5px 5px 10px}
+  .post-card{grid-template-columns:36px minmax(0,1fr);gap:10px;padding:14px 10px;border-radius:8px}
+  .post-card:hover{transform:none}
+  .post-action{min-height:36px;padding:5px 7px}
+}
+@media(prefers-reduced-motion:reduce){.post-card{transition:none}.post-card:hover{transform:none}}
