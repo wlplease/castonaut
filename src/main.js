@@ -8,6 +8,7 @@ import { resultOrThrow } from './hub-result.js';
 import { BrowserEd25519Signer } from './browser-signer.js';
 import { CAST_EMBED_LIMIT, CAST_EMBED_URL_LIMIT, CAST_LIMIT, CAST_USER_LIMIT, castTypeForText, truncateUtf8, utf8ByteLength, withCastonautAttribution } from './cast-attribution.js';
 import { searchEmojis } from './emoji-catalog.js';
+import { isNotFound } from './snapchain-errors.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -1443,7 +1444,7 @@ async function refreshFollowState(fid) {
   if (!state.fid || Number(fid) === Number(state.fid)) return;
   try { await nodeRequest('linkById', { fid: state.fid, target_fid: fid, link_type: 'follow' }); state.following.set(Number(fid), true); }
   catch (error) {
-    if (/\(404\)/.test(error.message)) state.following.set(Number(fid), false);
+    if (isNotFound(error)) state.following.set(Number(fid), false);
     else return;
   }
   updateCastRelationship(fid);
@@ -1511,7 +1512,7 @@ async function searchProfile(rawQuery) {
   } catch (error) {
     status.dataset.state = 'error';
     const message = String(error?.message || '');
-    if (/\(404\)/.test(message)) status.textContent = 'No Farcaster profile found. Check the spelling or try its FID.';
+    if (isNotFound(error)) status.textContent = 'No Farcaster profile found. Check the spelling or try its FID.';
     else if (/SNAPCHAIN_URL|not configured|not been configured/i.test(message)) status.textContent = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
       ? 'This local preview needs a Snapchain endpoint before search can work.'
       : 'The app’s Snapchain endpoint needs configuration before search can work.';
@@ -2263,7 +2264,7 @@ async function waitForMerge(route, params, tries = 8) {
 async function waitForRemoval(route, params, tries = 8) {
   for (let i = 0; i < tries; i++) {
     try { await nodeRequest(route, params); }
-    catch (error) { if (/\(404\)/.test(error.message)) return true; }
+    catch (error) { if (isNotFound(error)) return true; }
     await new Promise((resolve) => setTimeout(resolve, 1800));
   }
   return false;
@@ -2284,7 +2285,7 @@ async function signAndRelay(messageResult, successRoute, successParams, successT
     setNotice(successText, 'success');
     return { alreadyMerged: true };
   } catch (error) {
-    if (!/\(404\)/.test(error.message)) throw error;
+    if (!isNotFound(error)) throw error;
   }
   let accepted;
   try {
@@ -2308,7 +2309,7 @@ async function signAndRelayRemoval(messageResult, route, params, successText) {
   try {
     await nodeRequest(route, params);
   } catch (error) {
-    if (/\(404\)/.test(error.message)) {
+    if (isNotFound(error)) {
       setNotice(successText, 'success');
       return { alreadyRemoved: true };
     }
@@ -2597,7 +2598,7 @@ async function publishPendingCast(pending) {
   try {
     await nodeRequest('castById', params);
   } catch (error) {
-    if (!/\(404\)/.test(error.message)) throw error;
+    if (!isNotFound(error)) throw error;
     const { Message } = await import('./protocol.js');
     const encoded = fromBase64(pending.encoded);
     const decoded = Message.decode(encoded);
@@ -2636,7 +2637,7 @@ async function publishThread() {
       try {
         await nodeRequest('castById', params);
       } catch (error) {
-        if (!/\(404\)/.test(error.message)) throw error;
+        if (!isNotFound(error)) throw error;
         await submitEncodedMessage(fromBase64(pending.encoded));
         setNotice('Thread post relayed. Waiting for Snapchain confirmation…', 'pending');
         if (!await waitForMerge('castById', params)) throw new Error('This post was relayed but is not confirmed yet. Resume the thread to check it safely.');
@@ -3393,7 +3394,7 @@ document.addEventListener('click', async (event) => {
       const params = { fid: state.fid, target_fid: targetFid, link_type: 'follow' };
       let following = false;
       try { await nodeRequest('linkById', params); following = true; }
-      catch (error) { if (!/\(404\)/.test(error.message)) throw error; }
+      catch (error) { if (!isNotFound(error)) throw error; }
       const message = following
         ? await protocol.makeLinkRemove({ type: 'follow', targetFid }, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner())
         : await protocol.makeLinkAdd({ type: 'follow', targetFid }, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner());
@@ -3414,7 +3415,7 @@ document.addEventListener('click', async (event) => {
       const params = { fid: state.fid, target_fid: targetFid, target_hash: hash, reaction_type: routeType };
       let active = false;
       try { await nodeRequest('reactionById', params); active = true; }
-      catch (error) { if (!/\(404\)/.test(error.message)) throw error; }
+      catch (error) { if (!isNotFound(error)) throw error; }
       const body = { type: reactionType, targetCastId: { fid: targetFid, hash: resultOrThrow(protocol.hexStringToBytes(hash), 'Could not read the reaction cast hash') } };
       const message = active
         ? await protocol.makeReactionRemove(body, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner())
