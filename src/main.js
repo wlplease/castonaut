@@ -710,6 +710,13 @@ function updateFeedTabs() {
   $('#show-flight-log').setAttribute('aria-pressed', String(state.boardMode === 'flight-log'));
 }
 
+function feedDescription(mode = state.feedMode) {
+  if (mode === 'friends') return 'Your handpicked circle · saved on this device.';
+  if (mode === 'crew') return `Your ${state.crewName} list · saved on this device.`;
+  if (mode === 'profile') return 'Recent posts from this profile.';
+  return 'People you follow · newest first.';
+}
+
 function feedScrollKey() {
   if (!state.fid) return '';
   const feed = state.boardMode === 'flight-log' ? 'flight-log' : state.feedMode;
@@ -791,6 +798,7 @@ function renderCast(message) {
   const fid = Number(data.fid) || 0;
   const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '' };
   const card = document.createElement('article'); card.className = 'post-card';
+  card.dataset.castFid = String(fid);
   card.dataset.castHash = postHash(message);
   const avatar = document.createElement('div'); avatar.className = 'post-avatar';
   avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
@@ -804,8 +812,15 @@ function renderCast(message) {
   const time = document.createElement('span'); time.className = 'post-time'; time.textContent = farcasterDate(data.timestamp);
   const source = document.createElement('span'); source.className = 'post-source';
   const sourceFid = state.sourceBySigner.get(signerHex(message.signer));
-  source.textContent = sourceFid ? `APP FID ${sourceFid}` : 'SOURCE UNKNOWN';
-  head.append(name, handle, time, source);
+  source.textContent = sourceFid ? `APP ${sourceFid}` : '';
+  source.hidden = !sourceFid;
+  const relation = document.createElement('span'); relation.className = 'post-relation';
+  const relationLabel = relationshipForCast(fid);
+  if (relationLabel) {
+    relation.textContent = relationLabel;
+    relation.title = relationshipTitle(relationLabel);
+  } else relation.hidden = true;
+  head.append(name, handle, time, relation, source);
   const fullText = body.text || '(empty cast)';
   content.append(head);
   const parent = body.parentCastId;
@@ -814,8 +829,10 @@ function renderCast(message) {
     const parentMessage = state.casts.find((candidate) => Number(candidate?.data?.fid) === Number(parent.fid) && postHash(candidate) === parentHash);
     const parentProfile = state.people.get(Number(parent.fid));
     const context = document.createElement('div'); context.className = 'reply-context';
-    context.append(document.createTextNode('↳ Reply to '));
-    const label = document.createElement('span'); label.textContent = parentProfile ? `@${parentProfile.username}` : `FID ${Number(parent.fid)}`; context.append(label);
+    context.append(document.createTextNode('↳ Replying to '));
+    const label = document.createElement('button'); label.type = 'button'; label.className = 'reply-profile-link'; label.dataset.openProfile = String(Number(parent.fid));
+    label.textContent = profileLabel(parentProfile, Number(parent.fid));
+    context.append(label);
     if (parentMessage) {
       const jump = document.createElement('button'); jump.type = 'button'; jump.className = 'reply-context-jump'; jump.dataset.focusCast = parentHash; jump.textContent = 'View above'; context.append(jump);
     } else if (parentProfile?.username && !/^fid-\d+$/.test(parentProfile.username) && /^0x[\da-f]{40,64}$/i.test(parentHash)) {
@@ -969,7 +986,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Friends' : state.feedMode === 'crew' ? state.crewName : 'Following';
   if (state.boardMode === 'signals') {
     $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
-    $('#feed-caption').textContent = state.feedMode === 'profile' ? 'Recent posts from this profile.' : 'Newest first.';
+    $('#feed-caption').textContent = feedDescription(state.feedMode);
   }
   renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Loading your feed.');
   try {
@@ -979,6 +996,10 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
       fetchProfile(state.feedMode === 'profile' ? fid : Number(state.fid)),
     ]);
     const followFids = [...new Set(unwrapMessages(followResponse).map((message) => Number(message?.data?.linkBody?.targetFid)).filter((target) => Number.isSafeInteger(target) && target > 0 && target !== fid))];
+    if (state.feedMode === 'following') {
+      state.following.clear();
+      for (const target of followFids) state.following.set(target, true);
+    }
     const uniqueFids = state.feedMode === 'profile' ? [fid]
       : state.feedMode === 'friends' ? [...state.friendFids]
         : state.feedMode === 'crew' ? [...state.crewFids]
@@ -989,7 +1010,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     state.feedFollowTotal = state.feedMode === 'following' ? followFids.length : 0;
     if (state.boardMode === 'signals') {
       $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
-      $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · FID ${fid}` : 'Newest first.';
+      $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · FID ${fid}` : feedDescription(state.feedMode);
     }
     if (!limitedFids.length && ['friends', 'crew'].includes(state.feedMode)) {
       state.casts = [];
@@ -1007,7 +1028,9 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     const messages = castGroups.flat().sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0)).slice(0, 60);
     state.casts = messages;
     if (Number($('#source-fid').value) > 0) await loadSignerSources(messages);
-    const profileFids = [...new Set(messages.map((message) => Number(message?.data?.fid)).filter((value) => value > 0))];
+    const profileFids = [...new Set(messages.flatMap((message) => [
+      Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid),
+    ]).filter((value) => value > 0))];
     const missingProfiles = profileFids.filter((target) => !state.people.has(target));
     await mapLimit(missingProfiles, 8, fetchProfile);
     const missingPins = state.deskPins.filter((target) => !state.people.has(target));
@@ -1101,7 +1124,7 @@ async function loadMoreFollowed() {
     }
     state.casts.sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
     state.feedSourceOffset = start + batch.length;
-    await mapLimit([...new Set(state.casts.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0 && !state.people.has(fid)))], 6, fetchProfile);
+    await mapLimit([...new Set(state.casts.flatMap((message) => [Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid)]).filter((fid) => fid > 0 && !state.people.has(fid)))], 6, fetchProfile);
     if (requestId !== state.feedRequest) return;
     renderFeed();
     updateFollowingCoverage();
@@ -1220,6 +1243,37 @@ function localProfileName(profile) {
   return typeof nickname === 'string' && nickname.trim() ? nickname.trim() : profile.name;
 }
 
+function profileLabel(profile, fid) {
+  const handle = profile?.username && !/^fid-\d+$/.test(profile.username) ? `@${profile.username}` : '';
+  const name = profile ? localProfileName(profile).trim() : '';
+  if (name && !/^farcaster \d+$/i.test(name) && name.toLocaleLowerCase() !== handle.toLocaleLowerCase()) return handle ? `${name} · ${handle}` : name;
+  return handle || `FID ${Number(fid)}`;
+}
+
+function relationshipForCast(fid) {
+  if (Number(state.fid) === Number(fid)) return 'You';
+  if (state.friendFids.includes(Number(fid))) return 'Friend';
+  if (state.following.get(Number(fid))) return 'Following';
+  if (state.feedMode === 'crew' && state.crewFids.includes(Number(fid))) return state.crewName;
+  return '';
+}
+
+function relationshipTitle(label) {
+  if (label === 'Friend') return 'You added this person to Friends on this device.';
+  if (label === 'Following') return 'You follow this person on Farcaster.';
+  if (label === 'You') return 'This is your account.';
+  return `In your ${state.crewName} list on this device.`;
+}
+
+function updateCastRelationship(fid) {
+  document.querySelectorAll(`.post-card[data-cast-fid="${Number(fid)}"] .post-relation`).forEach((badge) => {
+    const label = relationshipForCast(fid);
+    badge.textContent = label;
+    badge.title = label ? relationshipTitle(label) : '';
+    badge.hidden = !label;
+  });
+}
+
 function renderFeedPulse(messages) {
   const panel = $('#feed-pulse');
   if (!panel) return;
@@ -1315,6 +1369,7 @@ async function refreshFollowState(fid) {
     if (/\(404\)/.test(error.message)) state.following.set(Number(fid), false);
     else return;
   }
+  updateCastRelationship(fid);
   if (state.feedMode === 'profile' && Number(state.feedTargetFid) === Number(fid)) renderProfileSummary();
   document.querySelectorAll(`[data-action="follow"][data-fid="${Number(fid)}"]`).forEach((button) => {
     button.textContent = state.following.get(Number(fid)) ? 'Unfollow person' : 'Follow person';
@@ -1985,6 +2040,7 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     const signedRequest = protocol.Message.encode(message).finish();
     await storeSigner({ ...(saved || {}), fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
     setConnectionStatus(`${recoveryAccount ? 'Farcaster account authorization' : 'Wallet authorization'} signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'], busy: true });
+    state.following.clear();
     state.fid = fid;
     loadFlightLog(fid);
     loadTimeCapsules(fid);
@@ -2332,6 +2388,7 @@ async function restoreSession() {
     const publicKeyHex = String(saved.publicKey).replace(/^0x/i, '');
     if (!/^[0-9a-f]{64}$/i.test(publicKeyHex) || !saved.privateKey.usages?.includes('sign')) throw new Error('Stored app key has an invalid format.');
     const publicKey = Uint8Array.from(publicKeyHex.match(/.{2}/g).map((byte) => Number.parseInt(byte, 16)));
+    state.following.clear();
     state.fid = Number(saved.fid);
     loadFlightLog(state.fid);
     loadTimeCapsules(state.fid);
@@ -2366,7 +2423,7 @@ async function clearLocalSigner() {
   refreshSignerFlow = false;
   try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* Continue clearing the current session. */ }
   const cleared = await removeStoredSigner();
-  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = ''; state.boardMode = 'signals';
+  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = ''; state.boardMode = 'signals'; state.following.clear();
   state.feedRequest += 1; state.feedPending = null; state.casts = []; state.feedTargetFid = null; state.feedMode = 'following';
   state.savedCasts = []; renderFlightLogCount();
   updateFeedTabs(); $('#page-label').textContent = 'FEED';
@@ -2496,7 +2553,7 @@ function restoreComposerDraft(fid) {
     }
   } catch { /* An invalid or unavailable local draft never blocks sign-in. */ }
   $('#char-count').textContent = `${[...$('#composer-text').value].length} / 320`;
-  $('#composer-text').placeholder = state.parent ? `Replying to FID ${state.parent.fid}…` : 'What’s on your mind?';
+  $('#composer-text').placeholder = state.parent ? `Replying to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}…` : 'What’s on your mind?';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.pendingCast);
   if (state.pendingCast) {
     $('#composer-text').value = state.pendingCast.text;
@@ -3216,7 +3273,7 @@ document.addEventListener('click', async (event) => {
     const hash = button.dataset.hash;
     if (button.dataset.action === 'reply') {
       state.parent = { fid: targetFid, hash };
-      $('#composer-text').placeholder = `Replying to FID ${targetFid}…`;
+      $('#composer-text').placeholder = `Replying to ${profileLabel(state.people.get(targetFid), targetFid)}…`;
       $('#composer-text').focus(); $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -3233,6 +3290,7 @@ document.addEventListener('click', async (event) => {
       if (following) await signAndRelayRemoval(message, 'linkById', params, `Unfollow of FID ${targetFid} confirmed.`);
       else await signAndRelay(message, 'linkById', params, `Follow of FID ${targetFid} confirmed.`);
       state.following.set(targetFid, !following);
+      updateCastRelationship(targetFid);
       document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => {
         item.textContent = following ? 'Follow person' : 'Unfollow person';
         item.setAttribute('aria-pressed', String(!following));

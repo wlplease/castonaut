@@ -2222,3 +2222,30 @@ html[data-theme="atlas"] .post-card:hover{box-shadow:0 5px 16px #252a3610}
   .post-more{flex-basis:28px}
   .post-more>summary{width:28px}
 }
+.post-relation{
+  display:inline-flex;
+  align-items:center;
+  min-height:18px;
+  padding:1px 6px;
+  border:1px solid color-mix(in srgb,var(--station-accent) 24%,var(--station-line));
+  border-radius:999px;
+  background:color-mix(in srgb,var(--station-soft) 72%,var(--station-card));
+  color:var(--station-accent);
+  font:8px var(--mono);
+  white-space:nowrap;
+}
+.reply-context{flex-wrap:wrap}
+.reply-profile-link{
+  max-width:min(100%,38ch);
+  overflow:hidden;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--station-accent);
+  font:600 10px var(--display);
+  text-align:left;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.reply-profile-link:hover{text-decoration:underline;text-underline-offset:2px}
