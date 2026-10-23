@@ -9,6 +9,7 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   const request = source.slice(requestStart, requestEnd);
   assert.match(request, /setTimeout\(\(\) => controller\.abort\(\), timeoutMs\)/);
   assert.match(request, /signed key is saved in this browser/i);
+  assert.match(request, /error\.status = response\.status/);
 
   const waitStart = source.indexOf('async function waitForSigner(');
   const waitEnd = source.indexOf('\nasync function authorizeSigner', waitStart);
@@ -23,4 +24,11 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   const auth = source.slice(authStart, authEnd);
   assert.match(auth, /Waiting for confirmation · \$\{attempt\}\/\$\{total\}/);
   assert.match(auth, /Check again in a moment/);
+
+  const checkStart = source.indexOf('async function checkSavedSigner(');
+  const checkEnd = source.indexOf('\nasync function submitMessage', checkStart);
+  const check = source.slice(checkStart, checkEnd);
+  assert.match(check, /replayError = error/);
+  assert.match(check, /Snapchain rejected the saved authorization \(HTTP \$\{replayError\.status\}\)/);
+  assert.match(check, /saved key is not in Snapchain’s signer list yet/);
 });

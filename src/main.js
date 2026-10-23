@@ -315,7 +315,11 @@ async function nodeRequest(route, params = {}, options = {}) {
   try {
     const response = await fetch(url, { ...fetchOptions, signal, headers: { accept: 'application/json', ...(fetchOptions.headers || {}) } });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || body.details || `Node request failed (${response.status})`);
+    if (!response.ok) {
+      const error = new Error(body.error || body.details || `Node request failed (${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
     return body;
   } catch (error) {
     if (controller.signal.aborted && !fetchOptions.signal?.aborted) {
@@ -2023,10 +2027,15 @@ async function checkSavedSigner() {
     if (!state.fid || !state.publicKey || !state.signer) throw new Error('No saved app key was found in this browser. Start again with your wallet.');
     const saved = await loadSigner();
     let confirmed = await findSigner(state.fid, state.publicKey);
+    let replayError = null;
     if (!confirmed && saved?.signedKeyAdd) {
       setConnectionStatus('The key is not visible yet. Retrying its signed registration request, then checking for confirmation…', { active: 'approve', completed: ['sign'], canRetry: true });
       const encoded = fromBase64(saved.signedKeyAdd);
-      try { await submitEncodedMessage(encoded); } catch { /* The first relay may already have accepted it; verify network state below. */ }
+      try { await submitEncodedMessage(encoded); } catch (error) {
+        // The first relay may already have accepted it, so always check the signer list
+        // before reporting the replay result. Keep the HTTP status for a useful diagnosis.
+        replayError = error;
+      }
       confirmed = await waitForSigner(state.fid, state.publicKey, 6, (attempt, total) => {
         setConnectionStatus(`Checking the saved key with Snapchain · ${attempt}/${total}`, { active: 'approve', completed: ['sign'], canRetry: true });
       });
@@ -2041,7 +2050,13 @@ async function checkSavedSigner() {
       if (passActive) { setNotice('Farcaster account and Time Pass verified.', 'success'); await loadFeed(state.fid); }
       else setNotice('Farcaster account verified. A pass is needed to open the full client.', 'pending');
     } else {
-      setConnectionStatus('Snapchain has not confirmed this key yet. Try again in a moment; do not create another key while this one is pending.', { active: 'approve', completed: ['sign'], canRetry: true });
+      if (replayError?.status >= 400 && replayError.status < 500) {
+        setConnectionStatus(`Snapchain rejected the saved authorization (HTTP ${replayError.status}). Your app key is still saved in this browser. Don’t create another key; the account owner may need to approve a fresh request.`, { active: 'approve', completed: ['sign'], canRetry: true });
+      } else if (replayError) {
+        setConnectionStatus(`Snapchain could not accept the saved authorization (${replayError.message}). Your app key is still saved in this browser. Check the node and try again; don’t create another key.`, { active: 'approve', completed: ['sign'], canRetry: true });
+      } else {
+        setConnectionStatus('The saved key is not in Snapchain’s signer list yet. It remains in this browser; don’t create another key. Check again after the node has had time to process it.', { active: 'approve', completed: ['sign'], canRetry: true });
+      }
     }
   } catch (error) {
     setConnectionStatus(`Could not check the saved key. It remains in this browser. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
