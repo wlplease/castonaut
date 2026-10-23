@@ -7,6 +7,7 @@ import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSuppo
 import { resultOrThrow } from './hub-result.js';
 import { BrowserEd25519Signer } from './browser-signer.js';
 import { CAST_USER_LIMIT, withCastonautAttribution } from './cast-attribution.js';
+import { searchEmojis } from './emoji-catalog.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -2502,7 +2503,7 @@ function restoreComposerDraft(fid) {
       }
     }
   } catch { /* An invalid or unavailable local draft never blocks sign-in. */ }
-  $('#composer-text').maxLength = CAST_USER_LIMIT;
+  $('#composer-text').maxLength = -1;
   $('#char-count').textContent = `${[...$('#composer-text').value].length} / ${CAST_USER_LIMIT}`;
   $('#composer-text').placeholder = state.parent ? `Replying to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}…` : 'What’s on your mind?';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.pendingCast);
@@ -2934,7 +2935,15 @@ window.addEventListener('pagehide', clearRecoveryImport);
 window.addEventListener('beforeunload', clearRecoveryImport);
 $('#connect-dialog').addEventListener('close', () => { clearRecoveryImport(); clearWalletReview(); });
 $('#connect-dialog').addEventListener('click', (event) => { if (event.target === $('#connect-dialog')) $('#connect-dialog').close(); });
-$('#composer-text').addEventListener('input', () => {
+$('#composer-text').addEventListener('input', (event) => {
+  const field = event.currentTarget;
+  const characters = [...field.value];
+  if (characters.length > CAST_USER_LIMIT) {
+    const cursor = [...field.value.slice(0, field.selectionStart ?? field.value.length)].length;
+    field.value = characters.slice(0, CAST_USER_LIMIT).join('');
+    const position = [...field.value].slice(0, cursor).join('').length;
+    field.setSelectionRange(position, position);
+  }
   $('#char-count').textContent = `${[...$('#composer-text').value].length} / ${CAST_USER_LIMIT}`;
   $('#draft-discard').hidden = !$('#composer-text').value;
   saveComposerDraft();
@@ -2958,17 +2967,72 @@ $('#composer-media-clear').addEventListener('click', () => {
   $('#draft-discard').hidden = !$('#composer-text').value.trim();
   saveComposerDraft();
 });
+function renderEmojiResults(query = '') {
+  const grid = $('#emoji-picker-grid');
+  const results = searchEmojis(query);
+  grid.replaceChildren(...results.map(([emoji, name]) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.emoji = emoji;
+    button.setAttribute('aria-label', name);
+    button.title = name;
+    button.textContent = emoji;
+    return button;
+  }));
+  $('#emoji-search-status').textContent = results.length ? `${results.length} emoji${results.length === 1 ? '' : 's'}` : 'No matches. Try another word.';
+}
+
+function placeEmojiPicker() {
+  const picker = $('.emoji-picker');
+  if (!picker?.open) return;
+  const summary = picker.querySelector('summary').getBoundingClientRect();
+  const panel = $('.emoji-picker-popover');
+  const rect = panel.getBoundingClientRect();
+  const viewport = window.visualViewport;
+  const viewTop = viewport?.offsetTop || 0;
+  const viewBottom = viewTop + (viewport?.height || window.innerHeight);
+  const topAbove = summary.top - rect.height - 8;
+  const top = topAbove >= viewTop + 8 ? topAbove : Math.min(summary.bottom + 8, viewBottom - rect.height - 8);
+  const left = Math.max(8, Math.min(summary.right - rect.width, window.innerWidth - rect.width - 8));
+  panel.style.top = `${Math.max(viewTop + 8, top)}px`;
+  panel.style.left = `${left}px`;
+}
+
+$('.emoji-picker').addEventListener('toggle', () => {
+  if (!$('.emoji-picker').open) return;
+  $('#emoji-search').value = '';
+  renderEmojiResults();
+  requestAnimationFrame(() => { placeEmojiPicker(); $('#emoji-search').focus({ preventScroll: true }); });
+});
+$('.emoji-picker').addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  event.preventDefault();
+  $('.emoji-picker').open = false;
+  $('.emoji-picker>summary').focus();
+});
+$('#emoji-search').addEventListener('input', (event) => renderEmojiResults(event.currentTarget.value));
+window.addEventListener('resize', placeEmojiPicker);
+window.addEventListener('scroll', placeEmojiPicker, { passive: true });
+window.visualViewport?.addEventListener('resize', placeEmojiPicker);
+document.addEventListener('click', (event) => {
+  const picker = $('.emoji-picker');
+  if (picker?.open && !picker.contains(event.target)) picker.open = false;
+});
 $('.emoji-picker').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-emoji]');
   if (!button) return;
   const field = $('#composer-text');
   const start = field.selectionStart ?? field.value.length;
   const end = field.selectionEnd ?? start;
-  const inserted = button.dataset.emoji;
-  const room = Math.max(0, 320 - (field.value.length - (end - start)));
-  const emoji = inserted.slice(0, room);
-  field.setRangeText(emoji, start, end, 'end');
+  const existing = [...field.value];
+  const selectedLength = [...field.value.slice(start, end)].length;
+  if (existing.length - selectedLength + [...button.dataset.emoji].length > CAST_USER_LIMIT) {
+    setNotice(`The cast has room for ${CAST_USER_LIMIT} characters before the Castonaut link.`, 'pending');
+    return;
+  }
+  field.setRangeText(button.dataset.emoji, start, end, 'end');
   field.dispatchEvent(new Event('input', { bubbles: true }));
+  $('.emoji-picker').open = false;
   field.focus();
 });
 $('#composer-text').addEventListener('keydown', (event) => {
