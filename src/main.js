@@ -77,7 +77,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -220,6 +220,7 @@ async function clearPendingRegistration() {
       delete saved.signedKeyAdd;
       await storeSigner(saved);
     }
+    state.hasPendingKeyAdd = false;
   } catch { /* A confirmed key remains usable if browser storage cleanup fails. */ }
 }
 
@@ -271,10 +272,10 @@ function clientErrorText(error) {
   return message;
 }
 
-function setConnectionStatus(message, { canRetry = false, canRefresh = false, busy = false } = {}) {
+function setConnectionStatus(message, { canRetry = false, canRefresh = false, canResume = false, busy = false } = {}) {
   const refreshChoice = refreshSignerFlow && !busy && !canRetry && !state.signerReady;
   $('#dialog-status').textContent = message;
-  $('#recovery-import').hidden = busy || canRetry || !!pendingWalletAccount || (!!state.signer && !refreshChoice) || state.signerReady;
+  $('#recovery-import').hidden = busy || canRetry || canResume || !!pendingWalletAccount || (!!state.signer && !refreshChoice) || state.signerReady;
   // Keep the unsupported wallet entry path out of the new-user sign-in UI.
   // Existing saved browser signers still restore and can be checked normally.
   $('#wallet-connect').hidden = true;
@@ -283,6 +284,7 @@ function setConnectionStatus(message, { canRetry = false, canRefresh = false, bu
   $('#wallet-change').hidden = true;
   $('#check-signer').hidden = !canRetry;
   $('#refresh-signer').hidden = !canRefresh;
+  $('#resume-signer').hidden = !canResume;
 }
 
 function clearWalletReview() {
@@ -297,7 +299,7 @@ function clearWalletReview() {
 function openConnectDialog() {
   if (!state.signer && !state.signerReady) clearWalletReview();
   if (state.signer && !state.signerReady) {
-    setConnectionStatus('Your app key is saved in this browser. Check whether Snapchain has confirmed it before creating anything else.', { active: 'approve', completed: ['sign'], canRetry: true });
+    setConnectionStatus('Your app key is saved in this browser. Check whether Snapchain has confirmed it before creating anything else.', { active: 'approve', completed: ['sign'], canRetry: true, canResume: state.hasPendingKeyAdd });
   } else if (state.signerReady) {
     setConnectionStatus('This browser is connected and ready for social actions.', { active: 'done', completed: ['sign', 'approve', 'done'] });
   } else {
@@ -2283,13 +2285,14 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     });
     const scopes = [protocol.MessageType.CAST_ADD, protocol.MessageType.CAST_REMOVE, protocol.MessageType.REACTION_ADD, protocol.MessageType.REACTION_REMOVE, protocol.MessageType.LINK_ADD, protocol.MessageType.LINK_REMOVE];
     const appKeyBytes = resultOrThrow(protocol.hexStringToBytes(publicKey), 'Could not prepare the browser app key');
-    // Keep requestFid unset until Castonaut has its own registered app FID and
-    // custody-signed request metadata. The review above identifies Castonaut to
-    // the user; inventing an app FID here would make Snapchain reject the request.
+    // Without a registered Castonaut FID, the core helper creates a valid
+    // self-request: requestFid defaults to this user's FID and is signed by
+    // the same custody key. Never invent an app FID here.
     const keyBody = resultOrThrow(await protocol.makeKeyAddBody({ fid: BigInt(fid), key: appKeyBytes, scopes, ttl: KEY_TTL_SECONDS, nonce: nonce + 1, deadline }, eip712Signer), 'Could not authorize the app key');
     const message = resultOrThrow(await protocol.makeKeyAdd(keyBody, { fid, network: protocol.FarcasterNetwork.MAINNET }, signer), 'Could not sign key registration');
     const signedRequest = protocol.Message.encode(message).finish();
     await storeSigner({ ...(saved || {}), fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
+    state.hasPendingKeyAdd = true;
     setConnectionStatus(`Castonaut authorization signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'], busy: true });
     state.following.clear();
     state.fid = fid;
@@ -2327,10 +2330,15 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
       setNotice('Key relayed; merge is still pending. Writes stay locked until the node confirms it.', 'pending');
     }
   } catch (error) {
-    if (relayAttempted) {
+    if (relayAttempted && error?.status >= 400 && error.status < 500 && error.status !== 429) {
+      await clearPendingRegistration();
       state.signerReady = false;
       renderIdentity();
-      setConnectionStatus(`The request may have reached the node, but confirmation failed. Your key is saved here. Check again before trying anything else. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
+      setConnectionStatus(`Snapchain rejected this authorization (${error.status}). The app key is still saved in this browser. Check its status before trying again. ${clientErrorText(error)}`, { active: 'approve', completed: ['sign'], canRetry: true });
+    } else if (relayAttempted) {
+      state.signerReady = false;
+      renderIdentity();
+      setConnectionStatus(`The request may have reached the node, but confirmation failed. Your key is saved here. Resume the same request or check its status; don't create another key. ${clientErrorText(error)}`, { active: 'approve', completed: ['sign'], canRetry: true, canResume: state.hasPendingKeyAdd });
     } else setConnectionStatus(clientErrorText(error) || 'Authorization could not start. Reload and try again.', {
       active: pendingWalletAccount || recoveryAccount || walletAccount ? 'approve' : 'sign',
       completed: pendingWalletAccount || recoveryAccount || walletAccount ? ['sign'] : [],
@@ -2361,10 +2369,61 @@ async function checkSavedSigner() {
       setNotice('Your account is ready. Loading your feed…', 'success');
       await loadFeed(state.fid);
     } else {
-      setConnectionStatus('Snapchain does not list this browser key. It is still saved here. Approve a fresh registration for this same key to continue; no new key will be created.', { active: 'approve', completed: ['sign'], canRetry: true, canRefresh: true });
+      setConnectionStatus(state.hasPendingKeyAdd
+        ? 'Snapchain does not list this browser key. It is still saved here. Resume the exact saved request first; no phrase or new key is needed.'
+        : 'Snapchain does not list this browser key. The rejected request was cleared. You can retry authorization for this same saved key; Farcaster must approve the new request.',
+      { active: 'approve', completed: ['sign'], canRetry: true, canResume: state.hasPendingKeyAdd, canRefresh: !state.hasPendingKeyAdd });
     }
   } catch (error) {
     setConnectionStatus(`Could not check the saved key. It remains in this browser. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
+  } finally { button.disabled = false; }
+}
+
+async function resumeSavedKeyAdd() {
+  const button = $('#resume-signer');
+  button.disabled = true;
+  setConnectionStatus('Checking the saved request…', { active: 'approve', busy: true });
+  try {
+    if (!state.fid || !state.publicKey || !state.signer) await restoreSession();
+    const saved = await loadSigner();
+    if (!saved?.signedKeyAdd || !saved.privateKey || !saved.publicKey) throw new Error('No saved authorization request is available in this browser.');
+    state.hasPendingKeyAdd = true;
+    const fid = Number(saved.fid);
+    if (await findSigner(fid, saved.publicKey)) {
+      state.signerReady = true;
+      await clearPendingRegistration();
+      renderIdentity();
+      setConnectionStatus('Account verified. Castonaut is ready.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+      setNotice('Your account is ready. Loading your feed…', 'success');
+      await loadFeed(fid);
+      return;
+    }
+    const encoded = fromBase64(saved.signedKeyAdd);
+    if (!encoded.length || encoded.length > 64 * 1024) throw new Error('The saved request is incomplete. Your app key remains stored here.');
+    setConnectionStatus('Resending the exact saved request. No seed phrase is used and no new key is created…', { active: 'approve', busy: true });
+    await submitEncodedMessage(encoded);
+    const confirmed = await waitForSigner(fid, saved.publicKey, 6, (attempt, total) => {
+      setConnectionStatus(`Request accepted. Waiting for confirmation · ${attempt}/${total}`, { active: 'approve', busy: true });
+    });
+    state.signerReady = confirmed;
+    if (confirmed) {
+      await clearPendingRegistration();
+      await fetchProfile(fid).catch(() => null);
+      renderIdentity();
+      setConnectionStatus('Account verified. Castonaut is ready.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+      setNotice('Your account is ready. Loading your feed…', 'success');
+      await loadFeed(fid);
+      setTimeout(() => { if ($('#connect-dialog').open) $('#connect-dialog').close(); }, 1500);
+    } else {
+      setConnectionStatus('Snapchain accepted the saved request but has not confirmed it yet. Check again shortly; the request and key remain saved.', { active: 'approve', canRetry: true, canResume: true });
+    }
+  } catch (error) {
+    const rejected = error?.status >= 400 && error.status < 500 && error.status !== 429;
+    if (rejected) await clearPendingRegistration();
+    setConnectionStatus(rejected
+      ? `Snapchain rejected the saved authorization (${error.status}). The key remains stored here. Check status before making another request. ${clientErrorText(error)}`
+      : `Could not resume the saved authorization. The same request and key remain in this browser. Try again later. ${clientErrorText(error)}`,
+    { active: 'approve', canRetry: true, canResume: !rejected, canRefresh: false });
   } finally { button.disabled = false; }
 }
 
@@ -2509,6 +2568,7 @@ async function restoreSession() {
     return;
   }
   if (!saved || !Number.isSafeInteger(Number(saved.fid)) || !saved.privateKey || !saved.publicKey) return;
+  state.hasPendingKeyAdd = Boolean(saved.signedKeyAdd);
   try {
     const publicKeyHex = String(saved.publicKey).replace(/^0x/i, '');
     if (!/^[0-9a-f]{64}$/i.test(publicKeyHex) || !saved.privateKey.usages?.includes('sign')) throw new Error('Stored app key has an invalid format.');
@@ -2548,7 +2608,7 @@ async function clearLocalSigner() {
   refreshSignerFlow = false;
   try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* Continue clearing the current session. */ }
   const cleared = await removeStoredSigner();
-  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = ''; state.boardMode = 'signals'; state.following.clear();
+  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.hasPendingKeyAdd = false; state.custodyAddress = ''; state.boardMode = 'signals'; state.following.clear();
   state.suggestedPeople = []; state.suggestionsLoadedFor = 0; state.suggestionsError = false; state.suggestionsBusy = false; renderSuggestedPeople();
   state.feedRequest += 1; state.feedPending = null; state.casts = []; state.feedTargetFid = null; state.feedMode = 'following';
   state.savedCasts = []; renderFlightLogCount();
@@ -3144,6 +3204,7 @@ $('#wallet-change').addEventListener('click', () => {
   beginWalletConnection();
 });
 $('#check-signer').addEventListener('click', () => checkSavedSigner());
+$('#resume-signer').addEventListener('click', () => resumeSavedKeyAdd());
 $('#recovery-connect').addEventListener('click', () => connectWithRecoveryPhrase());
 $('#recovery-phrase').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {

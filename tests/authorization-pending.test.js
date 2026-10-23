@@ -27,11 +27,11 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   assert.match(auth, /Check again in a moment/);
 
   const checkStart = source.indexOf('async function checkSavedSigner(');
-  const checkEnd = source.indexOf('\nasync function submitMessage', checkStart);
+  const checkEnd = source.indexOf('\nasync function resumeSavedKeyAdd', checkStart);
   const check = source.slice(checkStart, checkEnd);
   assert.match(check, /findSigner\(state\.fid, state\.publicKey\)/);
-  assert.match(check, /canRetry: true, canRefresh: true/);
-  assert.match(check, /this same key to continue; no new key will be created/);
+  assert.match(check, /canRetry: true, canResume: state\.hasPendingKeyAdd, canRefresh: !state\.hasPendingKeyAdd/);
+  assert.match(check, /Resume the exact saved request first/);
   assert.doesNotMatch(check, /submitEncodedMessage|replayError/);
 
   const refreshStart = source.indexOf('async function authorizeSigner(');

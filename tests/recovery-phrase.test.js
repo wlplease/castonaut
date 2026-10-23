@@ -79,7 +79,7 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(source, /deriveRecoveryAccountCandidates\(phrase, mnemonicToAccount\)/);
   assert.match(source, /findRegisteredRecoveryAccount\(candidates/);
   assert.match(source, /connectButton\.textContent = 'Connecting…'/);
-  assert.match(source, /\$\('#recovery-import'\)\.hidden = busy \|\| canRetry \|\| !!pendingWalletAccount \|\| \(!!state\.signer && !refreshChoice\) \|\| state\.signerReady/);
+  assert.match(source, /\$\('#recovery-import'\)\.hidden = busy \|\| canRetry \|\| canResume \|\| !!pendingWalletAccount \|\| \(!!state\.signer && !refreshChoice\) \|\| state\.signerReady/);
   assert.doesNotMatch(html, /<script[^>]+src="https?:\/\//i, 'setup page has no remote script tags');
   const csp = headers.headers.flatMap((entry) => entry.headers).find((header) => header.key === 'Content-Security-Policy')?.value || '';
   assert.match(csp, /script-src 'self'; script-src-attr 'none'/);
