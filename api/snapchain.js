@@ -62,6 +62,20 @@ function validateParam(name, value) {
   return false;
 }
 
+function safeRejectionReason(result) {
+  // Snapchain's validation messages are useful for fixing signer authorization
+  // failures. Keep only its short public error fields; never echo the request,
+  // message bytes, headers, credentials, or upstream response wholesale.
+  const raw = typeof result?.message === 'string'
+    ? result.message
+    : typeof result?.error === 'string'
+      ? result.error
+      : typeof result?.errCode === 'string'
+        ? result.errCode
+        : '';
+  return raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220);
+}
+
 function rateLimit(req, write, routeName) {
   const authCheck = !write && routeName === 'signers';
   const key = `${authCheck ? 'a' : write ? 'w' : 'r'}:${rateLimitKey(req)}`;
@@ -180,9 +194,10 @@ export default async function snapchain(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     if (response.status >= 400) {
       const status = response.status >= 500 ? 502 : response.status;
+      const reason = safeRejectionReason(result);
       const message = response.status >= 500
         ? 'Snapchain is temporarily unavailable.'
-        : `Snapchain rejected the request (${response.status}). Check the account or message and try again.`;
+        : `Snapchain rejected the request (${response.status}).${reason ? ` ${reason}` : ' Check the account or message and try again.'}`;
       return res.status(status).json({ error: message });
     }
     return res.status(200).json(result);

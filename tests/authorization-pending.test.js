@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 test('node calls and signer confirmation stay bounded and explain recovery after approval', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const requestStart = source.indexOf('async function nodeRequest(');
   const requestEnd = source.indexOf('\nfunction asFid(', requestStart);
   const request = source.slice(requestStart, requestEnd);
@@ -31,4 +32,14 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   assert.match(check, /replayError = error/);
   assert.match(check, /Snapchain rejected the saved authorization \(HTTP \$\{replayError\.status\}\)/);
   assert.match(check, /saved key is not in Snapchain’s signer list yet/);
+
+  const refreshStart = source.indexOf('async function authorizeSigner(');
+  const refreshEnd = source.indexOf('\nasync function checkSavedSigner', refreshStart);
+  const refresh = source.slice(refreshStart, refreshEnd);
+  assert.match(refresh, /if \(refreshSignerFlow\)[\s\S]*?Number\(saved\.fid\) !== Number\(fid\)/);
+  assert.match(refresh, /privateKey = saved\.privateKey/);
+  assert.match(refresh, /new BrowserEd25519Signer\(privateKey, publicKeyBytes\)/);
+  assert.match(refresh, /else \{\s*\(\{ signer, publicKey: publicKeyBytes, privateKey \} = await createBrowserSigner\(\)\)/);
+  assert.match(html, /id="refresh-signer"[^>]*>Approve saved key again/);
+  assert.match(source, /\$\('#refresh-signer'\)\.addEventListener\('click', beginSignerRefresh\)/);
 });

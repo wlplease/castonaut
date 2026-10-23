@@ -56,7 +56,7 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(source, /addEventListener\('pagehide', clearRecoveryImport\)/);
   assert.match(source, /addEventListener\('beforeunload', clearRecoveryImport\)/);
   assert.match(source, /readContract\(\{ address: ID_REGISTRY_ADDRESS[\s\S]*?args: \[candidate\.address\]/);
-  assert.match(source, /await storeSigner\(\{ fid, publicKey, custodyAddress, privateKey, signedKeyAdd:/);
+  assert.match(source, /await storeSigner\(\{ \.\.\.\(saved \|\| \{\}\), fid, publicKey, custodyAddress, privateKey, signedKeyAdd:/);
   assert.match(source, /const safeMessage = error\?\.message === 'That phrase could not be imported/);
   assert.doesNotMatch(source, /Could not check the account on Optimism: \$\{error\.message\}/);
   assert.doesNotMatch(source, /fetch\([^\n]*(?:phrase|mnemonic)/i);
@@ -75,7 +75,7 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.match(source, /deriveRecoveryAccountCandidates\(phrase, mnemonicToAccount\)/);
   assert.match(source, /findRegisteredRecoveryAccount\(candidates/);
   assert.match(source, /connectButton\.textContent = 'Connecting…'/);
-  assert.match(source, /\$\('#recovery-import'\)\.hidden = busy \|\| canRetry \|\| !!pendingWalletAccount \|\| !!state\.signer \|\| state\.signerReady/);
+  assert.match(source, /\$\('#recovery-import'\)\.hidden = busy \|\| canRetry \|\| !!pendingWalletAccount \|\| \(!!state\.signer && !refreshChoice\) \|\| state\.signerReady/);
   assert.doesNotMatch(html, /<script[^>]+src="https?:\/\//i, 'setup page has no remote script tags');
   const csp = headers.headers.flatMap((entry) => entry.headers).find((header) => header.key === 'Content-Security-Policy')?.value || '';
   assert.match(csp, /script-src 'self'; script-src-attr 'none'/);

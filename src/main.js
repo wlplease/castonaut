@@ -64,6 +64,7 @@ const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'vie
 const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, passWallet: '', passWalletConnected: false, passExpiry: 0, passBusy: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
+let refreshSignerFlow = false;
 let feedScrollSaved = false;
 const profileRequests = new Map();
 const signerSourceRequests = new Map();
@@ -269,15 +270,17 @@ function setNotice(message, kind = 'info') {
   setNotice.timer = setTimeout(() => { toast.hidden = true; }, 5600);
 }
 
-function setConnectionStatus(message, { canRetry = false, busy = false } = {}) {
+function setConnectionStatus(message, { canRetry = false, canRefresh = false, busy = false } = {}) {
+  const refreshChoice = refreshSignerFlow && !busy && !canRetry && !state.signerReady;
   $('#dialog-status').textContent = message;
-  $('#recovery-import').hidden = busy || canRetry || !!pendingWalletAccount || !!state.signer || state.signerReady;
+  $('#recovery-import').hidden = busy || canRetry || !!pendingWalletAccount || (!!state.signer && !refreshChoice) || state.signerReady;
   const canAuthorizeWallet = !!pendingWalletAccount && !canRetry && !state.signerReady && !busy;
-  $('#wallet-connect').hidden = canRetry || state.signerReady || !!pendingWalletAccount || busy;
+  $('#wallet-connect').hidden = canRetry || state.signerReady || !!pendingWalletAccount || (!!state.signer && !refreshChoice) || busy;
   $('#wallet-review').hidden = !canAuthorizeWallet;
   $('#wallet-authorize').hidden = !canAuthorizeWallet || busy;
   $('#wallet-change').hidden = !canAuthorizeWallet || busy;
   $('#check-signer').hidden = !canRetry;
+  $('#refresh-signer').hidden = !canRefresh;
 }
 
 function clearWalletReview() {
@@ -1918,7 +1921,8 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     const { createPublicClient, createWalletClient, custom, optimism } = await optimismToolkit();
     const saved = await loadSigner();
     const legacy = localStorage.getItem(LEGACY_KEY_STORAGE);
-    if (state.signer || saved || legacy) throw new Error('This browser already has an app key saved. Reload to check its status, or use “Forget this browser” before creating another one.');
+    if (legacy || ((!refreshSignerFlow) && (state.signer || saved))) throw new Error('This browser already has an app key saved. Check its status before creating another one.');
+    if (refreshSignerFlow && (!saved?.privateKey || !saved?.publicKey)) throw new Error('The saved app key could not be loaded. It has not been deleted; reload this page and check again.');
     setConnectionStatus(recoveryAccount
       ? 'Rechecking the Farcaster account you verified…'
       : walletAccount
@@ -1953,8 +1957,22 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
       ({ eip712Signer, custodyAddress, fid } = await createCustodySigner(recoveryAccount?.account || null));
     }
     if (recoveryAccount && (fid !== recoveryAccount.fid || custodyAddress.toLowerCase() !== recoveryAccount.address.toLowerCase())) throw new Error('The checked account changed. Close this panel and verify the test account again.');
-    const { signer, publicKey: publicKeyBytes, privateKey } = await createBrowserSigner();
-    const publicKey = bytesHex(publicKeyBytes);
+    let signer;
+    let publicKeyBytes;
+    let privateKey;
+    let publicKey;
+    if (refreshSignerFlow) {
+      if (Number(saved.fid) !== Number(fid)) throw new Error('The saved app key belongs to a different Farcaster account. No new key was created.');
+      const publicKeyHex = String(saved.publicKey).replace(/^0x/i, '');
+      if (!/^[0-9a-f]{64}$/i.test(publicKeyHex) || !saved.privateKey.usages?.includes('sign')) throw new Error('The saved app key is not available for signing. It remains stored in this browser.');
+      publicKeyBytes = Uint8Array.from(publicKeyHex.match(/.{2}/g).map((byte) => Number.parseInt(byte, 16)));
+      publicKey = bytesHex(publicKeyBytes);
+      privateKey = saved.privateKey;
+      signer = new BrowserEd25519Signer(privateKey, publicKeyBytes);
+    } else {
+      ({ signer, publicKey: publicKeyBytes, privateKey } = await createBrowserSigner());
+      publicKey = bytesHex(publicKeyBytes);
+    }
     const nonce = await readCurrentNonce(fid);
     const deadline = Number(resultOrThrow(protocol.getFarcasterTime(), 'Could not read Farcaster time')) + 60 * 60;
     setConnectionStatus(recoveryAccount
@@ -1969,7 +1987,7 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     const keyBody = resultOrThrow(await protocol.makeKeyAddBody({ fid: BigInt(fid), key: appKeyBytes, scopes, ttl: KEY_TTL_SECONDS, nonce: nonce + 1, deadline }, eip712Signer), 'Could not authorize the app key');
     const message = resultOrThrow(await protocol.makeKeyAdd(keyBody, { fid, network: protocol.FarcasterNetwork.MAINNET }, signer), 'Could not sign key registration');
     const signedRequest = protocol.Message.encode(message).finish();
-    await storeSigner({ fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
+    await storeSigner({ ...(saved || {}), fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
     setConnectionStatus(`${recoveryAccount ? 'Farcaster account authorization' : 'Wallet authorization'} signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'], busy: true });
     state.fid = fid;
     loadFlightLog(fid);
@@ -1994,6 +2012,7 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     const passActive = confirmed && await refreshSavedPass();
     renderIdentity();
     if (confirmed) {
+      refreshSignerFlow = false;
       setConnectionStatus('Account verified. Connect a payment wallet to check your pass.', { active: 'done', completed: ['sign', 'approve', 'done'] });
       if (passActive) { setNotice('Farcaster account and Time Pass verified.', 'success'); await loadFeed(fid); }
       else setNotice('Farcaster account verified. A pass is needed to open the full client.', 'pending');
@@ -2051,16 +2070,21 @@ async function checkSavedSigner() {
       else setNotice('Farcaster account verified. A pass is needed to open the full client.', 'pending');
     } else {
       if (replayError?.status >= 400 && replayError.status < 500) {
-        setConnectionStatus(`Snapchain rejected the saved authorization (HTTP ${replayError.status}). Your app key is still saved in this browser. Don’t create another key; the account owner may need to approve a fresh request.`, { active: 'approve', completed: ['sign'], canRetry: true });
+        setConnectionStatus(`Snapchain rejected the saved authorization (HTTP ${replayError.status}). Your app key is still saved here. You can approve a fresh registration using the same key.`, { active: 'approve', completed: ['sign'], canRetry: true, canRefresh: true });
       } else if (replayError) {
         setConnectionStatus(`Snapchain could not accept the saved authorization (${replayError.message}). Your app key is still saved in this browser. Check the node and try again; don’t create another key.`, { active: 'approve', completed: ['sign'], canRetry: true });
       } else {
-        setConnectionStatus('The saved key is not in Snapchain’s signer list yet. It remains in this browser; don’t create another key. Check again after the node has had time to process it.', { active: 'approve', completed: ['sign'], canRetry: true });
+        setConnectionStatus('The saved key is not in Snapchain’s signer list yet. It remains in this browser; don’t create another key. Check again after the node has had time to process it.', { active: 'approve', completed: ['sign'], canRetry: true, canRefresh: !saved?.signedKeyAdd });
       }
     }
   } catch (error) {
     setConnectionStatus(`Could not check the saved key. It remains in this browser. ${error.message}`, { active: 'approve', completed: ['sign'], canRetry: true });
   } finally { button.disabled = false; }
+}
+
+function beginSignerRefresh() {
+  refreshSignerFlow = true;
+  setConnectionStatus('Approve a fresh registration for this saved browser key. You can use its linked wallet or enter the recovery phrase again; Castonaut will reuse the key already in this browser.', { active: 'approve', completed: ['sign'] });
 }
 
 async function submitMessage(message) {
@@ -2331,6 +2355,7 @@ async function restoreSession() {
 }
 
 async function clearLocalSigner() {
+  refreshSignerFlow = false;
   try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* Continue clearing the current session. */ }
   const cleared = await removeStoredSigner();
   state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.custodyAddress = ''; state.boardMode = 'signals';
@@ -2839,6 +2864,7 @@ $('#capsule-shelf').addEventListener('click', (event) => {
 $('#capsule-replay-close').addEventListener('click', () => { state.activeCapsule = ''; renderCapsuleShelf(); });
 $('#manage-key').addEventListener('click', () => { if (confirm('Delete Castonaut’s signing key from this browser? This pauses posting here, but does not revoke the Farcaster signer. Revoke it separately in Farcaster account settings.')) clearLocalSigner(); });
 $('#wallet-connect').addEventListener('click', () => beginWalletConnection());
+$('#refresh-signer').addEventListener('click', beginSignerRefresh);
 $('#wallet-authorize').addEventListener('click', () => {
   if (!pendingWalletAccount) { setConnectionStatus('Connect your wallet again so Castonaut can verify the account first.'); return; }
   authorizeSigner(null, pendingWalletAccount);

@@ -89,6 +89,22 @@ test('proxy refuses a configured URL with credentials or a path', async () => {
   } finally { process.env.SNAPCHAIN_URL = validBase; }
 });
 
+test('proxy returns only a short, sanitized Snapchain validation reason', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    message: `Invalid signer nonce\n${'x'.repeat(300)}`,
+    request: 'must not be exposed',
+  }), { status: 400, headers: { 'content-type': 'application/json' } });
+  const result = await callApi(makeRequest({
+    url: '/api/snapchain?route=submit', method: 'POST',
+    headers: { origin: 'https://castonaut.example', 'sec-fetch-site': 'same-origin', 'content-type': 'application/octet-stream' },
+    ip: '203.0.113.47',
+  }));
+  assert.equal(result.statusCode, 400);
+  assert.match(result.payload.error, /Invalid signer nonce/);
+  assert.doesNotMatch(result.payload.error, /must not be exposed|\n/);
+  assert.ok(result.payload.error.length < 260);
+});
+
 test('read rate limit is enforced per client address', async () => {
   globalThis.fetch = async () => new Response('{"version":"test"}', { status: 200, headers: { 'content-type': 'application/json' } });
   for (let i = 0; i < 240; i++) {
