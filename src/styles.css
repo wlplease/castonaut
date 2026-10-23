@@ -482,6 +482,20 @@ html[data-station-tone="night"]{--station-accent:#5d4c7b;--station-soft:#f0edf7;
 .media-url-field p{margin:0;color:var(--station-copy-muted);font-size:9px;line-height:1.5}
 .media-clear{align-self:center;padding:5px;border:0;background:none;color:var(--station-accent);font-size:9px;text-decoration:underline;cursor:pointer}
 .media-keyless-note{grid-column:1/-1;margin:0;color:var(--station-copy-muted);font-size:9px;line-height:1.5}
+.giphy-picker{grid-column:1/-1;min-width:0;border-top:1px solid var(--station-line);padding-top:8px}
+.giphy-picker>summary{width:max-content;max-width:100%;padding:6px 0;color:var(--station-accent);font-size:10px;font-weight:700;cursor:pointer}
+.giphy-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;margin-top:6px}
+.giphy-search input{min-width:0;min-height:36px}
+.giphy-search .button{min-height:36px;padding:0 12px;font-size:10px}
+.giphy-search .button:disabled{opacity:.65;cursor:wait}
+.giphy-status{min-height:18px;margin:6px 0;color:var(--station-copy-muted);font-size:9px;line-height:1.5}
+.giphy-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:7px;max-height:300px;overflow:auto;overscroll-behavior:contain}
+.giphy-result{display:grid;grid-template-rows:78px auto;gap:4px;min-width:0;padding:4px;border:1px solid var(--station-line);border-radius:6px;background:var(--station-soft);color:var(--station-copy-muted);text-align:left;cursor:pointer}
+.giphy-result:hover,.giphy-result:focus-visible{border-color:var(--station-accent);outline:2px solid color-mix(in srgb,var(--station-accent) 28%,transparent)}
+.giphy-result img{width:100%;height:78px;object-fit:cover;border-radius:3px;background:var(--station-card)}
+.giphy-result span{overflow:hidden;font-size:8px;line-height:1.3;text-overflow:ellipsis;white-space:nowrap}
+.giphy-attribution{display:inline-block;margin-top:8px;color:var(--station-accent);font-size:9px;font-weight:700}
+.giphy-privacy{margin:5px 0 0;color:var(--station-copy-muted);font-size:8px;line-height:1.45}
 .emoji-picker{position:static}
 .emoji-picker>summary{list-style:none}
 .emoji-picker>summary::-webkit-details-marker{display:none}

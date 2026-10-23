@@ -73,6 +73,10 @@ const profileRequests = new Map();
 const signerSourceRequests = new Map();
 const signerSourcesLoaded = new Set();
 let optimismToolkitPromise;
+let giphyConfig = null;
+let giphyCooldownUntil = 0;
+let giphyCooldownTimer = null;
+let giphySearching = false;
 
 function optimismToolkit() {
   if (!optimismToolkitPromise) optimismToolkitPromise = import('./optimism-toolkit.js');
@@ -2503,7 +2507,6 @@ function restoreComposerDraft(fid) {
       }
     }
   } catch { /* An invalid or unavailable local draft never blocks sign-in. */ }
-  $('#composer-text').maxLength = -1;
   $('#char-count').textContent = `${[...$('#composer-text').value].length} / ${CAST_USER_LIMIT}`;
   $('#composer-text').placeholder = state.parent ? `Replying to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}…` : 'What’s on your mind?';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.pendingCast);
@@ -2952,6 +2955,139 @@ $('#composer-media-toggle').addEventListener('click', () => {
   const panel = $('#composer-media');
   panel.hidden = !panel.hidden;
   if (!panel.hidden) $('#composer-media-url').focus();
+});
+function safeGiphyImage(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password && !url.port && /(^|\.)giphy\.com$/i.test(url.hostname) ? url.href : '';
+  } catch { return ''; }
+}
+
+function updateGiphyCooldown(milliseconds) {
+  giphyCooldownUntil = Date.now() + Math.max(0, Math.min(60_000, Number(milliseconds) || 0));
+  if (giphyCooldownTimer) clearInterval(giphyCooldownTimer);
+  const button = $('#giphy-search-button');
+  const status = $('#giphy-status');
+  const tick = () => {
+    const seconds = Math.max(0, Math.ceil((giphyCooldownUntil - Date.now()) / 1000));
+    button.disabled = giphySearching || seconds > 0 || !giphyConfig;
+    button.textContent = seconds ? `Wait ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : 'Search';
+    if (!seconds) {
+      clearInterval(giphyCooldownTimer);
+      giphyCooldownTimer = null;
+      if (giphyConfig && !giphySearching && /shared search is in use|someone just searched/i.test(status.textContent)) status.textContent = 'Ready. One shared search is available.';
+    }
+  };
+  tick();
+  if (giphyCooldownUntil > Date.now()) giphyCooldownTimer = setInterval(tick, 250);
+}
+
+async function loadGiphyStatus() {
+  const status = $('#giphy-status');
+  const button = $('#giphy-search-button');
+  status.textContent = 'Checking shared GIF search…';
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/giphy', { headers: { accept: 'application/json' }, cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok || !result.enabled || typeof result.apiKey !== 'string' || !result.apiKey) throw new Error(result.error || 'GIF search is not configured.');
+    giphyConfig = { apiKey: result.apiKey };
+    updateGiphyCooldown(result.retryAfterMs);
+    if (Number(result.retryAfterMs) > 0) status.textContent = 'Shared search is in use. Your timer is running.';
+  } catch (error) {
+    giphyConfig = null;
+    button.disabled = true;
+    button.textContent = 'Unavailable';
+    status.textContent = error.message || 'GIF search is temporarily unavailable. Direct media links still work.';
+  }
+}
+
+function renderGiphyResults(items) {
+  const results = $('#giphy-results');
+  results.replaceChildren();
+  for (const item of items) {
+    const originalUrl = safeGiphyImage(item?.images?.original?.url);
+    const previewUrl = safeGiphyImage(item?.images?.fixed_width_small?.url || item?.images?.preview_gif?.url || item?.images?.original?.url);
+    if (!originalUrl || !previewUrl) continue;
+    const title = String(item.title || 'GIF').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 100) || 'GIF';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'giphy-result';
+    button.setAttribute('aria-label', `Attach GIF: ${title}`);
+    const image = document.createElement('img');
+    image.src = previewUrl;
+    image.alt = title;
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    const caption = document.createElement('span');
+    caption.textContent = title;
+    button.append(image, caption);
+    button.addEventListener('click', () => {
+      $('#composer-media-url').value = originalUrl;
+      $('#composer-media-url').dispatchEvent(new Event('input', { bubbles: true }));
+      $('#composer-media-note').textContent = `GIPHY GIF selected. Remote previews remain off unless you enable them.`;
+      $('#giphy-picker').open = false;
+    });
+    results.append(button);
+  }
+}
+
+$('#giphy-picker').addEventListener('toggle', (event) => { if (event.currentTarget.open) loadGiphyStatus(); });
+$('#giphy-search-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const query = $('#giphy-search-query').value.trim().slice(0, 50);
+  if (!query) { $('#giphy-status').textContent = 'Type a word to search GIFs.'; $('#giphy-search-query').focus(); return; }
+  if (!giphyConfig) await loadGiphyStatus();
+  if (!giphyConfig || Date.now() < giphyCooldownUntil || giphySearching) return;
+  const button = $('#giphy-search-button');
+  const status = $('#giphy-status');
+  const results = $('#giphy-results');
+  giphySearching = true;
+  button.disabled = true;
+  button.textContent = 'Searching…';
+  status.textContent = 'Claiming the shared search, then contacting GIPHY…';
+  results.replaceChildren();
+  try {
+    const claimResponse = await fetch('/api/giphy', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ action: 'claim' }),
+      cache: 'no-store',
+    });
+    const claim = await claimResponse.json();
+    if (claimResponse.status === 429) {
+      updateGiphyCooldown(claim.retryAfterMs);
+      status.textContent = claim.error || 'Someone just searched. Try again when the timer clears.';
+      return;
+    }
+    if (!claimResponse.ok || !claim.allowed) throw new Error(claim.error || 'GIF search is temporarily unavailable.');
+    updateGiphyCooldown(claim.retryAfterMs || 60_000);
+    const searchUrl = new URL('https://api.giphy.com/v1/gifs/search');
+    searchUrl.searchParams.set('api_key', giphyConfig.apiKey);
+    searchUrl.searchParams.set('q', query);
+    searchUrl.searchParams.set('limit', '16');
+    searchUrl.searchParams.set('offset', '0');
+    searchUrl.searchParams.set('rating', 'pg');
+    searchUrl.searchParams.set('lang', 'en');
+    const response = await fetch(searchUrl, { headers: { accept: 'application/json' }, mode: 'cors', credentials: 'omit', referrerPolicy: 'strict-origin-when-cross-origin', signal: AbortSignal.timeout(12_000) });
+    const raw = await response.text();
+    if (raw.length > 2_000_000) throw new Error('GIPHY returned too many results. Try a shorter search.');
+    let payload;
+    try { payload = JSON.parse(raw); } catch { throw new Error('GIPHY returned an unreadable response.'); }
+    if (!response.ok || !Array.isArray(payload.data)) throw new Error('GIPHY could not complete that search. Try again when the timer clears.');
+    renderGiphyResults(payload.data);
+    status.textContent = $('#giphy-results').childElementCount ? `${$('#giphy-results').childElementCount} GIFs · select one to attach` : 'No GIFs found. Try another search when the timer clears.';
+  } catch (error) {
+    status.textContent = error.name === 'TimeoutError' ? 'GIPHY took too long. Try again when the timer clears.' : error.message || 'GIF search failed. Direct media links still work.';
+  } finally {
+    giphySearching = false;
+    if (Date.now() >= giphyCooldownUntil) updateGiphyCooldown(0);
+    else {
+      button.disabled = true;
+      const seconds = Math.ceil((giphyCooldownUntil - Date.now()) / 1000);
+      button.textContent = `Wait ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    }
+  }
 });
 $('#composer-media-url').addEventListener('input', () => {
   const candidate = safeExternalUrl($('#composer-media-url').value.trim());

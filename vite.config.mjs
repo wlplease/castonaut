@@ -42,10 +42,11 @@ function sameOriginWrite(req) {
   } catch { return false; }
 }
 
-function sendJson(res, status, body) {
+function sendJson(res, status, body, headers = {}) {
   res.statusCode = status;
   res.setHeader('content-type', 'application/json; charset=utf-8');
   res.setHeader('cache-control', 'no-store');
+  for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
   res.end(JSON.stringify(body));
 }
 
@@ -149,6 +150,45 @@ function localSnapchainAdapter(serverEnv) {
   };
 }
 
+function localGiphyAdapter(serverEnv) {
+  return {
+    name: 'castonaut-local-giphy-adapter',
+    configureServer(server) {
+      server.middlewares.use('/api/giphy', async (req, res) => {
+        const proxyUrl = serverEnv.GIPHY_PROXY_URL;
+        if (!proxyUrl) return sendJson(res, 503, { enabled: false, error: 'GIF search is not configured.' });
+        if (!['GET', 'POST'].includes(req.method)) { res.setHeader('allow', 'GET, POST'); return sendJson(res, 405, { error: 'Method not allowed' }); }
+        if (req.method === 'POST' && !sameOriginWrite(req)) return sendJson(res, 403, { error: 'Request origin could not be verified.' });
+        try {
+          const target = new URL(proxyUrl);
+          if (target.protocol !== 'https:' || target.username || target.password || target.pathname !== '/api/giphy' || target.search || target.hash) throw new Error('GIPHY_PROXY_URL must be an HTTPS /api/giphy URL');
+          const headers = { accept: 'application/json' };
+          let body;
+          if (req.method === 'POST') {
+            if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') return sendJson(res, 415, { error: 'Expected a JSON request.' });
+            const chunks = []; let length = 0;
+            for await (const chunk of req) { length += chunk.length; if (length > 1024) return sendJson(res, 413, { error: 'Request is too large.' }); chunks.push(chunk); }
+            let parsed;
+            try { parsed = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return sendJson(res, 400, { error: 'Invalid JSON request.' }); }
+            if (parsed?.action !== 'claim') return sendJson(res, 400, { error: 'Invalid GIF search request.' });
+            headers['content-type'] = 'application/json';
+            headers.origin = target.origin;
+            body = JSON.stringify({ action: 'claim' });
+          }
+          const upstream = await fetch(target, { method: req.method, headers, body, redirect: 'error', signal: AbortSignal.timeout(5000) });
+          const raw = await upstream.text();
+          if (raw.length > 4096) return sendJson(res, 502, { error: 'GIF service returned an oversized response.' });
+          let result;
+          try { result = raw ? JSON.parse(raw) : {}; } catch { return sendJson(res, 502, { error: 'GIF service returned an unreadable response.' }); }
+          return sendJson(res, upstream.status, result, upstream.headers.get('retry-after') ? { 'retry-after': upstream.headers.get('retry-after') } : {});
+        } catch (error) {
+          return sendJson(res, 502, { enabled: false, error: error.message.includes('GIPHY_PROXY_URL') ? error.message : 'GIF service is temporarily unavailable.' });
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // Vite does not put .env values in process.env for config plugins. Read them
   // here, and pass only the server-side Snapchain settings to the adapter.
@@ -158,10 +198,11 @@ export default defineConfig(({ mode }) => {
     SNAPCHAIN_PROXY_URL: process.env.SNAPCHAIN_PROXY_URL || loaded.SNAPCHAIN_PROXY_URL || 'https://castonaut.vercel.app/api/snapchain',
     SNAPCHAIN_HTTP_USER: process.env.SNAPCHAIN_HTTP_USER || loaded.SNAPCHAIN_HTTP_USER || '',
     SNAPCHAIN_HTTP_PASS: process.env.SNAPCHAIN_HTTP_PASS || loaded.SNAPCHAIN_HTTP_PASS || '',
+    GIPHY_PROXY_URL: process.env.GIPHY_PROXY_URL || loaded.GIPHY_PROXY_URL || 'https://castonaut.vercel.app/api/giphy',
   };
 
   return {
-    plugins: [localSnapchainAdapter(serverEnv)],
+    plugins: [localSnapchainAdapter(serverEnv), localGiphyAdapter(serverEnv)],
     resolve: {
       alias: [{ find: /^@faker-js\/faker$/, replacement: resolve(process.cwd(), 'src/faker-compat.js') }],
     },

@@ -191,7 +191,19 @@
                   <section class="composer-media" id="composer-media" hidden>
                     <div class="media-url-field"><label for="composer-media-url">Attach a direct image or GIF</label><input id="composer-media-url" type="url" inputmode="url" maxlength="2048" placeholder="Paste a direct https://…gif link" autocomplete="url" /><p id="composer-media-note">Castonaut does not upload media. Remote previews stay off until you enable them.</p></div>
                     <button type="button" id="composer-media-clear" class="media-clear">Remove attachment</button>
-                    <p class="media-keyless-note">Paste a direct HTTPS image or GIF link above. No media API key or upload service is needed.</p>
+                    <details class="giphy-picker" id="giphy-picker">
+                      <summary>Find a GIF</summary>
+                      <form class="giphy-search" id="giphy-search-form">
+                        <label class="sr-only" for="giphy-search-query">Search GIFs</label>
+                        <input id="giphy-search-query" type="search" maxlength="50" placeholder="Search GIFs…" autocomplete="off" />
+                        <button type="submit" class="button button-orange" id="giphy-search-button">Search</button>
+                      </form>
+                      <p class="giphy-status" id="giphy-status" role="status" aria-live="polite">Search the shared GIF library.</p>
+                      <div class="giphy-results" id="giphy-results" aria-label="GIF search results"></div>
+                      <a class="giphy-attribution" href="https://giphy.com" target="_blank" rel="noopener noreferrer">Powered by GIPHY</a>
+                      <p class="giphy-privacy">GIF search is shared: one search per minute for everyone. GIPHY receives your search and IP address.</p>
+                    </details>
+                    <p class="media-keyless-note">No account or key needed. Or paste a direct HTTPS image/GIF link above.</p>
                   </section>
                   <div class="composer-bottom"><span><span id="composer-context">Scoped key · stored in this browser</span><small id="draft-status" role="status" aria-live="polite">Drafts stay on this device.</small><small class="composer-attribution">Casted from Castonaut · castonaut.vercel.app</small></span><div><details class="emoji-picker"><summary class="button button-outline" aria-label="Add emoji" aria-haspopup="dialog">Emoji</summary><div class="emoji-picker-popover" role="dialog" aria-label="Choose an emoji"><label class="sr-only" for="emoji-search">Search emoji</label><input id="emoji-search" class="emoji-search" type="search" placeholder="Search emoji…" autocomplete="off" /><div class="emoji-picker-grid" id="emoji-picker-grid" role="group" aria-label="Emoji results"></div><small class="emoji-search-status" id="emoji-search-status" aria-live="polite"></small></div></details><button type="button" class="button button-outline" id="composer-media-toggle">GIFs &amp; images</button><button type="button" class="button button-outline thread-add" id="thread-add">Add to thread</button><span id="char-count">0 / 266</span><button type="submit" class="button button-orange" id="composer-submit">Post</button></div></div>
                   <section class="thread-draft" id="thread-draft" aria-labelledby="thread-draft-title" hidden><div class="thread-draft-head"><strong id="thread-draft-title">Thread draft</strong><span id="thread-draft-count"></span></div><ol id="thread-draft-items"></ol><p id="thread-draft-status" role="status" aria-live="polite"></p><button type="button" class="button button-orange" id="thread-publish">Publish thread</button></section>
