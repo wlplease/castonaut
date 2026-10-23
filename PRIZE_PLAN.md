@@ -94,7 +94,7 @@ Fallback paid options, based on public prices checked 18 October 2026. These are
 
 Netcup lists block storage at €0.012/GB/month plus applicable VAT. EU hosting is fine for the bounty even though the project owner is in the US; it adds latency and the cheapest Lite plan has reduced bandwidth. A second independent tester must supply their own qualifying compute or use their own eligible trial/credit; sharing our node does not demonstrate the tutorial's node-creation step.
 
-Other first-week costs: $0 for an MIT GitHub repository and a free static microsite. Contest and preview builds are free to use; the $3.70 / 30-day Base Time Pass is optional to the contest, and its paid gate only activates after checkout is deployed and configured. Zero cash node spend requires a genuinely eligible cloud credit account or an independent host who already has qualifying capacity. Oracle Always Free's 200 GB total block storage is far below the node requirement. Do not create extra trial accounts to bypass provider eligibility rules.
+Other first-week costs: $0 for an MIT GitHub repository and a free static microsite. Castonaut is free to use; no payment contract or paid gate is part of this release. Zero cash node spend requires a genuinely eligible cloud credit account or an independent host who already has qualifying capacity. Oracle Always Free's 200 GB total block storage is far below the node requirement. Do not create extra trial accounts to bypass provider eligibility rules.
 
 ## Sequence
 

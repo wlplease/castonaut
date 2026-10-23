@@ -154,8 +154,8 @@ img{max-width:100%}
 .about-feature-grid h3{margin:12px 0 7px;color:#30263d;font:600 16px var(--display);letter-spacing:-.03em}
 .about-feature-grid p{margin:0;color:#65746d;font-size:11px;line-height:1.6}
 .about-local-card{display:grid;grid-template-columns:minmax(0,1fr) 106px;align-items:center;gap:18px;padding:20px 22px;margin-top:12px;border:1px solid #d4d5c9;border-radius:8px;background:linear-gradient(110deg,#edf0e5,#f5f0f7)}
-.about-local-card h2,.plus-preview h2{margin:8px 0 6px;color:#30263d;font:600 21px var(--display);letter-spacing:-.04em}
-.about-local-card p,.plus-preview p{max-width:620px;margin:0;color:#65746d;font-size:11px;line-height:1.65}
+.about-local-card h2 h2{margin:8px 0 6px;color:#30263d;font:600 21px var(--display);letter-spacing:-.04em}
+.about-local-card p p{max-width:620px;margin:0;color:#65746d;font-size:11px;line-height:1.65}
 .local-stamp{width:96px;height:96px;display:grid;place-items:center;align-content:center;gap:3px;border:1px dashed #a797b7;border-radius:50%;color:#7050a4;transform:rotate(5deg)}
 .local-stamp span,.local-stamp small{font:8px var(--mono);letter-spacing:.12em}
 .local-stamp b{font-size:24px;color:#db6653}
@@ -332,7 +332,7 @@ html[data-station-tone="night"]{--station-accent:#5d4c7b;--station-soft:#f0edf7;
 .nav-item.active .nav-symbol,.top-link span,.feed-toolbar .overline,.post-profile-link:hover,.flight-log-action[aria-pressed="true"]{color:var(--station-accent)}
 .node-ribbon,.sidebar-note,.source-card,.readout-card,.concept-panel,.guide-banner{border-color:var(--station-line);background:var(--station-soft)}
 .node-source,.source-card a,.concept-flow{color:var(--station-accent)}
-.feed-window,.side-card,.profile-summary,.source-card,.readout-card,.diagnostic-panel,.concept-panel,.plus-preview,.about-local-card{border-color:var(--station-line);background:var(--station-card);box-shadow:0 5px 18px #3423430a}
+.feed-window,.side-card,.profile-summary,.source-card,.readout-card,.diagnostic-panel,.concept-panel,.about-local-card{border-color:var(--station-line);background:var(--station-card);box-shadow:0 5px 18px #3423430a}
 .feed-window{border-radius:10px}
 .window-titlebar{height:34px;background:#f4eff6;border-bottom-color:var(--station-line);color:#62566d}
 .window-controls i{opacity:.82}
@@ -448,37 +448,7 @@ html[data-station-tone="night"]{--station-accent:#5d4c7b;--station-soft:#f0edf7;
   .portal-footer{right:18px;left:18px;flex-direction:column;gap:5px;letter-spacing:.07em;line-height:1.4}
 }
 
-/* Castonaut’s paid time-pass and time-capsule signature. */
-.pass-gate{position:relative;display:grid;grid-template-columns:190px minmax(0,1fr);gap:20px;padding:24px;margin:14px 0;border:1px solid var(--station-line);border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 13% 25%,color-mix(in srgb,var(--station-accent) 13%,white),transparent 52%),var(--station-card);box-shadow:0 12px 34px #35294312}
-.pass-gate[hidden]{display:none}
-.pass-art{position:relative;display:grid;place-items:center;min-height:220px;overflow:hidden;border:1px solid var(--station-line);border-radius:9px;background:linear-gradient(145deg,var(--station-soft),#fffaf4)}
-.pass-art strong{z-index:1;color:var(--station-accent);font:700 52px var(--display);letter-spacing:-.12em}
-.pass-art small{z-index:1;margin-top:-62px;color:var(--station-copy-muted);font:9px var(--mono);letter-spacing:.16em}
-.pass-orbit{position:absolute;width:150px;height:64px;border:1px solid color-mix(in srgb,var(--station-accent) 38%,transparent);border-radius:50%;transform:rotate(-32deg)}
-.pass-orbit-a{box-shadow:0 0 0 15px color-mix(in srgb,var(--station-accent) 5%,transparent)}
-.pass-orbit-b{width:188px;height:78px;transform:rotate(37deg);opacity:.65}
-.pass-copy{align-self:center;min-width:0}
-.pass-copy>.overline{color:var(--station-accent);font:9px var(--mono);letter-spacing:.12em}
-.pass-copy h2{margin:8px 0;color:var(--station-ink);font:600 clamp(25px,4vw,36px) var(--display);letter-spacing:-.06em}
-.pass-copy>p{max-width:590px;margin:0;color:var(--station-copy-muted);font-size:12px;line-height:1.65}
-.pass-offer{display:flex;align-items:center;gap:12px;margin:14px 0;padding:11px 13px;border:1px solid var(--station-line);border-radius:8px;background:var(--station-soft);width:max-content;max-width:100%}
-.pass-offer strong{color:var(--station-accent);font:700 25px var(--display);letter-spacing:-.06em}
-.pass-offer span{color:var(--station-ink);font-size:10px;line-height:1.45}
-.pass-copy .pass-status{min-height:20px;margin:4px 0 8px;color:var(--station-ink);font-size:11px;font-weight:600}
-.pass-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:9px}
-.pass-note{display:block;max-width:600px;color:var(--station-copy-muted);font-size:9px;line-height:1.6}
-.pass-setup{margin-top:9px;color:var(--station-copy-muted);font-size:10px}
-.pass-setup summary{cursor:pointer;color:var(--station-accent)}
-.pass-setup p{max-width:600px;line-height:1.6}
-.pass-footer{grid-column:1/-1;display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--station-line);color:var(--station-copy-muted);font:8px var(--mono);letter-spacing:.1em}
-.pass-status-strip{display:flex;align-items:center;gap:10px;min-height:48px;margin-bottom:12px;padding:8px 12px;border:1px solid var(--station-line);border-radius:8px;background:var(--station-soft)}
-.pass-status-strip[hidden]{display:none}
-.pass-status-mark{color:var(--station-accent);font-size:19px}
-.pass-status-strip>span:nth-child(2){display:grid;gap:2px}
-.pass-status-strip small{color:var(--station-copy-muted);font:8px var(--mono);letter-spacing:.08em}
-.pass-status-strip strong{color:var(--station-ink);font-size:11px}
-.pass-wallet-label{margin-left:auto;color:var(--station-copy-muted);font:9px var(--mono)}
-.pass-extend{min-height:34px;padding:5px 10px;border:1px solid var(--station-line);border-radius:6px;background:var(--station-card);color:var(--station-accent);font-size:10px;font-weight:650;cursor:pointer}
+/* Castonaut’s time-capsule signature. */
 .desk-strip>.time-capsule{margin-top:16px;padding-top:14px;border-top:1px solid var(--station-line)}
 .capsule-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .capsule-heading .overline{color:var(--station-accent);font:8px var(--mono);letter-spacing:.1em}
@@ -519,7 +489,7 @@ html[data-station-tone="night"]{--station-accent:#5d4c7b;--station-soft:#f0edf7;
 .emoji-picker[open]>.emoji-picker-grid{display:grid}
 .emoji-picker-grid button{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:5px;background:transparent;font-size:19px;cursor:pointer}
 .emoji-picker-grid button:hover{background:var(--station-soft)}
-@media(max-width:620px){.pass-gate{grid-template-columns:1fr;gap:12px;padding:15px}.pass-art{min-height:110px}.pass-art strong{font-size:39px}.pass-art small{margin-top:-48px}.pass-orbit{width:120px;height:50px}.pass-orbit-b{width:160px;height:62px}.pass-copy h2{font-size:27px}.pass-footer{gap:10px;font-size:7px}.pass-status-strip{flex-wrap:wrap}.pass-wallet-label{margin-left:auto}.pass-extend{width:100%}.capsule-heading{align-items:flex-start;flex-direction:column}.capsule-heading .button{width:100%}.capsule-replay-list{grid-template-columns:1fr}.composer-media{grid-template-columns:minmax(0,1fr)}.media-clear{justify-self:start}}
+@media(max-width:620px){.capsule-heading{align-items:flex-start;flex-direction:column}.capsule-heading .button{width:100%}.capsule-replay-list{grid-template-columns:1fr}.composer-media{grid-template-columns:minmax(0,1fr)}.media-clear{justify-self:start}}
 
 @media(max-width:360px){
   main{padding-left:10px;padding-right:10px}
@@ -696,9 +666,9 @@ body{
 .welcome-content h3{color:var(--station-ink)}
 .welcome-content p{color:#665e70}
 .welcome-foot{border-color:var(--station-line);color:#756c7c}
-.desk-strip,.side-card,.profile-summary,.about-local-card,.plus-preview,.guide-banner{border-color:var(--station-line);background:var(--station-card);box-shadow:0 7px 20px #35294309}
-.desk-strip-head h2,.identity-card h3,.about-local-card h2,.plus-preview h2{color:var(--station-ink)}
-.desk-strip-head p,.identity-card p,.about-local-card p,.plus-preview p{color:#665e70}
+.desk-strip,.side-card,.profile-summary,.about-local-card,.guide-banner{border-color:var(--station-line);background:var(--station-card);box-shadow:0 7px 20px #35294309}
+.desk-strip-head h2,.identity-card h3,.about-local-card h2 h2{color:var(--station-ink)}
+.desk-strip-head p,.identity-card p,.about-local-card p p{color:#665e70}
 .desk-person,.desk-empty{border-color:var(--station-line);background:#f8f4fa}
 .desk-person-open strong{color:var(--station-ink)}
 .desk-person-open small{color:#746a7a}
@@ -1286,7 +1256,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .desk-person,.desk-empty,.feed-pulse,.recovery-import,.repeat-cluster-more,.station-voice{
   background-color:var(--station-wash);
 }
-.post-card,.feed-window,.side-card,.desk-strip,.profile-summary,.about-local-card,.plus-preview,
+.post-card,.feed-window,.side-card,.desk-strip,.profile-summary,.about-local-card,
 .guide-banner,.connect-dialog,.profile-edit-dialog,.theme-picker,.source-mode,
 .fid-form input,.composer textarea,.profile-edit-content input,.profile-edit-content textarea{
   border-color:var(--station-line);
@@ -1357,7 +1327,7 @@ html[data-theme="night-radio"] .side-card,html[data-theme="mars-relay"] .side-ca
 html[data-theme="night-radio"] .desk-strip,html[data-theme="mars-relay"] .desk-strip,
 html[data-theme="night-radio"] .profile-summary,html[data-theme="mars-relay"] .profile-summary,
 html[data-theme="night-radio"] .about-local-card,html[data-theme="mars-relay"] .about-local-card,
-html[data-theme="night-radio"] .plus-preview,html[data-theme="mars-relay"] .plus-preview,
+
 html[data-theme="night-radio"] .guide-banner,html[data-theme="mars-relay"] .guide-banner,
 html[data-theme="night-radio"] .diagnostic-panel,html[data-theme="mars-relay"] .diagnostic-panel{
   border-color:var(--station-line);background:var(--station-card);color:var(--station-copy);
@@ -1619,7 +1589,6 @@ body:not([data-account-view="member"]) .nav-item[data-scroll-to="my-desk"]{displ
 #member-workspace .feed-layout{order:1}
 #member-workspace .desk-strip{order:2}
 #member-workspace .local-backup-drawer{order:3}
-#member-workspace .pass-status-strip{order:0}
 .nav-item[data-scroll-to]{color:var(--station-copy-muted,#777)}
 .nav-item[data-scroll-to] .nav-symbol{color:var(--station-accent,#405b89)}
 .local-backup-drawer{margin:18px 0 4px;border-top:1px solid var(--station-line);border-bottom:1px solid var(--station-line)}
@@ -1661,7 +1630,7 @@ body[data-account-view="visitor-profile"] .hero-route,
 body[data-account-view="visitor-profile"] #portal-gate,
 body[data-account-view="visitor-profile"] #my-desk,
 body[data-account-view="visitor-profile"] .local-backup-drawer,
-body[data-account-view="visitor-profile"] .pass-status-strip,
+
 body[data-account-view="visitor-profile"] .identity-card,
 body[data-account-view="visitor-profile"] .feed-pulse,
 body[data-account-view="visitor-profile"] .composer,

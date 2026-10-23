@@ -39,11 +39,10 @@ npm run build
 ## Optional services
 
 - **Contest build:** no third-party AI or media API keys are required. Feed, profile, follow, post, reaction, and direct media-link features use the configured Snapchain service and public chain RPCs where needed.
-- **30-day pass:** the optional paid build uses a one-time **$3.70 USDC on Base** pass with no auto-renewal. Checkout remains disabled until the contract is deployed, reviewed, and configured with `VITE_PASS_CONTRACT_ADDRESS`. Never enable payment before the operator and support details in the legal pages are complete.
 
 ## Deployment notes
 
-Vercel serves the static app and its small server-side Snapchain proxy. Set `SNAPCHAIN_URL` as a server environment variable. For a free contest build, set `VITE_CONTEST_ACCESS=true`; this keeps client access open while the pass contract is unavailable. Verify the node is synced and reachable before inviting people to test. The node is public and can be contacted directly; the proxy’s per-instance rate limits are best-effort, not abuse-proof protection.
+Vercel serves the static app and its small server-side Snapchain proxy. Set `SNAPCHAIN_URL` as a server environment variable. Castonaut is currently free to use; no payment contract or purchase configuration is required. Verify the node is synced and reachable before inviting people to test. The node is public and can be contacted directly; the proxy’s per-instance rate limits are best-effort, not abuse-proof protection.
 
 The [setup guide](https://castonaut.vercel.app/tutorial.html) covers node operation, the message path, account security, source filters, and a repeatable test checklist. The [Privacy Notice](privacy.html) and [Terms of Use](terms.html) describe data handling and service providers. Complete the operator contact and jurisdiction fields before public launch.
 

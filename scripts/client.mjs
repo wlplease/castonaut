@@ -42,7 +42,6 @@ if (parsed.hostname !== 'localhost' && isIP(parsed.hostname) !== 4 && !parsed.ho
 }
 
 process.env.SNAPCHAIN_URL = parsed.origin;
-process.env.VITE_CONTEST_ACCESS = 'true';
 if (!['localhost', '127.0.0.1'].includes(parsed.hostname)) {
   console.warn('Privacy note: local client mode sends node requests from this computer. The node can see this computer’s public egress IP. Use the hosted Vercel client when you want node requests to come from the server host instead.');
 }

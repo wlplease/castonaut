@@ -3,7 +3,6 @@ import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, top
 import { followedFeedSources, paceByAuthor, rankFollowRecommendations } from './feed-ranking.js';
 import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
 import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-capsules.js';
-import { isStationAccessAllowed } from './station-access.js';
 import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
 import { resultOrThrow } from './hub-result.js';
 import { BrowserEd25519Signer } from './browser-signer.js';
@@ -31,6 +30,7 @@ function enableAnalytics() {
 try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) === 'yes') enableAnalytics(); } catch { /* Analytics stays off when consent cannot be read. */ }
 
 const $ = (selector) => document.querySelector(selector);
+function isAddress(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value); }
 const FARCASTER_EPOCH_MS = Date.UTC(2021, 0, 1);
 const KEY_TTL_SECONDS = 30 * 24 * 60 * 60;
 const LEGACY_KEY_STORAGE = 'openroom.snapchain.signer.v1';
@@ -58,12 +58,9 @@ const PROFILE_COVERS_STORAGE = 'castonaut.profile-covers.v1';
 const TIME_CAPSULES_STORAGE = 'castonaut.time-capsules.v1';
 const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
-const PASS_WALLET_STORAGE = 'castonaut.pass-wallet.v1';
-const PASS_CONTRACT_ADDRESS = String(import.meta.env.VITE_PASS_CONTRACT_ADDRESS || '').trim();
-const CONTEST_ACCESS = String(import.meta.env.VITE_CONTEST_ACCESS || '').toLowerCase() === 'true';
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, passWallet: '', passWalletConnected: false, passExpiry: 0, passBusy: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -74,7 +71,6 @@ const profileRequests = new Map();
 const signerSourceRequests = new Map();
 const signerSourcesLoaded = new Set();
 let optimismToolkitPromise;
-let timePassModulePromise;
 
 function optimismToolkit() {
   if (!optimismToolkitPromise) optimismToolkitPromise = import('./optimism-toolkit.js');
@@ -87,37 +83,11 @@ function optimismReadTransport(fallback, http) {
     http('https://optimism-rpc.publicnode.com', { retryCount: 1, timeout: 8000 }),
   ]);
 }
-function timePassModule() { if (!timePassModulePromise) timePassModulePromise = import('./time-pass.js'); return timePassModulePromise; }
-function isAddress(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value); }
-function isConfiguredPassAddress(value) { return isAddress(value); }
-function findConnectedPassWallet(savedWallet, accounts) { return isAddress(savedWallet) && Array.isArray(accounts) ? accounts.find((account) => isAddress(account) && account.toLowerCase() === savedWallet.toLowerCase()) || '' : ''; }
-function formatPassCountdown(expiresAt, now = Date.now()) {
-  const remaining = Math.max(0, Math.floor(Number(expiresAt) - now / 1000));
-  if (!remaining) return 'Pass expired';
-  const days = Math.floor(remaining / 86_400), hours = Math.floor((remaining % 86_400) / 3_600), minutes = Math.floor((remaining % 3_600) / 60);
-  return days ? `${days}d ${String(hours).padStart(2, '0')}h left` : `${hours}h ${String(minutes).padStart(2, '0')}m left`;
-}
-
-try { state.passWallet = localStorage.getItem(PASS_WALLET_STORAGE) || ''; } catch { /* A pass can still be connected for this visit. */ }
 
 function setStationTone() {
   const hour = new Date().getHours();
   document.documentElement.dataset.stationTone = hour < 10 ? 'morning' : hour < 16 ? 'day' : hour < 20 ? 'evening' : 'night';
 }
-function hasStationAccess() {
-  return isStationAccessAllowed({
-    contestAccess: CONTEST_ACCESS,
-    passContractConfigured: isConfiguredPassAddress(PASS_CONTRACT_ADDRESS),
-    passExpiry: state.passExpiry,
-  });
-}
-function openAccessMode() {
-  return CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
-}
-function accessReadyMessage() {
-  return openAccessMode() ? 'Account verified. Castonaut is ready.' : 'Account verified. Your Time Pass is active.';
-}
-if (CONTEST_ACCESS) document.documentElement.dataset.contestAccess = 'true';
 function setTheme(theme) {
   const validThemes = ['atlas', 'night-radio'];
   const selected = validThemes.includes(theme) ? theme : 'atlas';
@@ -1028,7 +998,6 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     renderEmpty('Connect an account for your personal feed.', 'You can explore public profiles without signing in.');
     return;
   }
-  if (!hasStationAccess() && !publicProfileRequest) { renderIdentity(); return; }
   if (state.feedBusy) { state.feedPending = [fidValue, mode]; feedScrollSaved = false; return; }
   if (!feedScrollSaved) saveFeedScroll();
   feedScrollSaved = false;
@@ -2154,18 +2123,12 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     if (confirmed) loadFlightLog(state.fid);
     if (confirmed) await clearPendingRegistration();
     if (confirmed) await fetchProfile(fid).catch(() => null);
-    if (confirmed) await refreshSavedPass();
     renderIdentity();
     if (confirmed) {
       refreshSignerFlow = false;
-      if (hasStationAccess()) {
-        setConnectionStatus(accessReadyMessage(), { active: 'done', completed: ['sign', 'approve', 'done'] });
-        setNotice(openAccessMode() ? 'Your account is ready. Loading your feed…' : 'Farcaster account and Time Pass verified.', 'success');
-        await loadFeed(fid);
-      } else {
-        setConnectionStatus('Account verified. Connect the wallet holding your Time Pass to enter.', { active: 'done', completed: ['sign', 'approve', 'done'] });
-        setNotice('Your Farcaster account is ready. Connect the wallet holding your Time Pass to enter.', 'pending');
-      }
+      setConnectionStatus('Account verified. Castonaut is ready.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+      setNotice('Your account is ready. Loading your feed…', 'success');
+      await loadFeed(fid);
       setTimeout(() => { if ($('#connect-dialog').open) $('#connect-dialog').close(); }, 2200);
     } else {
       setConnectionStatus('The request reached Snapchain, but confirmation is taking longer. Your key is saved here. Check again in a moment; posting stays paused until confirmed.', { active: 'approve', completed: ['sign'], canRetry: true });
@@ -2212,17 +2175,11 @@ async function checkSavedSigner() {
     state.signerReady = confirmed;
     if (confirmed) await clearPendingRegistration();
     if (confirmed) await fetchProfile(state.fid).catch(() => null);
-    if (confirmed) await refreshSavedPass();
     renderIdentity();
     if (confirmed) {
-      if (hasStationAccess()) {
-        setConnectionStatus(accessReadyMessage(), { active: 'done', completed: ['sign', 'approve', 'done'] });
-        setNotice(openAccessMode() ? 'Your account is ready. Loading your feed…' : 'Farcaster account and Time Pass verified.', 'success');
-        await loadFeed(state.fid);
-      } else {
-        setConnectionStatus('Account verified. Connect the wallet holding your Time Pass to enter.', { active: 'done', completed: ['sign', 'approve', 'done'] });
-        setNotice('Your Farcaster account is ready. Connect the wallet holding your Time Pass to enter.', 'pending');
-      }
+      setConnectionStatus('Account verified. Castonaut is ready.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+      setNotice('Your account is ready. Loading your feed…', 'success');
+      await loadFeed(state.fid);
     } else {
       if (replayError?.status >= 400 && replayError.status < 500) {
         setConnectionStatus(`Snapchain rejected the saved authorization (HTTP ${replayError.status}). Your app key is still saved here. You can approve a fresh registration using the same key.`, { active: 'approve', completed: ['sign'], canRetry: true, canRefresh: true });
@@ -2270,7 +2227,6 @@ async function waitForRemoval(route, params, tries = 8) {
 
 async function getActiveSigner() {
   if (!state.fid || !state.signer) throw new Error('Connect a Farcaster signer before writing.');
-  if (!hasStationAccess()) throw new Error('Your Time Pass has expired. Connect its wallet and add 30 days to continue.');
   return state.signer;
 }
 
@@ -2331,24 +2287,14 @@ async function signAndRelayRemoval(messageResult, route, params, successText) {
 function renderIdentity() {
   const empty = $('#identity-empty'); const connected = $('#identity-connected');
   const accountReady = !!state.fid && !!state.signerReady;
-  const ready = accountReady && hasStationAccess();
+  const ready = accountReady;
   const publicProfilePreview = !state.fid && state.feedMode === 'profile' && !!state.feedTargetFid;
   document.body.dataset.accountView = ready ? 'member' : publicProfilePreview ? 'visitor-profile' : accountReady ? 'pending' : 'visitor';
   $('#portal-gate').hidden = accountReady;
-  $('#pass-gate').hidden = !accountReady || ready;
   $('#member-workspace').hidden = !ready && !publicProfilePreview;
   const deskGate = $('#desk-guest-gate');
   if (deskGate) deskGate.hidden = currentArea !== 'desk' || ready;
   $('#public-browse-note').hidden = ready || accountReady;
-  $('#pass-status-strip').hidden = !ready || CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
-  const passPreview = $('.portal-pass-preview');
-  if (passPreview) {
-    passPreview.hidden = CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
-    const offerNote = passPreview.querySelector('small');
-    if (offerNote) offerNote.textContent = 'One-time on Base · no auto-renewal';
-  }
-  const paidPreview = $('.plus-preview');
-  if (paidPreview) paidPreview.hidden = CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
   empty.hidden = !!state.fid; connected.hidden = !state.fid;
   $('#portal-enter').textContent = state.fid && !ready ? 'Check key status ↻' : 'Sign in ↗';
   const portalStatus = $('#portal-status');
@@ -2369,96 +2315,6 @@ function renderIdentity() {
   $('#composer-text').disabled = !ready;
   $('#composer button[type="submit"]').disabled = !ready;
   document.querySelectorAll('.post-action:not(.pin-action)').forEach((button) => { button.disabled = !state.signerReady; });
-  renderPassStatus();
-}
-
-function renderPassStatus() {
-  const configured = isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
-  const active = state.passExpiry > Date.now() / 1000;
-  const status = $('#pass-status');
-  if (status) {
-    if (!configured) status.textContent = 'Pass checkout is being prepared. It will open after the Base contract is deployed and verified.';
-    else if (state.passBusy) status.textContent = 'Checking the Base wallet…';
-    else if (!state.passWallet) status.textContent = 'Connect a wallet to check your pass or get started.';
-    else if (!state.passWalletConnected) status.textContent = 'Reconnect the wallet holding your pass to check access on Base.';
-    else if (active) status.textContent = `Your pass is active through ${new Date(state.passExpiry * 1000).toLocaleDateString()}.`;
-    else status.textContent = 'No active pass on this wallet. A single purchase opens the station for 30 days.';
-  }
-  const setup = $('#pass-setup');
-  if (setup) setup.hidden = configured;
-  const buy = $('#pass-buy');
-  if (buy) { buy.disabled = !configured || state.passBusy; buy.textContent = state.passBusy ? 'Working with wallet…' : active ? 'Add 30 days · $3.70' : 'Get a 30-day pass'; }
-  const check = $('#pass-check');
-  if (check) { check.disabled = state.passBusy; check.textContent = state.passBusy ? 'Checking…' : state.passWallet && state.passWalletConnected ? 'Check this wallet' : 'Connect wallet / check pass'; }
-  const countdown = $('#pass-countdown');
-  if (countdown) countdown.textContent = active ? formatPassCountdown(state.passExpiry) : 'Pass needed';
-  const walletLabel = $('#pass-wallet-label');
-  if (walletLabel) walletLabel.textContent = state.passWallet ? `${state.passWallet.slice(0, 6)}…${state.passWallet.slice(-4)}` : '';
-}
-
-async function refreshPass(wallet = state.passWallet) {
-  if (!isConfiguredPassAddress(PASS_CONTRACT_ADDRESS) || !wallet) { state.passExpiry = 0; renderIdentity(); return false; }
-  state.passBusy = true; renderPassStatus();
-  try {
-    const { readPassExpiry } = await timePassModule();
-    state.passExpiry = await readPassExpiry(wallet, PASS_CONTRACT_ADDRESS);
-    return state.passExpiry > Date.now() / 1000;
-  } catch (error) {
-    state.passExpiry = 0;
-    setNotice(`Could not check the pass on Base. ${error.message}`, 'error');
-    return false;
-  } finally { state.passBusy = false; renderIdentity(); }
-}
-
-async function refreshSavedPass() {
-  const wallet = state.passWallet;
-  if (!wallet || !window.ethereum?.request) { state.passWalletConnected = false; state.passExpiry = 0; renderIdentity(); return false; }
-  try {
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-    const connected = findConnectedPassWallet(wallet, accounts);
-    state.passWalletConnected = !!connected;
-    if (!connected) { state.passExpiry = 0; renderIdentity(); return false; }
-    return await refreshPass(connected);
-  } catch {
-    state.passWalletConnected = false;
-    state.passExpiry = 0;
-    renderIdentity();
-    return false;
-  }
-}
-
-async function connectAndCheckPass() {
-  if (!isConfiguredPassAddress(PASS_CONTRACT_ADDRESS)) { renderPassStatus(); return; }
-  try {
-    state.passBusy = true; renderPassStatus();
-    const { connectPassWallet } = await timePassModule();
-    const wallet = await connectPassWallet(window.ethereum);
-    state.passWallet = wallet;
-    state.passWalletConnected = true;
-    try { localStorage.setItem(PASS_WALLET_STORAGE, wallet); } catch { /* Wallet address is remembered only when storage allows. */ }
-    const active = await refreshPass(wallet);
-    if (active && state.signerReady) { await loadFeed(state.fid); setNotice('Your Time Pass is active. Welcome back to the station.', 'success'); }
-    else if (!active) setNotice('No active pass was found for this wallet. Get a 30-day pass to enter.', 'pending');
-  } catch (error) { state.passBusy = false; renderPassStatus(); $('#pass-status').textContent = error.message; setNotice(error.message, 'error'); }
-}
-
-async function buyTimePass() {
-  if (!isConfiguredPassAddress(PASS_CONTRACT_ADDRESS)) { renderPassStatus(); return; }
-  try {
-    state.passBusy = true; renderPassStatus();
-    const { purchasePass } = await timePassModule();
-    const purchased = await purchasePass(window.ethereum, PASS_CONTRACT_ADDRESS, (stage) => {
-      const status = $('#pass-status');
-      if (status) status.textContent = stage === 'approve' ? 'Review the exact 3.70 USDC allowance in your wallet.' : 'Review the 30-day pass purchase in your wallet.';
-    });
-    state.passWallet = purchased.wallet;
-    state.passWalletConnected = true;
-    state.passExpiry = purchased.expiresAt;
-    try { localStorage.setItem(PASS_WALLET_STORAGE, purchased.wallet); } catch { /* The contract remains the source of membership status. */ }
-    setNotice(`Time Pass active until ${new Date(state.passExpiry * 1000).toLocaleDateString()}.`, 'success');
-    if (state.signerReady) await loadFeed(state.fid);
-  } catch (error) { $('#pass-status').textContent = error.message; setNotice(error.message, 'error'); }
-  finally { state.passBusy = false; renderIdentity(); }
 }
 
 async function restoreSession() {
@@ -2500,13 +2356,12 @@ async function restoreSession() {
     state.signerReady = await findSigner(state.fid, saved.publicKey);
     if (state.signerReady) await clearPendingRegistration();
     if (state.signerReady) await fetchProfile(state.fid);
-    if (state.signerReady) await refreshSavedPass();
     renderIdentity();
     if (!state.signerReady) setNotice('This app key is not confirmed on the current node. Your station stays locked.');
-    else if (hasStationAccess()) {
-      if (openAccessMode()) setNotice('Your account is ready. Loading your feed…', 'success');
+    else {
+      setNotice('Your account is ready. Loading your feed…', 'success');
       await loadFeed(state.fid);
-    } else setNotice('Your Farcaster account is ready. Connect the wallet holding your Time Pass to enter.', 'pending');
+    }
   } catch (error) {
     state.signerReady = false;
     renderIdentity();
@@ -2538,7 +2393,7 @@ function navigate(view, { preserveHash = false } = {}) {
   document.querySelectorAll('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== target; });
   document.querySelectorAll('[data-area]').forEach((panel) => { panel.hidden = panel.dataset.area !== area; });
   const deskGate = $('#desk-guest-gate');
-  if (deskGate) deskGate.hidden = area !== 'desk' || (!!state.fid && !!state.signerReady && hasStationAccess());
+  if (deskGate) deskGate.hidden = area !== 'desk' || (!!state.fid && !!state.signerReady);
   document.querySelectorAll('[data-view]').forEach((link) => {
     const active = link.dataset.view === area;
     link.classList.toggle('active', active);
@@ -2889,15 +2744,6 @@ document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventLis
 }));
 window.addEventListener('hashchange', applyLocationRoute);
 window.addEventListener('popstate', applyLocationRoute);
-if (window.ethereum?.on) window.ethereum.on('accountsChanged', (accounts) => {
-  const next = Array.isArray(accounts) && isAddress(accounts[0]) ? accounts[0] : '';
-  state.passWallet = next;
-  state.passWalletConnected = !!next;
-  state.passExpiry = 0;
-  try { next ? localStorage.setItem(PASS_WALLET_STORAGE, next) : localStorage.removeItem(PASS_WALLET_STORAGE); } catch { /* This browser can still check a connected wallet in memory. */ }
-  renderIdentity();
-  if (next && state.signerReady) refreshPass(next).then((active) => active && loadFeed(state.fid));
-});
 document.addEventListener('click', async (event) => {
   const deskButton = event.target.closest('[data-desk-fid]');
   if (!deskButton) return;
@@ -3017,9 +2863,6 @@ $('#portal-enter').addEventListener('click', () => {
   openConnectDialog();
   if (state.signer && !state.signerReady) $('#check-signer').hidden = false;
 });
-$('#pass-check').addEventListener('click', connectAndCheckPass);
-$('#pass-buy').addEventListener('click', buyTimePass);
-$('#pass-extend').addEventListener('click', buyTimePass);
 $('#capsule-seal').addEventListener('click', sealTimeCapsule);
 $('#first-orbit')?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-flight-step]');
@@ -3364,11 +3207,5 @@ restoreSession().then(applyLocationRoute);
 setInterval(() => { if (!document.hidden) { setStationTone(); checkNode(); } }, 60_000);
 setInterval(() => {
   if (document.hidden) return;
-  const active = state.passExpiry > Date.now() / 1000;
-  renderPassStatus();
-  if (state.passClockActive !== active) {
-    state.passClockActive = active;
-    renderIdentity();
-    if (!active && state.fid && state.signerReady) setNotice('Your Time Pass expired. Add 30 days to return to the station.', 'pending');
-  }
+  setStationTone();
 }, 60_000);

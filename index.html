@@ -125,7 +125,6 @@
                   <summary>Account &amp; safety</summary>
                   <div class="portal-extras-content">
                     <small>Phrase sign-in is optional. Page code can read a phrase while you enter it, so use only a deployment and device you trust.</small>
-                    <small>The optional pass uses a separate Base wallet.</small>
                     <div class="station-voice"><label for="voice-profile">Listen <span>·</span></label><select id="voice-profile" aria-label="Choose a station voice"><option value="navigator">Mae · Navigator</option><option value="radio">Quinn · Radio host</option><option value="archivist">Jules · Archivist</option></select><button type="button" id="voice-play" aria-label="Listen to the station introduction">▶</button><audio id="station-audio" preload="none"></audio></div>
                   </div>
                 </details>
@@ -133,14 +132,7 @@
               <div class="portal-footer"><span>YOUR SIGNER STAYS ON THIS DEVICE</span></div>
             </section>
 
-            <section class="pass-gate" id="pass-gate" aria-labelledby="pass-title" data-area="feed" hidden>
-              <div class="pass-art" aria-hidden="true"><span class="pass-orbit pass-orbit-a"></span><span class="pass-orbit pass-orbit-b"></span><strong>37</strong><small>TIME / PASS</small></div>
-              <div class="pass-copy"><span class="overline">CASTONAUT · OPTIONAL PASS</span><h2 id="pass-title">Your time here is yours.</h2><p>One prepaid pass opens the client for 30 days. No auto-renewal. The pass follows your payment wallet, so bring that same wallet when you return.</p><div class="pass-offer"><strong>$3.70</strong><span>USDC on Base<br />30 days · one-time</span></div><p class="pass-status" id="pass-status" role="status" aria-live="polite">Connect a wallet to check your pass or get started.</p><div class="pass-actions"><button type="button" class="button button-outline" id="pass-check">Connect wallet / check pass</button><button type="button" class="button button-orange" id="pass-buy">Get a 30-day pass</button></div><small class="pass-note">Two wallet confirmations: exact USDC approval, then purchase. You also need a little Base ETH for network fees. Payments go directly to the published contract’s treasury.</small><details class="pass-setup" id="pass-setup"><summary>Pass checkout details</summary><p>Checkout is locked until a CastonautTimePass contract is deployed and its public address is set as <code>VITE_PASS_CONTRACT_ADDRESS</code> in the site build.</p></details></div>
-              <div class="pass-footer"><span>NO RECURRING CHARGE</span><span>VERIFIABLE ON BASE</span></div>
-            </section>
-
             <div id="member-workspace" hidden>
-            <div class="pass-status-strip" id="pass-status-strip" data-area="feed"><span class="pass-status-mark" aria-hidden="true">◷</span><span><small>YOUR TIME PASS</small><strong id="pass-countdown">Checking…</strong></span><span class="pass-wallet-label" id="pass-wallet-label"></span><button type="button" id="pass-extend" class="pass-extend">Add 30 days · $3.70</button></div>
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title" data-area="desk">
               <div class="desk-strip-head"><div><span class="overline">YOUR DESK</span><h2 id="desk-title">Keep what matters close.</h2></div><p>Pin a person, post, or topic from its menu. <button type="button" class="desk-backup-link" id="desk-backup-open">Move your Desk ↗</button></p></div>
               <section class="first-orbit" id="first-orbit" aria-labelledby="first-orbit-title">
@@ -266,7 +258,6 @@
             </section>
             <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, Friends, and Crew in time order.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
             <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Personal space, kept personal.</h2><p>Your Desk, notes, and saves stay in this browser. Pulse counts loaded posts; Lens filters to pinned people. Remote images are off by default. Image hosts can see your IP when enabled. Analytics are opt-in.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share basic visit statistics</strong><small>Optional Vercel page analytics. Your choice is saved in this browser; page paths are sent without query strings or fragments.</small></span></label><a class="legal-inline-link" href="/privacy.html">Read the Privacy Notice</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
-            <section class="plus-preview"><div><span class="overline">OPTIONAL 30-DAY PASS</span><h2>Support Castonaut.</h2><p>One pass unlocks the full client: your Desk, saved posts, GIFs, and daily pages.</p></div><div class="plus-price"><strong>$3.70</strong><span>30 days</span><small>One-time · no auto-renew</small></div><p class="plus-footnote">Paid once in native USDC on Base. The pass follows its payment wallet and counts down on-chain. You need a little Base ETH for network fees. Checkout remains locked until the contract is deployed and configured.</p></section>
             <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>How Castonaut works</strong><small>Feeds, sign-in, and running a node.</small></span><span class="guide-arrow">↗</span></a>
             <footer class="page-footer"><span>CASTONAUT · ABOUT</span><span class="legal-links"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security guide</a></span></footer>
           </section>
