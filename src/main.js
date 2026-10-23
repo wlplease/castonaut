@@ -1,6 +1,6 @@
 import './runtime-polyfills.js';
 import { groupRepeatedCasts } from './feed-groups.js';
-import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions } from './feed-curation.js';
+import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions, visibleInProfileView } from './feed-curation.js';
 import { paceByAuthor, rankFollowRecommendations } from './feed-ranking.js';
 import { loadFollowGraph } from './follow-graph.js';
 import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
@@ -12,6 +12,7 @@ import { CAST_EMBED_LIMIT, CAST_EMBED_URL_LIMIT, CAST_LIMIT, CAST_USER_LIMIT, ca
 import { searchEmojis } from './emoji-catalog.js';
 import { isNotFound } from './snapchain-errors.js';
 import { normalizeProfileSearch } from './profile-search.js';
+import { isVideoAvatarUrl } from './avatar-media.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -371,6 +372,32 @@ function makeRemoteImage(url, className = '') {
   image.decoding = 'async';
   image.referrerPolicy = 'no-referrer';
   return image;
+}
+
+function makeRemoteAvatar(url, className = '') {
+  if (!isVideoAvatarUrl(url)) return makeRemoteImage(url, className);
+  const video = document.createElement('video');
+  video.className = ['remote-image', 'remote-avatar-motion', className].filter(Boolean).join(' ');
+  video.src = url;
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.preload = 'metadata';
+  video.setAttribute('aria-hidden', 'true');
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) video.autoplay = false;
+  else video.autoplay = true;
+  video.referrerPolicy = 'no-referrer';
+  return video;
+}
+
+function setRemoteAvatar(container, url) {
+  const fallback = container.textContent;
+  const media = makeRemoteAvatar(url);
+  media.addEventListener('error', () => {
+    media.remove();
+    if (!container.querySelector('img, video')) container.textContent = fallback;
+  }, { once: true });
+  container.replaceChildren(media);
 }
 
 function unwrapMessages(response) {
@@ -820,7 +847,7 @@ function renderCast(message) {
   const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'post-avatar'; avatar.dataset.openProfile = String(fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s recent posts`);
   avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
   const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
-  if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl));
+  if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
   const content = document.createElement('div');
   const head = document.createElement('div'); head.className = 'post-head';
   const shownName = localProfileName(profile);
@@ -984,8 +1011,8 @@ function renderSuggestedPeople() {
     const profile = state.people.get(suggestion.fid) || { fid: suggestion.fid, name: `Farcaster ${suggestion.fid}`, username: `fid-${suggestion.fid}` };
     const row = document.createElement('article'); row.className = 'suggested-person';
     const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'suggested-avatar profile-open-button'; avatar.dataset.openProfile = String(suggestion.fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
-    const avatarUrl = safeImageUrl(profile.avatar);
-    if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl)); else avatar.textContent = String(profile.name || profile.username || '?').slice(0, 1).toUpperCase();
+    const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+    if (avatarUrl) setRemoteAvatar(avatar, avatarUrl); else avatar.textContent = String(profile.name || profile.username || '?').slice(0, 1).toUpperCase();
     const identity = document.createElement('button'); identity.type = 'button'; identity.className = 'suggested-identity profile-open-button'; identity.dataset.openProfile = String(suggestion.fid); identity.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
     const name = document.createElement('strong'); name.textContent = localProfileName(profile);
     const handle = document.createElement('span'); handle.textContent = `@${profile.username || `fid-${suggestion.fid}`}`;
@@ -1065,6 +1092,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     return;
   }
   state.feedMode = ['profile', 'friends', 'crew'].includes(mode) ? mode : 'following';
+  if (state.feedMode === 'profile' && (previousFeed.mode !== 'profile' || Number(previousFeed.targetFid) !== Number(fid))) state.profileTab = 'posts';
   state.feedTargetFid = state.feedMode === 'profile' ? fid : Number(state.fid);
   if (state.feedMode === 'following') { state.suggestedPeople = []; state.suggestionsLoadedFor = 0; $('#suggested-panel').hidden = true; $('#show-suggested')?.setAttribute('aria-expanded', 'false'); }
   state.feedSources = [];
@@ -1261,13 +1289,15 @@ function renderFeed() {
   const messages = sourceMessages.filter((message) => {
     if (state.boardMode === 'signals' && state.mutedAuthors.includes(Number(message?.data?.fid))) return false;
     if (state.boardMode === 'signals' && state.feedMode !== 'profile' && state.orbitOnly && !state.deskPins.includes(Number(message?.data?.fid))) return false;
-    if (state.boardMode === 'signals' && state.feedMode === 'profile' && state.profileTab === 'media' && !hasMedia(message)) return false;
+    if (state.boardMode === 'signals' && state.feedMode === 'profile') {
+      if (!visibleInProfileView(message, state.profileTab)) return false;
+    }
     if (state.boardMode === 'signals' && state.activeDeskTopic && !topicsForCast(message).includes(state.activeDeskTopic)) return false;
     const isProfilePin = state.feedMode === 'profile' && state.profilePins[state.feedTargetFid] === postHash(message);
     if (isProfilePin) return false;
     if (state.boardMode === 'signals' && !visibleByFeedOptions(message, {
-      repliesOnly: state.repliesOnly,
-      mediaOnly: state.mediaOnly || (state.feedMode === 'profile' && state.profileTab === 'media'),
+      repliesOnly: state.feedMode === 'profile' ? false : state.repliesOnly,
+      mediaOnly: state.feedMode === 'profile' ? false : state.mediaOnly,
       appsOnly: state.appsOnly,
       mutedTopics,
     })) return false;
@@ -1307,8 +1337,9 @@ function renderFeed() {
     } else if (state.feedMode === 'profile') {
       const profile = state.people.get(state.feedTargetFid);
       const isMediaTab = state.profileTab === 'media';
+      const isRepliesTab = state.profileTab === 'replies';
       const handle = profile?.username ? `@${profile.username}` : 'this profile';
-      renderEmpty(isMediaTab ? 'No media here yet.' : 'No posts found.', isMediaTab ? `No media was returned for ${handle}.` : `Your node returned no posts for ${handle}. If you meant another account, search its full username.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
+      renderEmpty(isMediaTab ? 'No media here yet.' : isRepliesTab ? 'No replies here.' : 'No original posts yet.', isMediaTab ? `No media was returned for ${handle}.` : isRepliesTab ? `No replies were returned for ${handle}.` : `No original posts were returned for ${handle}. Replies have their own view.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
     } else if (state.feedMode === 'friends' && !state.friendFids.length) {
       renderEmpty('Your Friends list is empty.', 'Search for someone and choose “Add to Friends” on their profile. This circle stays on this device.');
     } else if (state.feedMode === 'crew' && !state.crewFids.length) {
@@ -1416,7 +1447,7 @@ function renderProfileSummary() {
   if (bannerUrl) { const banner = makeRemoteImage(bannerUrl, 'profile-cover-image'); banner.alt = `${localProfileName(profile)}’s profile cover`; cover.append(banner); }
   const avatar = document.createElement('span'); avatar.className = 'profile-summary-avatar'; avatar.textContent = localProfileName(profile).slice(0, 1).toUpperCase();
   const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
-  if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl));
+  if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
   const identity = document.createElement('div'); identity.className = 'profile-summary-identity';
   const name = document.createElement('h3'); name.textContent = localProfileName(profile);
   const handle = document.createElement('p'); handle.textContent = `@${profile.username} · FID ${profile.fid}`;
@@ -1450,9 +1481,10 @@ function renderProfileSummary() {
   });
   actions.append(pin, follow, friend, more); shell.append(avatar, identity, actions);
   const tabs = document.createElement('div'); tabs.className = 'profile-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Profile posts');
-  const postCount = state.casts.length;
+  const postCount = state.casts.filter((message) => !isReply(message)).length;
+  const replyCount = state.casts.filter(isReply).length;
   const mediaCount = state.casts.filter(hasMedia).length;
-  for (const [mode, label, count] of [['posts', 'Posts', postCount], ['media', 'Media', mediaCount]]) {
+  for (const [mode, label, count] of [['posts', 'Posts', postCount], ['replies', 'Replies', replyCount], ['media', 'Media', mediaCount]]) {
     const tab = document.createElement('button'); tab.type = 'button'; tab.className = `profile-tab${state.profileTab === mode ? ' is-active' : ''}`;
     tab.dataset.profileTab = mode; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(state.profileTab === mode));
     tab.textContent = `${label} · ${count}`; tabs.append(tab);
@@ -1689,7 +1721,7 @@ function renderDesk() {
       const shownName = localProfileName(profile);
       const avatar = document.createElement('span'); avatar.className = 'desk-avatar'; avatar.textContent = shownName.slice(0, 1).toUpperCase();
       const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
-      if (avatarUrl) avatar.replaceChildren(makeRemoteImage(avatarUrl));
+      if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
       const labels = document.createElement('span'); labels.className = 'desk-person-label';
       const name = document.createElement('strong'); name.textContent = shownName;
       const handle = document.createElement('small'); handle.textContent = `@${profile.username}`;
@@ -2387,7 +2419,7 @@ function renderIdentity() {
   $('#profile-handle').textContent = `@${profile.username} · FID ${state.fid}`;
   $('#profile-avatar').textContent = profile.name.slice(0, 1).toUpperCase();
   const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
-  if (avatarUrl) $('#profile-avatar').replaceChildren(makeRemoteImage(avatarUrl));
+  if (avatarUrl) setRemoteAvatar($('#profile-avatar'), avatarUrl);
   $('#composer').hidden = !ready || state.boardMode === 'flight-log' || state.feedMode === 'profile';
   $('#composer-context').textContent = state.signerReady ? 'Scoped key · stored in this browser' : 'App key is awaiting merge confirmation';
   $('#composer-text').disabled = !ready;
@@ -2925,7 +2957,7 @@ $('#external-images').addEventListener('change', (event) => {
     });
     document.querySelectorAll('img.remote-image').forEach((image) => image.removeAttribute('src'));
   }
-  renderFeed(); renderDesk(); renderProfileSummary(); renderIdentity();
+  renderFeed(); renderDesk(); renderProfileSummary(); renderIdentity(); renderSuggestedPeople();
   setNotice(state.remoteMediaEnabled ? 'Remote media is on. Image and video hosts can see your IP address.' : 'Remote media is off. Active video playback stopped; profile and cast media are hidden.', state.remoteMediaEnabled ? 'pending' : 'success');
 });
 document.addEventListener('keydown', (event) => {
@@ -3356,7 +3388,7 @@ document.addEventListener('click', async (event) => {
     renderFeed(); return;
   }
   const profileTab = event.target.closest('[data-profile-tab]');
-  if (profileTab) { state.profileTab = profileTab.dataset.profileTab === 'media' ? 'media' : 'posts'; renderProfileSummary(); renderFeed(); return; }
+  if (profileTab) { state.profileTab = ['media', 'replies'].includes(profileTab.dataset.profileTab) ? profileTab.dataset.profileTab : 'posts'; renderProfileSummary(); renderFeed(); return; }
   const profilePin = event.target.closest('[data-profile-pin]');
   if (profilePin) {
     await toggleDeskPin(profilePin.dataset.profilePin, null);

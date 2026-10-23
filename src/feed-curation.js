@@ -51,6 +51,11 @@ export function isReply(message) {
   const parent = castBody(message).parentCastId;
   return !!parent && Number(parent.fid) > 0 && !!parent.hash;
 }
+export function visibleInProfileView(message, view = 'posts') {
+  if (view === 'replies') return isReply(message);
+  if (view === 'media') return hasMedia(message);
+  return !isReply(message);
+}
 export function topicsForCast(message) {
   const body = castBody(message);
   const topics = new Set([...String(body.text || '').matchAll(TAG_PATTERN)].map(([tag]) => tag.toLocaleLowerCase()));

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hasLinkEmbed, hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions } from '../src/feed-curation.js';
+import { hasLinkEmbed, hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions, visibleInProfileView } from '../src/feed-curation.js';
 
 const cast = (text, options = {}) => ({ data: { fid: 4, castAddBody: { text, ...options } } });
 
@@ -22,6 +22,18 @@ test('detects reply and media posts from cast data', () => {
   assert.equal(isImageEmbedUrl('https://example.com/article'), false);
   assert.equal(hasLinkEmbed(cast('plain text')), false);
   assert.equal(hasMedia(cast('just text')), false);
+});
+
+test('profile Posts excludes replies and gives replies their own view', () => {
+  const post = cast('original post');
+  const reply = cast('reply', { parentCastId: { fid: 3, hash: '0xabc' } });
+  const mediaReply = cast('reply with image', { parentCastId: { fid: 3, hash: '0xabc' }, embeds: [{ url: 'https://cdn.example/photo.jpg' }] });
+  assert.equal(visibleInProfileView(post, 'posts'), true);
+  assert.equal(visibleInProfileView(reply, 'posts'), false);
+  assert.equal(visibleInProfileView(reply, 'replies'), true);
+  assert.equal(visibleInProfileView(post, 'replies'), false);
+  assert.equal(visibleInProfileView(mediaReply, 'media'), true);
+  assert.equal(visibleInProfileView(reply, 'media'), false);
 });
 
 test('extracts safe local mute topics from hashtags and link domains', () => {
