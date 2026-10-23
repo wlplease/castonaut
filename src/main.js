@@ -108,6 +108,12 @@ function hasStationAccess() {
     passExpiry: state.passExpiry,
   });
 }
+function openAccessMode() {
+  return CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
+}
+function accessReadyMessage() {
+  return openAccessMode() ? 'Account verified. Castonaut is ready.' : 'Account verified. Your Time Pass is active.';
+}
 if (CONTEST_ACCESS) document.documentElement.dataset.contestAccess = 'true';
 function setTheme(theme) {
   const validThemes = ['atlas', 'night-radio'];
@@ -1999,13 +2005,18 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     if (confirmed) loadFlightLog(state.fid);
     if (confirmed) await clearPendingRegistration();
     if (confirmed) await fetchProfile(fid).catch(() => null);
-    const passActive = confirmed && await refreshSavedPass();
+    if (confirmed) await refreshSavedPass();
     renderIdentity();
     if (confirmed) {
       refreshSignerFlow = false;
-      setConnectionStatus('Account verified. Connect a payment wallet to check your pass.', { active: 'done', completed: ['sign', 'approve', 'done'] });
-      if (passActive) { setNotice('Farcaster account and Time Pass verified.', 'success'); await loadFeed(fid); }
-      else setNotice('Farcaster account verified. A pass is needed to open the full client.', 'pending');
+      if (hasStationAccess()) {
+        setConnectionStatus(accessReadyMessage(), { active: 'done', completed: ['sign', 'approve', 'done'] });
+        setNotice(openAccessMode() ? 'Your account is ready. Loading your feed…' : 'Farcaster account and Time Pass verified.', 'success');
+        await loadFeed(fid);
+      } else {
+        setConnectionStatus('Account verified. Connect the wallet holding your Time Pass to enter.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+        setNotice('Your Farcaster account is ready. Connect the wallet holding your Time Pass to enter.', 'pending');
+      }
       setTimeout(() => { if ($('#connect-dialog').open) $('#connect-dialog').close(); }, 2200);
     } else {
       setConnectionStatus('The request reached Snapchain, but confirmation is taking longer. Your key is saved here. Check again in a moment; posting stays paused until confirmed.', { active: 'approve', completed: ['sign'], canRetry: true });
@@ -2052,12 +2063,17 @@ async function checkSavedSigner() {
     state.signerReady = confirmed;
     if (confirmed) await clearPendingRegistration();
     if (confirmed) await fetchProfile(state.fid).catch(() => null);
-    const passActive = confirmed && await refreshSavedPass();
+    if (confirmed) await refreshSavedPass();
     renderIdentity();
     if (confirmed) {
-      setConnectionStatus('Account verified. Connect a payment wallet to check your pass.', { active: 'done', completed: ['sign', 'approve', 'done'] });
-      if (passActive) { setNotice('Farcaster account and Time Pass verified.', 'success'); await loadFeed(state.fid); }
-      else setNotice('Farcaster account verified. A pass is needed to open the full client.', 'pending');
+      if (hasStationAccess()) {
+        setConnectionStatus(accessReadyMessage(), { active: 'done', completed: ['sign', 'approve', 'done'] });
+        setNotice(openAccessMode() ? 'Your account is ready. Loading your feed…' : 'Farcaster account and Time Pass verified.', 'success');
+        await loadFeed(state.fid);
+      } else {
+        setConnectionStatus('Account verified. Connect the wallet holding your Time Pass to enter.', { active: 'done', completed: ['sign', 'approve', 'done'] });
+        setNotice('Your Farcaster account is ready. Connect the wallet holding your Time Pass to enter.', 'pending');
+      }
     } else {
       if (replayError?.status >= 400 && replayError.status < 500) {
         setConnectionStatus(`Snapchain rejected the saved authorization (HTTP ${replayError.status}). Your app key is still saved here. You can approve a fresh registration using the same key.`, { active: 'approve', completed: ['sign'], canRetry: true, canRefresh: true });
@@ -2173,7 +2189,7 @@ function renderIdentity() {
   $('#pass-gate').hidden = !accountReady || ready;
   $('#member-workspace').hidden = !ready && !publicProfilePreview;
   $('#public-browse-note').hidden = ready || accountReady;
-  $('#pass-status-strip').hidden = !ready || CONTEST_ACCESS;
+  $('#pass-status-strip').hidden = !ready || CONTEST_ACCESS || !isConfiguredPassAddress(PASS_CONTRACT_ADDRESS);
   const passPreview = $('.portal-pass-preview');
   if (passPreview) {
     passPreview.hidden = CONTEST_ACCESS;
@@ -2332,11 +2348,13 @@ async function restoreSession() {
     state.signerReady = await findSigner(state.fid, saved.publicKey);
     if (state.signerReady) await clearPendingRegistration();
     if (state.signerReady) await fetchProfile(state.fid);
-    const passActive = state.signerReady && await refreshSavedPass();
+    if (state.signerReady) await refreshSavedPass();
     renderIdentity();
     if (!state.signerReady) setNotice('This app key is not confirmed on the current node. Your station stays locked.');
-    else if (passActive) await loadFeed(state.fid);
-    else setNotice('Your Farcaster account is ready. Connect the wallet holding your Time Pass to enter.', 'pending');
+    else if (hasStationAccess()) {
+      if (openAccessMode()) setNotice('Your account is ready. Loading your feed…', 'success');
+      await loadFeed(state.fid);
+    } else setNotice('Your Farcaster account is ready. Connect the wallet holding your Time Pass to enter.', 'pending');
   } catch (error) {
     state.signerReady = false;
     renderIdentity();
@@ -2478,7 +2496,7 @@ function restoreComposerDraft(fid) {
     }
   } catch { /* An invalid or unavailable local draft never blocks sign-in. */ }
   $('#char-count').textContent = `${[...$('#composer-text').value].length} / 320`;
-  $('#composer-text').placeholder = state.parent ? `Replying to FID ${state.parent.fid}…` : 'Send a signal to the network…';
+  $('#composer-text').placeholder = state.parent ? `Replying to FID ${state.parent.fid}…` : 'What’s on your mind?';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.pendingCast);
   if (state.pendingCast) {
     $('#composer-text').value = state.pendingCast.text;
@@ -2501,7 +2519,7 @@ function clearCurrentDraft() {
   $('#char-count').textContent = '0 / 320';
   state.parent = null;
   state.pendingCast = null;
-  $('#composer-text').placeholder = 'Send a signal to the network…';
+  $('#composer-text').placeholder = 'What’s on your mind?';
   $('#draft-discard').hidden = true;
   saveComposerDraft();
 }
@@ -2997,7 +3015,7 @@ $('.emoji-picker').addEventListener('click', (event) => {
 $('#composer-text').addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && state.parent) {
     state.parent = null;
-    $('#composer-text').placeholder = 'Send a signal to the network…';
+    $('#composer-text').placeholder = 'What’s on your mind?';
     saveComposerDraft();
     setNotice('Reply cancelled.');
   }

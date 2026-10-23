@@ -15,7 +15,7 @@ function link(label, href, attributes = {}) {
 }
 
 const header = document.createElement('header');
-header.className = 'site-header';
+header.className = `site-header${isClient ? ' site-header--client' : ''}`;
 const brand = link('', '/#desk', { class: 'site-brand', 'aria-label': 'Castonaut home' });
 const logo = document.createElement('img');
 logo.src = '/favicon.svg';

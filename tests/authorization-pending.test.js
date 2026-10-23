@@ -43,3 +43,18 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   assert.match(html, /id="refresh-signer"[^>]*>Approve saved key again/);
   assert.match(source, /\$\('#refresh-signer'\)\.addEventListener\('click', beginSignerRefresh\)/);
 });
+
+test('restored accounts load the feed in open-access mode without requiring a pass wallet', async () => {
+  const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const restoreStart = source.indexOf('async function restoreSession()');
+  const restoreEnd = source.indexOf('\nasync function clearLocalSigner()', restoreStart);
+  const restore = source.slice(restoreStart, restoreEnd);
+  assert.match(restore, /if \(state\.signerReady\) await refreshSavedPass\(\)/);
+  assert.match(restore, /else if \(hasStationAccess\(\)\) \{[\s\S]*?await loadFeed\(state\.fid\)/);
+  assert.doesNotMatch(restore, /else if \(passActive\)/);
+
+  const identityStart = source.indexOf('function renderIdentity()');
+  const identityEnd = source.indexOf('\nfunction renderPassStatus()', identityStart);
+  const identity = source.slice(identityStart, identityEnd);
+  assert.match(identity, /!isConfiguredPassAddress\(PASS_CONTRACT_ADDRESS\)/);
+});

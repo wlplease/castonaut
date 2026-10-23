@@ -2084,3 +2084,79 @@ html[data-theme="atlas"] .site-nav a[aria-current="page"] { border-color:#a89cbe
   .post-action{min-height:36px;padding:5px 7px}
 }
 @media(prefers-reduced-motion:reduce){.post-card{transition:none}.post-card:hover{transform:none}}
+
+/* Signed-in people should land in their real client, not the sample preview. */
+body[data-account-view="member"] .client-preview{display:none}
+
+/* A calmer, more deliberate client shell across desktop and touch screens. */
+.site-header--client{min-height:68px}
+.site-header--client .site-brand img{width:36px;height:36px}
+.site-header--client .site-nav a{min-height:36px}
+.app-frame{max-width:1540px}
+.app-frame .sidebar{border-right-color:var(--station-line);background:color-mix(in srgb,var(--station-paper) 94%,white)}
+.main-column main{padding-inline:clamp(16px,3.2vw,48px)}
+.view{max-width:1180px}
+.feed-layout{grid-template-columns:minmax(0,1fr) 250px;gap:24px}
+.feed-window{min-width:0}
+.feed-window{display:flex;flex-direction:column}
+.feed-window>.composer{order:-1}
+.composer-label{display:block;margin:0 0 8px;color:var(--station-ink);font:600 13px/1.2 var(--display);letter-spacing:-.01em}
+.feed-toolbar{gap:12px}
+.feed-toolbar h2{line-height:1.1}
+.post-card{min-width:0;overflow-wrap:anywhere}
+.post-head{min-width:0;flex-wrap:wrap;row-gap:3px}
+.post-copy{overflow-wrap:anywhere}
+.post-media img,.post-media video,.post-embed img{max-width:100%;height:auto}
+
+html[data-theme="atlas"] .app-frame .sidebar{background:#f3f1eb}
+html[data-theme="atlas"] .nav-item{min-height:42px}
+html[data-theme="atlas"] .nav-item.active{border-radius:5px}
+html[data-theme="atlas"] .feed-window{border-top-color:#394f75}
+html[data-theme="atlas"] .post-card{border-radius:7px;box-shadow:0 1px 4px #252a3608}
+html[data-theme="atlas"] .post-card:hover{box-shadow:0 5px 16px #252a3610}
+
+@media(max-width:980px){
+  .main-column main{padding-inline:22px}
+  .feed-layout{grid-template-columns:minmax(0,1fr) 220px;gap:16px}
+}
+@media(max-width:760px){
+  .feed-layout{grid-template-columns:minmax(0,1fr)}
+  .right-column{grid-template-columns:repeat(2,minmax(0,1fr));order:initial}
+  .identity-card{position:static}
+}
+@media(max-width:620px){
+  .site-header--client{min-height:58px;grid-template-columns:minmax(0,1fr) auto auto;padding:7px 13px}
+  .site-header--client .site-nav{display:flex;grid-column:2;grid-row:1;overflow:visible;margin:0}
+  .site-header--client .site-nav a:not([data-site-link="guide"]){display:none}
+  .site-header--client .site-nav a{min-height:34px;padding-inline:8px;font-size:10px}
+  .site-header--client .site-brand img{width:32px;height:32px}
+  .site-header--client .site-tools{grid-column:3;grid-row:1;gap:5px}
+  .app-frame .sidebar{width:100%;border-top:1px solid var(--station-line);border-right:0;background:color-mix(in srgb,var(--station-paper) 93%,white);box-shadow:0 -6px 22px #24233212;backdrop-filter:blur(16px)}
+  .app-frame{padding-bottom:calc(62px + env(safe-area-inset-bottom))}
+  .main-column main{padding-inline:12px}
+  .view{padding-top:10px}
+  .feed-layout{gap:12px}
+  .right-column{grid-template-columns:minmax(0,1fr)}
+  .feed-toolbar{padding:13px 2px 10px}
+  .feed-toolbar h2{font-size:23px}
+  .feed-window>.composer{margin:0 0 12px;padding:12px}
+  .composer-label{margin-bottom:7px;font-size:14px}
+  .composer textarea{min-height:76px;padding:11px;font-size:15px}
+  .composer-bottom{gap:8px}
+  .composer-bottom>span{font-size:9px;line-height:1.4}
+  .composer-bottom>div{gap:6px}
+  .composer-bottom .button{min-height:42px}
+  .feed-list{gap:4px;padding:4px 0 10px}
+  .post-card{grid-template-columns:38px minmax(0,1fr);gap:9px;padding:13px 9px;border-radius:7px}
+  .post-copy{font-size:13px;line-height:1.6}
+  .post-actions{gap:4px;flex-wrap:wrap}
+  .post-action{min-height:40px;padding-inline:8px}
+  .desk-strip{margin-top:8px;padding:12px}
+  .people-search{margin:9px 0}
+  .site-footer{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+}
+@media(max-width:380px){
+  .main-column main{padding-inline:9px}
+  .post-card{grid-template-columns:34px minmax(0,1fr);gap:8px;padding-inline:7px}
+  .post-action{font-size:10px}
+}
