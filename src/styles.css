@@ -2482,6 +2482,17 @@ html[data-theme="night-radio"] .post-card{border-color:color-mix(in srgb,var(--s
 }
 @media(prefers-reduced-motion:reduce){.profile-summary-actions .button:hover,.profile-more-options>summary:hover{transform:none}}
 
+/* Keep profile identity readable when action labels need to wrap. */
+.profile-summary-main{grid-template-columns:54px minmax(0,1fr);align-items:center}
+.profile-summary-identity{min-width:0}
+.profile-summary-identity .profile-summary-bio{overflow-wrap:break-word;word-break:normal}
+.profile-summary-actions{grid-column:2/-1;min-width:0;justify-content:flex-start;padding-left:0}
+.profile-summary-actions>.button{flex:0 1 auto;min-width:0;white-space:normal}
+@media(max-width:760px){
+  .profile-summary-main{grid-template-columns:46px minmax(0,1fr)}
+  .profile-summary-actions{grid-column:1/-1;padding-left:0}
+}
+
 /* Feed, Desk, and Search are destinations, not scroll targets. */
 [data-area][hidden]{display:none!important}
 [hidden]{display:none!important}
