@@ -6,7 +6,8 @@ set -Eeuo pipefail
 
 NODE=/mnt/disks/snapchain-data
 BASE=https://pub-d352dd8819104a778e20d08888c5a661.r2.dev
-STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+# Reuse a verified staging directory with CASTONAUT_REPAIR_STAMP when resuming.
+STAMP=${CASTONAUT_REPAIR_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}
 DL="$NODE/shard0-repair-$STAMP"
 
 if [[ $EUID -ne 0 ]]; then
@@ -46,13 +47,18 @@ fi
 echo "Snapshot: $key ($count chunks); free space: ${free_gib} GiB"
 df -h "$NODE"
 
-if ! xargs -r -P 8 -I '{}' sh -c '
-  if ! gzip -t "$1" 2>/dev/null; then
-    curl -fsS --retry 5 --retry-delay 3 -o "$1" "$2" && gzip -t "$1"
+if [[ -f "$DL/.verified" ]]; then
+  echo "Using previously verified snapshot chunks."
+else
+  if ! xargs -r -P 8 -I '{}' sh -c '
+    if ! gzip -t "$1" 2>/dev/null; then
+      curl -fsS --retry 5 --retry-delay 3 -o "$1" "$2" && gzip -t "$1"
+    fi
+  ' _ "$DL/{}" "$BASE/$key/{}" < "$DL/chunks.txt"; then
+    echo "Download failed. Node data was not changed; download files remain in $DL"
+    exit 1
   fi
-' _ "$DL/{}" "$BASE/$key/{}" < "$DL/chunks.txt"; then
-  echo "Download failed. Node data was not changed; download files remain in $DL"
-  exit 1
+  touch "$DL/.verified"
 fi
 
 echo "All snapshot chunks verified."

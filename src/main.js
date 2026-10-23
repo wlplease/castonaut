@@ -1518,9 +1518,14 @@ function renderProfileSummary() {
   const name = document.createElement('h3'); name.textContent = localProfileName(profile);
   const handle = document.createElement('p'); handle.textContent = `@${profile.username} · FID ${profile.fid}`;
   identity.append(name, handle);
+  if (!state.remoteMediaEnabled && safeImageUrl(profile.avatar)) {
+    const showPhoto = document.createElement('button'); showPhoto.type = 'button'; showPhoto.className = 'profile-media-enable'; showPhoto.dataset.enableRemoteMedia = 'true'; showPhoto.textContent = 'Show profile photo'; showPhoto.title = 'Loads from the profile image host, which can see your IP address.';
+    identity.append(showPhoto);
+  }
   if (profile.bio) { const bio = document.createElement('p'); bio.className = 'profile-summary-bio'; bio.textContent = profile.bio; identity.append(bio); }
   if (local.nickname || local.note) { const note = document.createElement('p'); note.className = 'profile-private-note'; note.textContent = local.note ? `Your note: ${local.note}` : 'Your personal nickname is saved on this device.'; identity.append(note); }
   const actions = document.createElement('div'); actions.className = 'profile-summary-actions';
+  const compose = document.createElement('button'); compose.type = 'button'; compose.className = 'button button-orange'; compose.dataset.composeCast = 'true'; compose.textContent = 'Write a cast'; compose.setAttribute('aria-label', 'Write a cast from your account');
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'button button-outline'; pin.dataset.profilePin = String(profile.fid); pin.textContent = state.deskPins.includes(profile.fid) ? 'On your Desk ✓' : 'Pin to Desk';
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline'; follow.dataset.action = 'follow'; follow.dataset.fid = String(profile.fid); follow.textContent = Number(profile.fid) === Number(state.fid) ? 'This is you' : state.following.get(Number(profile.fid)) ? '✓ Following' : '＋ Follow'; follow.disabled = Number(profile.fid) === Number(state.fid) || !state.signerReady; follow.setAttribute('aria-pressed', String(!!state.following.get(Number(profile.fid))));
   const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Circle' : '＋ Add to Circle'; friend.disabled = Number(profile.fid) === Number(state.fid);
@@ -1545,7 +1550,7 @@ function renderProfileSummary() {
   morePanel.addEventListener('click', (event) => {
     if (event.target.closest('button, a')) queueMicrotask(() => { more.open = false; });
   });
-  actions.append(pin, follow, friend, more); shell.append(avatar, identity, actions);
+  actions.append(compose, pin, follow, friend, more); shell.append(avatar, identity, actions);
   const tabs = document.createElement('div'); tabs.className = 'profile-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Profile posts');
   const postCount = state.casts.filter((message) => !isReply(message)).length;
   const replyCount = state.casts.filter(isReply).length;
@@ -3012,6 +3017,23 @@ document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventLis
 window.addEventListener('hashchange', applyLocationRoute);
 window.addEventListener('popstate', applyLocationRoute);
 document.addEventListener('click', async (event) => {
+  if (event.target.closest('[data-enable-remote-media]')) {
+    const control = $('#external-images');
+    control.checked = true;
+    control.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
+  const composeButton = event.target.closest('[data-compose-cast]');
+  if (composeButton) {
+    if (!state.signerReady) { openConnectDialog(); return; }
+    navigate('feed');
+    if (state.boardMode !== 'signals') setBoardMode('signals');
+    await loadFeed(state.fid, 'following');
+    const composer = $('#composer-text');
+    composer?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+    composer?.focus({ preventScroll: true });
+    return;
+  }
   const deskButton = event.target.closest('[data-desk-fid]');
   if (!deskButton) return;
   const fid = Number(deskButton.dataset.deskFid);
