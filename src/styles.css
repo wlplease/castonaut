@@ -2160,3 +2160,65 @@ html[data-theme="atlas"] .post-card:hover{box-shadow:0 5px 16px #252a3610}
   .post-card{grid-template-columns:34px minmax(0,1fr);gap:8px;padding-inline:7px}
   .post-action{font-size:10px}
 }
+
+/* Feed actions stay quiet and compact; remote images remain an explicit choice. */
+.post-actions{
+  display:flex;
+  align-items:center;
+  flex-wrap:nowrap;
+  gap:3px;
+  min-width:0;
+  margin-top:8px;
+  padding-top:7px;
+  border-top:1px solid color-mix(in srgb,var(--station-line) 72%,transparent);
+}
+.post-action{
+  display:inline-grid;
+  place-items:center;
+  flex:0 0 31px;
+  width:31px;
+  height:30px;
+  min-height:30px;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:6px;
+  color:var(--station-copy-muted);
+  font-size:16px;
+  line-height:1;
+}
+.post-action.pin-action{flex-basis:31px}
+.post-more{flex:0 0 31px;margin-left:auto}
+.post-more>summary{width:30px;height:30px;border-radius:6px;font-size:15px}
+.post-media.image-media{margin:9px 0 12px;max-width:min(100%,620px)}
+.post-image-link{display:block;width:fit-content;max-width:100%;border-radius:8px;overflow:hidden;background:var(--station-soft)}
+.post-media .post-image{display:block;width:auto;max-width:100%;max-height:480px;object-fit:contain;margin:0;border-radius:8px;border:1px solid var(--station-line)}
+.media-hidden-note{
+  display:block;
+  width:fit-content;
+  margin:3px 0 8px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--station-copy-muted);
+  font:9px var(--mono);
+}
+.media-toggle{border-color:var(--station-line);color:var(--station-copy-muted)}
+.media-toggle[aria-pressed="true"]{border-color:color-mix(in srgb,var(--station-accent) 45%,var(--station-line));background:var(--station-soft);color:var(--station-accent)}
+@media(max-width:620px){
+  .feed-toolbar-actions{grid-template-columns:minmax(0,1fr) auto auto 40px}
+  .flight-log-tab{grid-column:2;grid-row:2}
+  .media-toggle{grid-column:3;grid-row:2}
+  .feed-count{grid-column:1;grid-row:2;justify-self:start;margin:0;align-self:center}
+  .feed-refresh-button{grid-column:4;grid-row:2;width:40px}
+  .post-card{padding:11px 9px}
+  .post-actions{gap:2px;padding-top:6px;margin-top:6px}
+  .post-action{flex-basis:30px;width:30px;height:30px;min-height:30px}
+  .post-more{flex-basis:30px}
+  .post-more>summary{width:29px;height:30px}
+}
+@media(max-width:350px){
+  .post-actions{gap:0}
+  .post-action,.post-action.pin-action{flex-basis:28px;width:28px}
+  .post-more{flex-basis:28px}
+  .post-more>summary{width:28px}
+}

@@ -855,19 +855,21 @@ function renderCast(message) {
         });
         media.append(summary, video, videoFallback); content.append(media);
       } else if (mediaUrl) {
-        const media = document.createElement('details'); media.className = 'post-media';
+        const media = document.createElement('figure'); media.className = 'post-media image-media';
         const isGif = isGifEmbedUrl(mediaEmbed.url);
-        const summary = document.createElement('summary'); summary.textContent = isGif ? 'Show attached GIF' : 'Show attached image'; summary.setAttribute('aria-label', `Show or hide attached ${isGif ? 'GIF' : 'image'}`);
+        const imageLink = document.createElement('a'); imageLink.className = 'post-image-link'; imageLink.href = mediaUrl.href; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer nofollow'; imageLink.setAttribute('aria-label', `Open ${isGif ? 'GIF' : 'image'} attached by ${shownName} in a new tab`);
         const image = makeRemoteImage(mediaUrl.href, 'post-image'); image.alt = `${isGif ? 'Animated GIF' : 'Image'} attached by ${shownName}`;
         const imageFallback = document.createElement('span'); imageFallback.className = 'media-fallback'; imageFallback.hidden = true;
         imageFallback.append(document.createTextNode(`${isGif ? 'GIF' : 'Image'} unavailable · `));
-        const imageLink = document.createElement('a'); imageLink.href = mediaUrl.href; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer nofollow'; imageLink.textContent = 'open original';
-        imageFallback.append(imageLink);
+        const fallbackLink = document.createElement('a'); fallbackLink.href = mediaUrl.href; fallbackLink.target = '_blank'; fallbackLink.rel = 'noopener noreferrer nofollow'; fallbackLink.textContent = 'open original';
+        imageFallback.append(fallbackLink);
         image.addEventListener('error', () => { image.hidden = true; imageFallback.hidden = false; });
-        media.append(summary, image, imageFallback); content.append(media);
+        imageLink.append(image); media.append(imageLink, imageFallback); content.append(media);
       }
     } else {
-      const mediaNote = document.createElement('span'); mediaNote.className = 'media-hidden-note'; mediaNote.textContent = `${videoEmbed === mediaEmbed ? 'Video' : isGifEmbedUrl(mediaEmbed.url) ? 'GIF' : 'Image'} hidden · enable remote media in View options`; content.append(mediaNote);
+      const mediaNote = document.createElement('span'); mediaNote.className = 'media-hidden-note';
+      const kind = videoEmbed === mediaEmbed ? 'video' : isGifEmbedUrl(mediaEmbed.url) ? 'GIF' : 'image';
+      mediaNote.textContent = `${kind} hidden · Media off`; mediaNote.title = 'Use the Media off control above the feed to load remote media. Hosts can see your IP address.'; content.append(mediaNote);
     }
   }
   const linkEmbed = embeds.find((embed) => embed !== imageEmbed && embed !== videoEmbed);
@@ -879,33 +881,31 @@ function renderCast(message) {
     preview.append(domain, path, document.createTextNode('↗')); content.append(preview);
   }
   const actions = document.createElement('div'); actions.className = 'post-actions';
-  const like = document.createElement('button'); like.type = 'button'; like.className = 'post-action'; like.textContent = '♡ Like'; like.dataset.action = 'like';
+  const like = document.createElement('button'); like.type = 'button'; like.className = 'post-action'; like.textContent = '♡'; like.setAttribute('aria-label', 'Like cast'); like.title = 'Like'; like.dataset.action = 'like';
   like.setAttribute('aria-pressed', 'false');
-  const recast = document.createElement('button'); recast.type = 'button'; recast.className = 'post-action'; recast.textContent = '⟳ Recast'; recast.dataset.action = 'recast';
+  const recast = document.createElement('button'); recast.type = 'button'; recast.className = 'post-action'; recast.textContent = '⟳'; recast.setAttribute('aria-label', 'Recast'); recast.title = 'Recast'; recast.dataset.action = 'recast';
   recast.setAttribute('aria-pressed', 'false');
-  const reply = document.createElement('button'); reply.type = 'button'; reply.className = 'post-action'; reply.textContent = '↩ Reply'; reply.dataset.action = 'reply';
-  const conversation = document.createElement('button'); conversation.type = 'button'; conversation.className = 'post-action conversation-action'; conversation.textContent = '◌ Conversation'; conversation.dataset.openConversation = 'true'; conversation.dataset.fid = String(fid); conversation.dataset.hash = postHash(message);
-  const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'post-action'; follow.textContent = state.following.get(fid) ? '✓ Following' : '＋ Follow'; follow.dataset.action = 'follow'; follow.setAttribute('aria-pressed', String(!!state.following.get(fid)));
-  const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'post-action pin-action'; pin.textContent = state.deskPins.includes(fid) ? '⌖ Pinned' : '⌖ Pin'; pin.dataset.action = 'pin-person';
+  const reply = document.createElement('button'); reply.type = 'button'; reply.className = 'post-action'; reply.textContent = '↩'; reply.setAttribute('aria-label', 'Reply'); reply.title = 'Reply'; reply.dataset.action = 'reply';
+  const conversation = document.createElement('button'); conversation.type = 'button'; conversation.className = 'post-action conversation-action'; conversation.textContent = '◌'; conversation.setAttribute('aria-label', 'Open conversation'); conversation.title = 'Conversation'; conversation.dataset.openConversation = 'true'; conversation.dataset.fid = String(fid); conversation.dataset.hash = postHash(message);
+  const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'post-action'; follow.textContent = state.following.get(fid) ? '✓' : '＋'; follow.setAttribute('aria-label', state.following.get(fid) ? 'Unfollow' : 'Follow'); follow.title = state.following.get(fid) ? 'Unfollow' : 'Follow'; follow.dataset.action = 'follow'; follow.setAttribute('aria-pressed', String(!!state.following.get(fid)));
+  const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'post-action pin-action'; pin.textContent = '⌖'; pin.setAttribute('aria-label', state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk'); pin.title = pin.getAttribute('aria-label'); pin.dataset.action = 'pin-person';
   pin.setAttribute('aria-pressed', String(state.deskPins.includes(fid)));
   const deskSignal = document.createElement('button'); deskSignal.type = 'button'; deskSignal.className = 'post-action pin-action'; deskSignal.dataset.action = 'toggle-desk-cast'; deskSignal.dataset.fid = String(fid); deskSignal.dataset.hash = postHash(message);
   const signalSaved = state.deskCasts.some((cast) => Number(cast.fid) === fid && cast.hash === postHash(message));
-  deskSignal.textContent = signalSaved ? '⌖ On Desk' : '⌖ Save to Desk'; deskSignal.setAttribute('aria-pressed', String(signalSaved));
+  deskSignal.textContent = signalSaved ? '▣' : '⌑'; deskSignal.setAttribute('aria-label', signalSaved ? 'Remove cast from Desk' : 'Save cast to Desk'); deskSignal.title = deskSignal.getAttribute('aria-label'); deskSignal.setAttribute('aria-pressed', String(signalSaved));
   const flightLog = document.createElement('button'); flightLog.type = 'button'; flightLog.className = 'post-more-action flight-log-action';
   flightLog.dataset.flightLog = 'true'; flightLog.dataset.fid = String(fid); flightLog.dataset.hash = postHash(message);
   const saved = state.savedCasts.some((cast) => Number(cast.fid) === fid && cast.hash === postHash(message));
   flightLog.textContent = saved ? '★ Saved' : '☆ Save'; flightLog.setAttribute('aria-pressed', String(saved));
   for (const button of [like, recast, reply, follow, pin]) { button.dataset.fid = String(fid); button.dataset.hash = postHash(message); button.disabled = button !== pin && (!state.signerReady || (button === follow && fid === state.fid)); }
   const originalUrl = originalCastUrl(profile, message);
-  if (originalUrl) {
-    const original = document.createElement('a'); original.className = 'post-action original-cast-link'; original.href = originalUrl; original.target = '_blank'; original.rel = 'noopener noreferrer'; original.textContent = 'Open ↗'; original.setAttribute('aria-label', `Open ${shownName}'s original Farcaster cast in a new tab`); actions.append(original);
-  }
-  actions.append(conversation, like, recast, reply, follow, deskSignal);
+  actions.append(conversation, like, recast, reply, deskSignal);
   const more = document.createElement('details'); more.className = 'post-more';
   const moreSummary = document.createElement('summary'); moreSummary.textContent = '•••'; moreSummary.setAttribute('aria-label', 'More post actions');
   const menu = document.createElement('div'); menu.className = 'post-more-menu';
   const share = document.createElement('button'); share.type = 'button'; share.className = 'post-more-action'; share.dataset.shareCast = 'true'; share.dataset.fid = String(fid); share.dataset.hash = postHash(message); share.textContent = 'Copy conversation link'; menu.append(share);
   menu.append(menuAction(state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk', state.deskPins.includes(fid) ? 'unpin-person' : 'pin-person', fid));
+  menu.append(menuAction(state.following.get(fid) ? 'Unfollow person' : 'Follow person', 'follow', fid, { hash: postHash(message) }));
   menu.append(flightLog);
   menu.append(menuAction(state.friendFids.includes(fid) ? 'Remove friend' : 'Add friend', 'toggle-friend', fid));
   menu.append(menuAction(state.crewFids.includes(fid) ? `Remove from ${state.crewName}` : `Add to ${state.crewName}`, 'toggle-crew', fid));
@@ -1317,7 +1317,7 @@ async function refreshFollowState(fid) {
   }
   if (state.feedMode === 'profile' && Number(state.feedTargetFid) === Number(fid)) renderProfileSummary();
   document.querySelectorAll(`[data-action="follow"][data-fid="${Number(fid)}"]`).forEach((button) => {
-    button.textContent = state.following.get(Number(fid)) ? '✓ Following' : '＋ Follow';
+    button.textContent = state.following.get(Number(fid)) ? 'Unfollow person' : 'Follow person';
     button.setAttribute('aria-pressed', String(!!state.following.get(Number(fid))));
   });
 }
@@ -2791,9 +2791,25 @@ document.addEventListener('change', (event) => {
   setProfileCover(Number(coverSelect.dataset.coverFid), coverSelect.value);
 });
 $('#external-images').checked = state.remoteMediaEnabled;
+function syncRemoteMediaToggle() {
+  const button = $('#media-toggle');
+  if (!button) return;
+  button.setAttribute('aria-pressed', String(state.remoteMediaEnabled));
+  button.setAttribute('aria-label', state.remoteMediaEnabled ? 'Remote media on. Media hosts can see your IP. Click to turn off.' : 'Remote media off. Click to load images and GIFs; media hosts can see your IP.');
+  button.title = state.remoteMediaEnabled ? 'Remote media on · hosts can see your IP' : 'Load images and GIFs · hosts can see your IP';
+  button.querySelector('span').textContent = state.remoteMediaEnabled ? 'Media on' : 'Media off';
+  button.classList.toggle('is-on', state.remoteMediaEnabled);
+}
+syncRemoteMediaToggle();
+$('#media-toggle').addEventListener('click', () => {
+  const control = $('#external-images');
+  control.checked = !control.checked;
+  control.dispatchEvent(new Event('change', { bubbles: true }));
+});
 $('#external-images').addEventListener('change', (event) => {
   state.remoteMediaEnabled = event.currentTarget.checked;
   try { localStorage.setItem(REMOTE_MEDIA_STORAGE, String(state.remoteMediaEnabled)); } catch { /* Apply for this page even if preferences cannot be saved. */ }
+  syncRemoteMediaToggle();
   if (!state.remoteMediaEnabled) {
     document.querySelectorAll('video').forEach((video) => {
       video.pause();
@@ -3218,7 +3234,7 @@ document.addEventListener('click', async (event) => {
       else await signAndRelay(message, 'linkById', params, `Follow of FID ${targetFid} confirmed.`);
       state.following.set(targetFid, !following);
       document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => {
-        item.textContent = following ? '＋ Follow' : '✓ Following';
+        item.textContent = following ? 'Follow person' : 'Unfollow person';
         item.setAttribute('aria-pressed', String(!following));
         item.disabled = false;
       });
@@ -3236,7 +3252,9 @@ document.addEventListener('click', async (event) => {
       const label = routeType === 'Like' ? (active ? 'Like removed from Snapchain.' : 'Like confirmed in Snapchain.') : (active ? 'Recast removed from Snapchain.' : 'Recast confirmed in Snapchain.');
       if (active) await signAndRelayRemoval(message, 'reactionById', params, label);
       else await signAndRelay(message, 'reactionById', params, label);
-      button.textContent = active ? (routeType === 'Like' ? '♡ Like' : '⟳ Recast') : (routeType === 'Like' ? '♥ Liked' : '✓ Recast');
+      button.textContent = routeType === 'Like' ? (active ? '♡' : '♥') : (active ? '⟳' : '✓');
+      button.setAttribute('aria-label', active ? (routeType === 'Like' ? 'Like cast' : 'Recast') : (routeType === 'Like' ? 'Remove like' : 'Remove recast'));
+      button.title = button.getAttribute('aria-label');
       button.setAttribute('aria-pressed', String(!active));
     }
     button.disabled = false;
