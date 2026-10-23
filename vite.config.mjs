@@ -49,6 +49,17 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function safeRejectionReason(result) {
+  const raw = typeof result?.message === 'string'
+    ? result.message
+    : typeof result?.error === 'string'
+      ? result.error
+      : typeof result?.errCode === 'string'
+        ? result.errCode
+        : '';
+  return raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220);
+}
+
 async function readLimitedText(response, maxBytes) {
   const reader = response.body?.getReader();
   if (!reader) return '';
@@ -124,7 +135,8 @@ function localSnapchainAdapter(serverEnv) {
           try { result = raw ? JSON.parse(raw) : {}; } catch { return sendJson(res, 502, { error: 'Snapchain returned an unreadable response' }); }
           if (upstream.status >= 400) {
             const status = upstream.status >= 500 ? 502 : upstream.status;
-            return sendJson(res, status, { error: upstream.status >= 500 ? 'Snapchain is temporarily unavailable.' : `Snapchain rejected the request (${upstream.status}). Check the account or message and try again.` });
+            const reason = safeRejectionReason(result);
+            return sendJson(res, status, { error: upstream.status >= 500 ? 'Snapchain is temporarily unavailable.' : `Snapchain rejected the request (${upstream.status}).${reason ? ` ${reason}` : ' Check the account or message and try again.'}` });
           }
           return sendJson(res, 200, result);
         } catch (error) {

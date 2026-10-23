@@ -5,6 +5,7 @@ import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-c
 import { isStationAccessAllowed } from './station-access.js';
 import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
 import { resultOrThrow } from './hub-result.js';
+import { BrowserEd25519Signer } from './browser-signer.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -161,17 +162,6 @@ try {
   const savedVoice = localStorage.getItem(VOICE_STORAGE);
   if (STATION_VOICES.some((voice) => voice.id === savedVoice)) selectedVoice = savedVoice;
 } catch { /* The first voice remains selected for this visit. */ }
-
-function hubOk(value) { return { value, isErr: () => false }; }
-
-class BrowserEd25519Signer {
-  constructor(privateKey, publicKey) { this.privateKey = privateKey; this.publicKey = new Uint8Array(publicKey); }
-  async getSignerKey() { return hubOk(this.publicKey); }
-  async signMessageHash(hash) {
-    try { return hubOk(new Uint8Array(await crypto.subtle.sign({ name: 'Ed25519' }, this.privateKey, hash))); }
-    catch (error) { return { error, isErr: () => true }; }
-  }
-}
 
 function openSignerDb() {
   return new Promise((resolve, reject) => {
