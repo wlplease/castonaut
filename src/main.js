@@ -6,6 +6,7 @@ import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-c
 import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
 import { resultOrThrow } from './hub-result.js';
 import { BrowserEd25519Signer } from './browser-signer.js';
+import { CAST_USER_LIMIT, withCastonautAttribution } from './cast-attribution.js';
 import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
@@ -2501,7 +2502,8 @@ function restoreComposerDraft(fid) {
       }
     }
   } catch { /* An invalid or unavailable local draft never blocks sign-in. */ }
-  $('#char-count').textContent = `${[...$('#composer-text').value].length} / 320`;
+  $('#composer-text').maxLength = CAST_USER_LIMIT;
+  $('#char-count').textContent = `${[...$('#composer-text').value].length} / ${CAST_USER_LIMIT}`;
   $('#composer-text').placeholder = state.parent ? `Replying to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}…` : 'What’s on your mind?';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.pendingCast);
   if (state.pendingCast) {
@@ -2520,7 +2522,7 @@ function clearCurrentDraft() {
   $('#composer-media-url').value = '';
   $('#composer-media').hidden = true;
   setPendingCastControls(false);
-  $('#char-count').textContent = '0 / 320';
+  $('#char-count').textContent = `0 / ${CAST_USER_LIMIT}`;
   state.parent = null;
   state.pendingCast = null;
   $('#composer-text').placeholder = 'What’s on your mind?';
@@ -2571,7 +2573,8 @@ async function publishThread() {
       if (!pending) {
         const text = state.threadItems[0];
         const parent = state.threadRoot;
-        const result = await protocol.makeCastAdd(castBody(text, parent, protocol), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
+        const attributedText = withCastonautAttribution(text);
+        const result = await protocol.makeCastAdd(castBody(attributedText, parent, protocol), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
         const signed = resultOrThrow(result, 'Could not sign thread post');
         const hash = postHash(signed);
         if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. The draft remains saved.');
@@ -2932,7 +2935,7 @@ window.addEventListener('beforeunload', clearRecoveryImport);
 $('#connect-dialog').addEventListener('close', () => { clearRecoveryImport(); clearWalletReview(); });
 $('#connect-dialog').addEventListener('click', (event) => { if (event.target === $('#connect-dialog')) $('#connect-dialog').close(); });
 $('#composer-text').addEventListener('input', () => {
-  $('#char-count').textContent = `${[...$('#composer-text').value].length} / 320`;
+  $('#char-count').textContent = `${[...$('#composer-text').value].length} / ${CAST_USER_LIMIT}`;
   $('#draft-discard').hidden = !$('#composer-text').value;
   saveComposerDraft();
 });
@@ -3009,7 +3012,8 @@ $('#composer').addEventListener('submit', async (event) => {
       submit.textContent = 'Preparing…';
       const protocol = await import('./protocol.js');
       const signer = await getActiveSigner();
-      const message = await protocol.makeCastAdd(castBody(text, state.parent, protocol, mediaUrl ? [mediaUrl.href] : []), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
+      const attributedText = withCastonautAttribution(text);
+      const message = await protocol.makeCastAdd(castBody(attributedText, state.parent, protocol, mediaUrl ? [mediaUrl.href] : []), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
       const signedMessage = resultOrThrow(message, 'Could not sign cast');
       const hash = postHash(signedMessage);
       if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. Your draft remains saved.');

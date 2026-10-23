@@ -44,17 +44,18 @@ test('node calls and signer confirmation stay bounded and explain recovery after
   assert.match(source, /\$\('#refresh-signer'\)\.addEventListener\('click', beginSignerRefresh\)/);
 });
 
-test('restored accounts load the feed in open-access mode without requiring a pass wallet', async () => {
+test('restored accounts load the feed after signer confirmation with no payment gate', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const restoreStart = source.indexOf('async function restoreSession()');
   const restoreEnd = source.indexOf('\nasync function clearLocalSigner()', restoreStart);
   const restore = source.slice(restoreStart, restoreEnd);
-  assert.match(restore, /if \(state\.signerReady\) await refreshSavedPass\(\)/);
-  assert.match(restore, /else if \(hasStationAccess\(\)\) \{[\s\S]*?await loadFeed\(state\.fid\)/);
+  assert.match(restore, /if \(state\.signerReady\) await fetchProfile\(state\.fid\)/);
+  assert.match(restore, /else \{[\s\S]*?await loadFeed\(state\.fid\)/);
   assert.doesNotMatch(restore, /else if \(passActive\)/);
+  assert.doesNotMatch(source, /Time Pass|VITE_PASS_CONTRACT_ADDRESS|buyTimePass|pass-gate|\$3\.70/);
 
   const identityStart = source.indexOf('function renderIdentity()');
-  const identityEnd = source.indexOf('\nfunction renderPassStatus()', identityStart);
+  const identityEnd = source.indexOf('\nasync function restoreSession()', identityStart);
   const identity = source.slice(identityStart, identityEnd);
-  assert.match(identity, /!isConfiguredPassAddress\(PASS_CONTRACT_ADDRESS\)/);
+  assert.match(identity, /const ready = accountReady/);
 });
