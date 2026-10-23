@@ -106,9 +106,17 @@ async function redisCommand(config, command, signal) {
     redirect: 'error',
     signal,
   });
-  if (!response.ok) throw new Error('Limiter unavailable');
+  if (!response.ok) {
+    const error = new Error('Limiter request failed');
+    error.status = response.status;
+    throw error;
+  }
   const result = await response.json();
-  if (result.error) throw new Error('Limiter unavailable');
+  if (result.error) {
+    const error = new Error('Limiter command failed');
+    error.redisRejected = true;
+    throw error;
+  }
   return result.result;
 }
 
@@ -126,8 +134,19 @@ export default async function giphy(req, res) {
     try {
       const remaining = Number(await redisCommand(config, ['PTTL', GLOBAL_KEY], AbortSignal.timeout(3500)));
       return send(res, 200, { enabled: true, retryAfterMs: Math.max(0, remaining) });
-    } catch {
-      return send(res, 503, { enabled: false, error: 'GIF search is temporarily unavailable. Direct media links still work.' });
+    } catch (error) {
+      const detail = error?.status === 401 || error?.status === 403
+        ? 'Upstash rejected the REST token. Check UPSTASH_REDIS_REST_TOKEN in Vercel Production.'
+        : error?.status === 404
+          ? 'Upstash could not find that REST endpoint. Check UPSTASH_REDIS_REST_URL in Vercel Production.'
+          : error?.name === 'TimeoutError' || error?.name === 'AbortError'
+            ? 'Upstash did not respond in time. Check that the Redis database is active.'
+            : error?.redisRejected
+              ? 'Upstash rejected the status command. Check that the URL and read/write REST token belong to the same database.'
+              : error?.status
+                ? `Upstash returned HTTP ${error.status}. Check the Redis REST URL and read/write token.`
+                : 'Could not reach the Upstash limiter. Check that the database is active and its REST settings are correct.';
+      return send(res, 503, { enabled: false, error: `GIF search is temporarily unavailable. ${detail} Secret values stay private. Direct media links still work.` });
     }
   }
 

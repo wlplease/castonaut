@@ -193,8 +193,13 @@ export default async function snapchain(req, res) {
     try { result = raw ? JSON.parse(raw) : {}; } catch { return res.status(502).json({ error: 'Snapchain returned an unreadable response' }); }
     res.setHeader('Cache-Control', 'no-store');
     if (response.status >= 400) {
-      const status = response.status >= 500 ? 502 : response.status;
       const reason = safeRejectionReason(result);
+      // Snapchain 0.14.x may report a missing cast as HTTP 400 "Failed to get cast".
+      // The client uses 404 to distinguish an unconfirmed post from a rejected write.
+      if (routeName === 'castById' && response.status === 400 && /^failed to get cast(?:$|[:\s])/i.test(reason)) {
+        return res.status(404).json({ error: 'Cast not found' });
+      }
+      const status = response.status >= 500 ? 502 : response.status;
       const message = response.status >= 500
         ? 'Snapchain is temporarily unavailable.'
         : `Snapchain rejected the request (${response.status}).${reason ? ` ${reason}` : ' Check the account or message and try again.'}`;

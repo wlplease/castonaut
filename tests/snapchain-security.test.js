@@ -105,6 +105,15 @@ test('proxy returns only a short, sanitized Snapchain validation reason', async 
   assert.ok(result.payload.error.length < 260);
 });
 
+test('proxy normalizes Snapchain missing-cast 400 responses to 404 for safe publish retries', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ message: 'Failed to get cast' }), {
+    status: 400, headers: { 'content-type': 'application/json' },
+  });
+  const result = await callApi(makeRequest({ url: `/api/snapchain?route=castById&fid=123&hash=0x${'a'.repeat(40)}` }));
+  assert.equal(result.statusCode, 404);
+  assert.deepEqual(result.payload, { error: 'Cast not found' });
+});
+
 test('read rate limit is enforced per client address', async () => {
   globalThis.fetch = async () => new Response('{"version":"test"}', { status: 200, headers: { 'content-type': 'application/json' } });
   for (let i = 0; i < 240; i++) {

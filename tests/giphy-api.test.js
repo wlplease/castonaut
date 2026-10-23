@@ -82,6 +82,16 @@ test('status reports availability without exposing the app key', async () => {
   assert.equal(result.headers['cache-control'], 'no-store');
 });
 
+test('status gives a safe hint when Upstash rejects the REST token', async () => {
+  configure();
+  globalThis.fetch = async () => new Response('{"error":"Unauthorized"}', { status: 401 });
+  const result = await call();
+  assert.equal(result.statusCode, 503);
+  assert.match(result.payload.error, /rejected the REST token/);
+  assert.match(result.payload.error, /UPSTASH_REDIS_REST_TOKEN/);
+  assert.doesNotMatch(result.payload.error, /server-only-test-token|public-test-app-key/);
+});
+
 test('global search uses one atomic Redis script and denies a concurrent caller', async () => {
   configure();
   const scripts = [];
