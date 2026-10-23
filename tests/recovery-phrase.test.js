@@ -90,6 +90,9 @@ test('active recovery flow does not store or transmit the phrase and clears the 
   assert.doesNotMatch(csp, /gemini/i);
   assert.match(csp, /media-src 'self' https:/);
   assert.match(source, /function enableAnalytics\(\)[\s\S]*?disableAutoTrack: true/);
-  assert.match(source, /if \(analyticsEnabled\) pageview\(/);
-  assert.match(source, /if \(event\.currentTarget\.checked\) \{ enableAnalytics\(\); pageview\(/);
+  assert.match(source, /import\('@vercel\/analytics'\)/);
+  assert.match(source, /function trackPageview\(route\)[\s\S]*?if \(!analyticsEnabled\) return;[\s\S]*?analytics\?\.pageview/);
+  assert.match(source, /if \(event\.currentTarget\.checked\) trackPageview\('about'\)/);
+  assert.doesNotMatch(source, /setInterval\(\(\) => \{ if \(!document\.hidden\) \{ setStationTone\(\); checkNode\(\); \} \}, 60_000\)/);
+  assert.match(source, /if \(!state\.nodeInfo\) checkNode\(\)/);
 });

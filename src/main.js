@@ -9,29 +9,39 @@ import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSuppo
 import { resultOrThrow } from './hub-result.js';
 import { BrowserEd25519Signer } from './browser-signer.js';
 import { CAST_EMBED_LIMIT, CAST_EMBED_URL_LIMIT, CAST_LIMIT, CAST_USER_LIMIT, castTypeForText, truncateUtf8, utf8ByteLength, withCastonautAttribution } from './cast-attribution.js';
-import { searchEmojis } from './emoji-catalog.js';
 import { isNotFound } from './snapchain-errors.js';
 import { normalizeProfileSearch } from './profile-search.js';
 import { isVideoAvatarUrl } from './avatar-media.js';
-import { inject, pageview } from '@vercel/analytics';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
 let analyticsEnabled = false;
+let analyticsModulePromise = null;
 
 function enableAnalytics() {
-  if (!import.meta.env.PROD || analyticsEnabled) return;
-  inject({
-    disableAutoTrack: true,
-    beforeSend: (event) => {
-      try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) !== 'yes') return null; }
-      catch { return null; }
-      const url = new URL(event.url);
-      url.search = '';
-      url.hash = '';
-      return { ...event, url: url.toString() };
-    },
-  });
+  if (!import.meta.env.PROD) return Promise.resolve(null);
   analyticsEnabled = true;
+  if (!analyticsModulePromise) analyticsModulePromise = import('@vercel/analytics').then((analytics) => {
+    analytics.inject({
+      disableAutoTrack: true,
+      beforeSend: (event) => {
+        try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) !== 'yes') return null; }
+        catch { return null; }
+        const url = new URL(event.url);
+        url.search = '';
+        url.hash = '';
+        return { ...event, url: url.toString() };
+      },
+    });
+    return analytics;
+  }).catch(() => { analyticsModulePromise = null; analyticsEnabled = false; return null; });
+  return analyticsModulePromise;
+}
+
+function trackPageview(route) {
+  if (!analyticsEnabled) return;
+  enableAnalytics().then((analytics) => {
+    if (analyticsEnabled) analytics?.pageview({ route, path: location.pathname });
+  });
 }
 
 try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) === 'yes') enableAnalytics(); } catch { /* Analytics stays off when consent cannot be read. */ }
@@ -67,7 +77,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Crew', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -82,6 +92,9 @@ let giphyConfig = null;
 let giphyCooldownUntil = 0;
 let giphyCooldownTimer = null;
 let giphySearching = false;
+let nodeCheckInFlight = false;
+let emojiCatalogPromise = null;
+let emojiRenderVersion = 0;
 
 function optimismToolkit() {
   if (!optimismToolkitPromise) optimismToolkitPromise = import('./optimism-toolkit.js');
@@ -135,7 +148,7 @@ state.friendFids = readLocalFids(FRIENDS_STORAGE);
 state.crewFids = readLocalFids(CREW_STORAGE);
 state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
 try {
-  state.crewName = (localStorage.getItem(CREW_NAME_STORAGE) || 'Crew').trim().slice(0, 20) || 'Crew';
+  state.crewName = (localStorage.getItem(CREW_NAME_STORAGE) || 'My Group').trim().slice(0, 20) || 'My Group';
   state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]').filter((topic) => typeof topic === 'string').slice(0, 80);
   state.profilePins = JSON.parse(localStorage.getItem(PROFILE_PINS_STORAGE) || '{}');
   state.profileCovers = JSON.parse(localStorage.getItem(PROFILE_COVERS_STORAGE) || '{}');
@@ -592,7 +605,7 @@ async function importLocalBackup(file) {
     }
     if (state.fid) { loadFlightLog(state.fid); loadCapsules(state.fid); }
     state.deskPins = readLocalFids(DESK_STORAGE); state.friendFids = readLocalFids(FRIENDS_STORAGE); state.crewFids = readLocalFids(CREW_STORAGE); state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
-    try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); state.crewName = localStorage.getItem(CREW_NAME_STORAGE) || 'Crew'; const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
+    try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); state.crewName = localStorage.getItem(CREW_NAME_STORAGE) || 'My Group'; const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
     renderDesk(); renderDeskShortcuts(); renderFeed(); renderFlightLogCount(); setBackupStatus(`Restored ${entries.length} items/settings${backup.accountFid ? ` for FID ${backup.accountFid}` : ''}.`); setNotice('Your Castonaut backup is restored on this device.', 'success');
   } catch (error) { setBackupStatus(error.message || 'Could not read that backup file.', true); }
   finally { const input = $('#backup-file'); if (input) input.value = ''; }
@@ -613,6 +626,8 @@ function formatNodeDelay(seconds) {
 }
 
 async function checkNode() {
+  if (nodeCheckInFlight) return;
+  nodeCheckInFlight = true;
   const small = $('#refresh-node'); if (small) small.disabled = true;
   const large = $('#refresh-node-large');
   if (large) large.disabled = true;
@@ -664,6 +679,7 @@ async function checkNode() {
   } finally {
     if (small) small.disabled = false;
     if (large) large.disabled = false;
+    nodeCheckInFlight = false;
   }
 }
 
@@ -745,7 +761,7 @@ function updateFeedTabs() {
   $('#show-crew').firstChild.textContent = `${state.crewName} `;
   const discover = $('#show-suggested');
   if (discover) {
-    discover.hidden = state.boardMode !== 'signals' || state.feedMode !== 'following';
+    discover.hidden = state.boardMode !== 'signals';
     if (discover.hidden) { $('#suggested-panel').hidden = true; discover.setAttribute('aria-expanded', 'false'); }
   }
   $('#crew-name').value = state.crewName;
@@ -754,10 +770,10 @@ function updateFeedTabs() {
 }
 
 function feedDescription(mode = state.feedMode) {
-  if (mode === 'friends') return 'Your handpicked circle · saved on this device.';
-  if (mode === 'crew') return `Your ${state.crewName} list · saved on this device.`;
+  if (mode === 'friends') return 'Your handpicked Circle · saved on this device.';
+  if (mode === 'crew') return `Your ${state.crewName} group · saved on this device.`;
   if (mode === 'profile') return 'Recent posts from this profile.';
-  return 'People you follow · latest posts, spaced across your circle.';
+  return 'People you follow · latest posts, spaced across the timeline.';
 }
 
 function feedScrollKey() {
@@ -890,6 +906,10 @@ function renderCast(message) {
     const summary = document.createElement('summary'); summary.textContent = 'Read full post';
     const full = document.createElement('p'); full.className = 'post-copy'; full.textContent = fullText;
     expansion.append(summary, full); content.append(excerpt, expansion);
+    expansion.addEventListener('toggle', () => {
+      excerpt.hidden = expansion.open;
+      summary.textContent = expansion.open ? 'Collapse post' : 'Read full post';
+    });
   } else {
     const copy = document.createElement('p'); copy.className = 'post-copy'; copy.textContent = fullText;
     content.append(copy);
@@ -968,7 +988,7 @@ function renderCast(message) {
   menu.append(menuAction(state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk', state.deskPins.includes(fid) ? 'unpin-person' : 'pin-person', fid));
   menu.append(menuAction(state.following.get(fid) ? 'Unfollow person' : 'Follow person', 'follow', fid, { hash: postHash(message) }));
   menu.append(flightLog);
-  menu.append(menuAction(state.friendFids.includes(fid) ? 'Remove friend' : 'Add friend', 'toggle-friend', fid));
+  menu.append(menuAction(state.friendFids.includes(fid) ? 'Remove from Circle' : 'Add to Circle', 'toggle-friend', fid));
   menu.append(menuAction(state.crewFids.includes(fid) ? `Remove from ${state.crewName}` : `Add to ${state.crewName}`, 'toggle-crew', fid));
   menu.append(menuAction(state.mutedAuthors.includes(fid) ? 'Unhide author' : 'Hide author', 'toggle-author-mute', fid));
   const topics = topicsForCast(message);
@@ -989,20 +1009,20 @@ function renderSuggestedPeople() {
   const lists = [$('#suggested-list'), $('#search-network-list')].filter(Boolean);
   if (!lists.length) return;
   if (state.suggestionsBusy) {
-    for (const list of lists) { const loading = document.createElement('p'); loading.className = 'suggested-empty'; loading.textContent = 'Finding people across your circle…'; list.replaceChildren(loading); }
+    for (const list of lists) { const loading = document.createElement('p'); loading.className = 'suggested-empty'; loading.textContent = 'Finding people through your follows…'; list.replaceChildren(loading); }
     return;
   }
   if (!state.signerReady) {
-    for (const list of lists) { const empty = document.createElement('p'); empty.className = 'suggested-empty'; empty.textContent = 'Sign in to see people followed by your circle.'; list.replaceChildren(empty); }
+    for (const list of lists) { const empty = document.createElement('p'); empty.className = 'suggested-empty'; empty.textContent = 'Sign in to get recommendations from your follows.'; list.replaceChildren(empty); }
     return;
   }
   if (!state.suggestedPeople.length) {
     const empty = document.createElement('p'); empty.className = 'suggested-empty';
     empty.textContent = state.suggestionsError
-      ? 'Could not reach your node. Try refreshing suggestions.'
+      ? 'Could not reach your node. Try refreshing Discover.'
       : !state.following.size && !state.feedSources.length
-        ? 'Follow a few people first. Suggestions come from their public follow graphs.'
-        : 'No overlap yet. Suggestions appear as your circle grows.';
+        ? 'Follow a few people first. Discover uses their public follow graphs.'
+        : 'No matches yet. Discover improves as your follow graph grows.';
     for (const list of lists) list.replaceChildren(empty.cloneNode(true));
     return;
   }
@@ -1016,7 +1036,7 @@ function renderSuggestedPeople() {
     const identity = document.createElement('button'); identity.type = 'button'; identity.className = 'suggested-identity profile-open-button'; identity.dataset.openProfile = String(suggestion.fid); identity.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
     const name = document.createElement('strong'); name.textContent = localProfileName(profile);
     const handle = document.createElement('span'); handle.textContent = `@${profile.username || `fid-${suggestion.fid}`}`;
-    const context = document.createElement('small'); context.textContent = `Followed by ${suggestion.mutualCount} people you follow`;
+    const context = document.createElement('small'); context.textContent = `In ${suggestion.mutualCount} of your follows’ circles`;
     identity.append(name, handle, context);
     const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline suggested-follow'; follow.dataset.action = 'follow'; follow.dataset.fid = String(suggestion.fid); follow.textContent = state.following.get(suggestion.fid) ? 'Following' : 'Follow'; follow.disabled = state.following.get(suggestion.fid) || !state.signerReady; follow.setAttribute('aria-pressed', String(!!state.following.get(suggestion.fid)));
     row.append(avatar, identity, follow); fragment.append(row);
@@ -1070,7 +1090,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   $('#feed-list').hidden = false;
   const publicProfileRequest = mode === 'profile' && Number.isSafeInteger(Number(fidValue)) && Number(fidValue) > 0;
   if ((!state.fid || !state.signerReady) && !publicProfileRequest) {
-    renderEmpty('Connect an account for your personal feed.', 'You can explore public profiles without signing in.');
+    renderEmpty('Sign in to open your feed.', 'Public profiles are open.');
     return;
   }
   if (state.feedBusy) { state.feedPending = [fidValue, mode]; feedScrollSaved = false; return; }
@@ -1097,6 +1117,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   if (state.feedMode === 'following') { state.suggestedPeople = []; state.suggestionsLoadedFor = 0; $('#suggested-panel').hidden = true; $('#show-suggested')?.setAttribute('aria-expanded', 'false'); }
   state.feedSources = [];
   state.feedSourceOffset = 0;
+  state.profileNextPageToken = '';
+  state.profileSeenPageTokens.clear();
   state.feedQuery = '';
   const loadedSearch = $('#loaded-search');
   if (loadedSearch) loadedSearch.value = '';
@@ -1114,7 +1136,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   state.feedBusy = true;
   $('#show-suggested').disabled = true;
   const list = $('#feed-list'); list.setAttribute('aria-busy', 'true');
-  const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Friends' : state.feedMode === 'crew' ? state.crewName : 'Following';
+  const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Circle' : state.feedMode === 'crew' ? state.crewName : 'Following';
   if (state.boardMode === 'signals') {
     $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
     $('#feed-caption').textContent = state.feedMode === 'following' ? '' : feedDescription(state.feedMode);
@@ -1156,11 +1178,16 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     }
     const firstPageFids = state.feedMode === 'following' ? limitedFids.slice(0, 6) : limitedFids;
     const castGroups = await mapLimit(firstPageFids, 6, async (target) => {
-      const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize: 10, reverse: true }), fetchProfile(target)]);
-      return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
+      const pageSize = state.feedMode === 'profile' ? 20 : 10;
+      const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize, reverse: true }), fetchProfile(target)]);
+      return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '' };
     });
     if (requestId !== state.feedRequest) return false;
-    const newestFirst = castGroups.flat().sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
+    if (state.feedMode === 'profile') {
+      state.profileNextPageToken = castGroups[0]?.nextPageToken || '';
+      if (state.profileNextPageToken) state.profileSeenPageTokens.add(state.profileNextPageToken);
+    }
+    const newestFirst = castGroups.flatMap((group) => group.messages).sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
     const messages = (state.feedMode === 'profile' ? newestFirst : paceByAuthor(newestFirst)).slice(0, state.feedMode === 'profile' ? 60 : 30);
     state.casts = messages;
     if (Number($('#source-fid').value) > 0) await loadSignerSources(messages);
@@ -1195,8 +1222,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname);
     const detail = needsSetup
       ? localPreview
-        ? 'This local preview has no Snapchain endpoint, so profiles and posts cannot load yet. Use the node guide to connect one.'
-        : 'The app’s Snapchain endpoint needs configuration before profiles and posts can load.'
+        ? 'Connect a Snapchain node to load profiles and posts.'
+        : 'Snapchain is not configured yet.'
       : clientErrorText(error);
     const action = needsSetup
       ? (localPreview ? { type: 'guide', label: 'Open feed setup guide' } : null)
@@ -1222,19 +1249,56 @@ function renderFeedMore() {
   const button = $('#feed-more');
   const label = $('.feed-end-label');
   if (!footer || !button) return false;
-  const hasMore = state.boardMode === 'signals' && state.feedMode === 'following' && state.feedSourceOffset < state.feedSources.length;
+  const hasProfileMore = state.boardMode === 'signals' && state.feedMode === 'profile' && !!state.profileNextPageToken;
+  const hasMore = state.boardMode === 'signals' && ((state.feedMode === 'following' && state.feedSourceOffset < state.feedSources.length) || hasProfileMore);
   button.hidden = !hasMore;
   button.disabled = state.feedMoreBusy;
   const moreCount = Math.min(6, state.feedSources.length - state.feedSourceOffset);
-  button.textContent = state.feedMoreBusy ? 'Loading more people…' : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
+  button.textContent = state.feedMoreBusy
+    ? (state.feedMode === 'profile' ? 'Loading older posts…' : 'Loading more people…')
+    : hasProfileMore ? 'Load older posts' : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
   if (label) {
     label.hidden = hasMore;
-    label.textContent = state.feedMode === 'following' && state.feedFollowTotal > state.feedSources.length
+    label.textContent = hasProfileMore ? 'MORE POSTS BELOW' : state.feedMode === 'following' && state.feedFollowTotal > state.feedSources.length
       ? `FIRST ${state.feedSources.length} OF ${state.feedFollowTotal} FOLLOWED ACCOUNTS CHECKED`
-      : 'END OF TRANSMISSION';
+      : state.feedMode === 'profile' ? 'END OF PROFILE' : 'END OF TRANSMISSION';
   }
   footer.hidden = !hasMore && state.casts.length === 0;
   return hasMore;
+}
+
+async function loadOlderProfilePosts() {
+  if (state.feedMoreBusy || state.feedMode !== 'profile' || !state.profileNextPageToken) return;
+  const requestId = state.feedRequest;
+  const pageToken = state.profileNextPageToken;
+  const targetFid = Number(state.feedTargetFid);
+  state.feedMoreBusy = true;
+  renderFeedMore();
+  try {
+    const response = await nodeRequest('casts', { fid: targetFid, pageSize: 30, reverse: true, pageToken });
+    if (requestId !== state.feedRequest || state.feedMode !== 'profile' || targetFid !== Number(state.feedTargetFid)) return;
+    const existing = new Set(state.casts.map((message) => `${Number(message?.data?.fid)}:${postHash(message)}`));
+    for (const message of unwrapMessages(response).filter((item) => item?.data?.castAddBody)) {
+      const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
+      if (!existing.has(key)) { existing.add(key); state.casts.push(message); }
+    }
+    state.casts.sort((a, b) => Number(b?.data?.timestamp || 0) - Number(a?.data?.timestamp || 0));
+    const nextPageToken = response?.nextPageToken || '';
+    state.profileNextPageToken = nextPageToken && !state.profileSeenPageTokens.has(nextPageToken) ? nextPageToken : '';
+    if (state.profileNextPageToken) state.profileSeenPageTokens.add(state.profileNextPageToken);
+    const relatedFids = [...new Set(state.casts.flatMap((message) => [
+      Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid),
+    ]).filter((fid) => fid > 0 && !state.people.has(fid)))];
+    await mapLimit(relatedFids, 6, fetchProfile);
+    if (requestId !== state.feedRequest) return;
+    renderFeed();
+    setNotice(`Loaded ${unwrapMessages(response).length} older posts.`, 'success');
+  } catch (error) {
+    if (requestId === state.feedRequest) setNotice(`Could not load older posts. ${clientErrorText(error)}`, 'error');
+  } finally {
+    state.feedMoreBusy = false;
+    renderFeedMore();
+  }
 }
 
 function updateFollowingCoverage() {
@@ -1329,9 +1393,9 @@ function renderFeed() {
     if (state.boardMode === 'flight-log') {
       renderEmpty('Nothing saved yet.', 'Save a post from any feed to keep it here.');
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedSourceOffset < state.feedSources.length) {
-      renderEmpty('Your first group is quiet.', 'Load a wider group of people to check more of your follows.');
+      renderEmpty('Your feed is quiet.', 'Load more follows to check a wider circle.');
     } else if (query) {
-      renderEmpty('No loaded posts match.', 'Search checks posts currently loaded in this view. Load more people first to widen the results.');
+      renderEmpty('No loaded posts match.', 'Load more posts or clear your search.');
     } else if (state.casts.length && sourceFilter) {
       renderEmpty('No posts match this source.', 'Clear the source filter to see more posts.', { type: 'clear-source', label: 'Clear source' });
     } else if (state.feedMode === 'profile') {
@@ -1339,23 +1403,23 @@ function renderFeed() {
       const isMediaTab = state.profileTab === 'media';
       const isRepliesTab = state.profileTab === 'replies';
       const handle = profile?.username ? `@${profile.username}` : 'this profile';
-      renderEmpty(isMediaTab ? 'No media here yet.' : isRepliesTab ? 'No replies here.' : 'No original posts yet.', isMediaTab ? `No media was returned for ${handle}.` : isRepliesTab ? `No replies were returned for ${handle}.` : `No original posts were returned for ${handle}. Replies have their own view.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
+      renderEmpty(isMediaTab ? 'No media yet.' : isRepliesTab ? 'No replies yet.' : 'No original posts yet.', `Nothing to show for ${handle}.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
     } else if (state.feedMode === 'friends' && !state.friendFids.length) {
-      renderEmpty('Your Friends list is empty.', 'Search for someone and choose “Add to Friends” on their profile. This circle stays on this device.');
+      renderEmpty('Your Circle is empty.', 'Add people from Search.');
     } else if (state.feedMode === 'crew' && !state.crewFids.length) {
-      renderEmpty(`${state.crewName} is ready.`, `Use ••• on a post to add people to ${state.crewName}. This group stays on this device.`);
+      renderEmpty(`${state.crewName} is ready.`, 'Use ••• on a post to add people.');
     } else if (state.feedMode === 'following' && state.feedSources.length) {
-      renderEmpty('No recent posts from your follows.', 'Your Following feed only shows people you chose. Try Friends or check back later.');
+      renderEmpty('No recent posts.', 'Try Circle or check back later.');
     } else if (state.orbitOnly && !state.deskPins.length) {
-      renderEmpty('No pinned people yet.', 'Pin someone from a post, then turn on this filter to see only their posts.');
+      renderEmpty('No pinned people yet.', 'Pin someone to your Desk to use this filter.');
     } else if (state.orbitOnly) {
-      renderEmpty('No posts from pinned people here.', 'Try another feed or turn off the filter to see everyone you follow.');
+      renderEmpty('No posts from pinned people.', 'Turn off the filter to see everyone.');
     } else if (state.activeDeskTopic) {
-      renderEmpty(`No posts match ${state.activeDeskTopic.replace(/^site:/, '')}.`, 'Try another feed or clear this topic shortcut.');
+      renderEmpty(`No posts match ${state.activeDeskTopic.replace(/^site:/, '')}.`, 'Try another topic or clear this shortcut.');
     } else if (state.casts.length) {
       renderEmpty('Nothing matches these filters.', 'Adjust View options to bring posts back.');
     } else {
-      renderEmpty('Your feed is quiet.', 'Follow people on Farcaster to see their posts here.', { type: 'profile', label: 'View your posts' });
+      renderEmpty('Your feed is quiet.', 'Follow people to see their posts.', { type: 'profile', label: 'View your posts' });
     }
     $('#feed-count').textContent = state.boardMode === 'flight-log' ? '0 SAVED' : '0 POSTS';
     const morePeople = renderFeedMore();
@@ -1400,14 +1464,14 @@ function profileLabel(profile, fid) {
 
 function relationshipForCast(fid) {
   if (Number(state.fid) === Number(fid)) return 'You';
-  if (state.friendFids.includes(Number(fid))) return 'Friend';
+  if (state.friendFids.includes(Number(fid))) return 'In Circle';
   if (state.following.get(Number(fid))) return 'Following';
   if (state.feedMode === 'crew' && state.crewFids.includes(Number(fid))) return state.crewName;
   return '';
 }
 
 function relationshipTitle(label) {
-  if (label === 'Friend') return 'You added this person to Friends on this device.';
+  if (label === 'In Circle') return 'You added this person to your Circle on this device.';
   if (label === 'Following') return 'You follow this person on Farcaster.';
   if (label === 'You') return 'This is your account.';
   return `In your ${state.crewName} list on this device.`;
@@ -1457,7 +1521,7 @@ function renderProfileSummary() {
   const actions = document.createElement('div'); actions.className = 'profile-summary-actions';
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'button button-outline'; pin.dataset.profilePin = String(profile.fid); pin.textContent = state.deskPins.includes(profile.fid) ? 'On your Desk ✓' : 'Pin to Desk';
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline'; follow.dataset.action = 'follow'; follow.dataset.fid = String(profile.fid); follow.textContent = Number(profile.fid) === Number(state.fid) ? 'This is you' : state.following.get(Number(profile.fid)) ? '✓ Following' : '＋ Follow'; follow.disabled = Number(profile.fid) === Number(state.fid) || !state.signerReady; follow.setAttribute('aria-pressed', String(!!state.following.get(Number(profile.fid))));
-  const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Friends' : '＋ Add to Friends'; friend.disabled = Number(profile.fid) === Number(state.fid);
+  const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Circle' : '＋ Add to Circle'; friend.disabled = Number(profile.fid) === Number(state.fid);
   const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button button-outline'; edit.dataset.editProfile = String(profile.fid); edit.textContent = 'Personalize';
   const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.copyProfile = String(profile.fid); share.textContent = 'Share profile';
   const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = 'Local cover';
@@ -1928,7 +1992,7 @@ function setBoardMode(mode) {
   updateFeedTabs();
   renderDeskShortcuts();
   $('#page-label').textContent = logMode ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
-  $('#feed-title').textContent = logMode ? 'Saved' : state.feedMode === 'profile' ? 'Posts' : state.feedMode === 'crew' ? state.crewName : state.feedMode === 'friends' ? 'Friends' : 'Following';
+  $('#feed-title').textContent = logMode ? 'Saved' : state.feedMode === 'profile' ? 'Posts' : state.feedMode === 'crew' ? state.crewName : state.feedMode === 'friends' ? 'Circle' : 'Following';
   $('#feed-caption').textContent = logMode
     ? 'Saved on this device.'
     : state.feedMode === 'profile' ? `@${state.people.get(state.feedTargetFid)?.username || 'this profile'}` : '';
@@ -2491,7 +2555,7 @@ async function clearLocalSigner() {
   updateFeedTabs(); $('#page-label').textContent = 'FEED';
   $('#feed-title').textContent = 'Following'; $('#feed-caption').textContent = 'Sign in to open your feed.';
   $('#feed-filters').hidden = true; $('#feed-pulse').hidden = true; $('#profile-summary').hidden = true; $('#feed-count').textContent = '0 POSTS';
-  renderEmpty('Your account is disconnected.', 'Sign in to open your feed.');
+      renderEmpty('Account disconnected.', 'Sign in to open your feed.');
   renderIdentity();
   if (!cleared) { setNotice('This session is signed out, but browser storage could not delete the app key. Revoke it in Farcaster account settings and clear this site’s browser data.', 'error'); return; }
   setNotice('This browser forgot its signing key. The Farcaster signer remains active until you revoke it from account settings or it expires.', 'pending');
@@ -2518,8 +2582,11 @@ function navigate(view, { preserveHash = false, restoreScroll = true } = {}) {
   $('#page-label').textContent = area === 'node' ? 'NODE' : area === 'desk' ? 'DESK' : area === 'search' ? 'SEARCH' : state.boardMode === 'flight-log' ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
   const expectedHash = area === 'node' ? '#about' : area === 'desk' ? '#my-desk' : area === 'search' ? '#people-search' : '#feed';
   if (!preserveHash && location.hash !== expectedHash) history.pushState(null, '', expectedHash);
-  if (analyticsEnabled) pageview({ route: area, path: location.pathname });
-  if (area === 'node') $('#node-view').scrollIntoView({ block: 'start' });
+  trackPageview(area);
+  if (area === 'node') {
+    if (!state.nodeInfo) checkNode();
+    $('#node-view').scrollIntoView({ block: 'start' });
+  }
   else if (restoreScroll) requestAnimationFrame(() => window.scrollTo(0, areaScroll.get(area) || 0));
 }
 
@@ -2734,7 +2801,7 @@ $('#feed-refresh').addEventListener('click', () => {
     : state.boardMode === 'flight-log' ? Promise.resolve(renderFeed()) : loadFeed(state.feedTargetFid || state.fid);
   Promise.resolve(task).finally(() => { button.disabled = false; });
 });
-$('#feed-more')?.addEventListener('click', loadMoreFollowed);
+$('#feed-more')?.addEventListener('click', () => state.feedMode === 'profile' ? loadOlderProfilePosts() : loadMoreFollowed());
 $('#show-suggested')?.addEventListener('click', toggleSuggestedPeople);
 $('#suggested-close')?.addEventListener('click', () => { $('#suggested-panel').hidden = true; $('#show-suggested')?.setAttribute('aria-expanded', 'false'); });
 $('#backup-export').addEventListener('click', exportLocalBackup);
@@ -2772,7 +2839,7 @@ if (analyticsChoice) {
   analyticsChoice.addEventListener('change', (event) => {
     try { localStorage.setItem(ANALYTICS_CONSENT_STORAGE, event.currentTarget.checked ? 'yes' : 'no'); }
     catch { event.currentTarget.checked = false; setNotice('Browser storage is unavailable, so analytics remains off.', 'error'); return; }
-    if (event.currentTarget.checked) { enableAnalytics(); pageview({ route: 'about', path: location.pathname }); }
+    if (event.currentTarget.checked) trackPageview('about');
     else analyticsEnabled = false;
     setNotice(event.currentTarget.checked ? 'Optional visit analytics enabled on this device.' : 'Optional visit analytics disabled on this device.', 'success');
   });
@@ -2919,7 +2986,7 @@ for (const [selector, key] of [['#filter-replies', 'repliesOnly'], ['#filter-med
 }
 $('#crew-name').value = state.crewName;
 $('#crew-name').addEventListener('change', (event) => {
-  state.crewName = event.currentTarget.value.trim().slice(0, 20) || 'Crew';
+  state.crewName = event.currentTarget.value.trim().slice(0, 20) || 'My Group';
   try { localStorage.setItem(CREW_NAME_STORAGE, state.crewName); } catch { setNotice('This browser could not save the group name.', 'error'); }
   updateFeedTabs();
   if (state.feedMode === 'crew') { $('#feed-title').textContent = state.crewName; renderFeed(); }
@@ -2960,12 +3027,70 @@ $('#external-images').addEventListener('change', (event) => {
   renderFeed(); renderDesk(); renderProfileSummary(); renderIdentity(); renderSuggestedPeople();
   setNotice(state.remoteMediaEnabled ? 'Remote media is on. Image and video hosts can see your IP address.' : 'Remote media is off. Active video playback stopped; profile and cast media are hidden.', state.remoteMediaEnabled ? 'pending' : 'success');
 });
+const commandPalette = $('#command-palette');
+const commandQuery = $('#command-query');
+let commandReturnFocus = null;
+function filterCommandItems(query) {
+  const term = String(query).trim().toLocaleLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.command-item').forEach((item) => {
+    item.hidden = !!term && !item.textContent.toLocaleLowerCase().includes(term);
+    if (!item.hidden) visible += 1;
+  });
+  $('#command-empty').hidden = visible > 0;
+}
+function openCommandPalette(returnFocus = document.activeElement) {
+  if (!commandPalette || commandPalette.open || document.querySelector('dialog[open]')) return;
+  commandReturnFocus = returnFocus instanceof HTMLElement ? returnFocus : $('#command-open');
+  commandQuery.value = '';
+  filterCommandItems('');
+  commandPalette.showModal();
+  requestAnimationFrame(() => commandQuery.focus({ preventScroll: true }));
+}
+$('#command-open').addEventListener('click', (event) => openCommandPalette(event.currentTarget));
+$('#command-close').addEventListener('click', () => commandPalette.close());
+commandPalette.addEventListener('close', () => {
+  if (!document.querySelector('dialog[open]') && commandReturnFocus?.isConnected) commandReturnFocus.focus({ preventScroll: true });
+  commandReturnFocus = null;
+});
+commandQuery.addEventListener('input', (event) => filterCommandItems(event.currentTarget.value));
+commandQuery.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowDown') return;
+  event.preventDefault();
+  document.querySelector('.command-item:not([hidden])')?.focus();
+});
+$('#command-items').addEventListener('keydown', (event) => {
+  if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+  const items = [...document.querySelectorAll('.command-item:not([hidden])')];
+  const index = items.indexOf(event.target.closest('.command-item'));
+  const next = event.key === 'ArrowDown' ? Math.min(items.length - 1, index + 1) : index <= 0 ? -1 : index - 1;
+  event.preventDefault();
+  if (next < 0) commandQuery.focus(); else items[next]?.focus();
+});
+$('#command-search-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  document.querySelector('.command-item:not([hidden])')?.click();
+});
+$('#command-items').addEventListener('click', (event) => {
+  const item = event.target.closest('.command-item');
+  if (!item) return;
+  commandPalette.close();
+  if (item.dataset.commandAction === 'account') { $('#open-account').click(); return; }
+  document.querySelector(`[data-view="${item.dataset.commandView}"]`)?.click();
+});
+commandPalette.addEventListener('click', (event) => { if (event.target === commandPalette) commandPalette.close(); });
 document.addEventListener('keydown', (event) => {
+  const key = event.key.toLowerCase();
+  if (!event.altKey && (event.ctrlKey || event.metaKey) && key === 'k' && !event.isComposing) {
+    event.preventDefault();
+    if (commandPalette.open) commandQuery.focus({ preventScroll: true });
+    else openCommandPalette();
+    return;
+  }
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
   const target = event.target;
   const editing = target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
   if (editing || document.querySelector('dialog[open]')) return;
-  const key = event.key.toLowerCase();
   if (key === '?') {
     event.preventDefault();
     const options = $('#feed-filters');
@@ -3208,19 +3333,28 @@ $('#composer-media-clear').addEventListener('click', () => {
   $('#draft-discard').hidden = !$('#composer-text').value.trim();
   saveComposerDraft();
 });
-function renderEmojiResults(query = '') {
+async function renderEmojiResults(query = '') {
   const grid = $('#emoji-picker-grid');
-  const results = searchEmojis(query);
-  grid.replaceChildren(...results.map(([emoji, name]) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.emoji = emoji;
-    button.setAttribute('aria-label', name);
-    button.title = name;
-    button.textContent = emoji;
-    return button;
-  }));
-  $('#emoji-search-status').textContent = results.length ? `${results.length} emoji${results.length === 1 ? '' : 's'}` : 'No matches. Try another word.';
+  const version = ++emojiRenderVersion;
+  $('#emoji-search-status').textContent = 'Loading…';
+  try {
+    emojiCatalogPromise ||= import('./emoji-catalog.js');
+    const { searchEmojis } = await emojiCatalogPromise;
+    if (version !== emojiRenderVersion || !$('.emoji-picker')?.open) return;
+    const results = searchEmojis(query);
+    grid.replaceChildren(...results.map(([emoji, name]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.emoji = emoji;
+      button.setAttribute('aria-label', name);
+      button.title = name;
+      button.textContent = emoji;
+      return button;
+    }));
+    $('#emoji-search-status').textContent = results.length ? `${results.length} emoji${results.length === 1 ? '' : 's'}` : 'No matches. Try another word.';
+  } catch {
+    if (version === emojiRenderVersion) $('#emoji-search-status').textContent = 'Emoji search is unavailable. You can still type normally.';
+  }
 }
 
 function placeEmojiPicker() {
@@ -3419,7 +3553,7 @@ document.addEventListener('click', async (event) => {
       if (state.feedMode === 'friends') await loadFeed(state.fid, 'friends');
       else renderFeed();
       if (state.feedMode === 'profile' && Number(state.feedTargetFid) === targetFid) renderProfileSummary();
-      setNotice(state.friendFids.includes(targetFid) ? 'Added to Friends on this device.' : 'Removed from Friends.', 'success'); return;
+      setNotice(state.friendFids.includes(targetFid) ? 'Added to Circle on this device.' : 'Removed from Circle.', 'success'); return;
     }
     if (button.dataset.action === 'toggle-crew') {
       const next = state.crewFids.includes(targetFid) ? state.crewFids.filter((fid) => fid !== targetFid) : [...state.crewFids, targetFid];
@@ -3516,9 +3650,7 @@ renderDesk();
 renderFlightLogCount();
 setBoardMode('signals');
 renderIdentity();
-checkNode().then(() => renderDesk());
 restoreSession().then(applyLocationRoute);
-setInterval(() => { if (!document.hidden) { setStationTone(); checkNode(); } }, 60_000);
 setInterval(() => {
   if (document.hidden) return;
   setStationTone();

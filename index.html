@@ -43,7 +43,7 @@
       <aside class="sidebar" aria-label="Main navigation">
         <a class="brand" href="/" aria-label="Castonaut home">
           <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />
-          <span><strong>castonaut</strong><small>FIELD JOURNAL · FARCASTER</small></span>
+          <span><strong>castonaut</strong><small>FARCASTER · CLIENT</small></span>
         </a>
         <nav class="nav-list">
           <a class="nav-item active" href="#feed" data-view="feed" aria-label="Feed"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Feed</span></a>
@@ -57,10 +57,11 @@
 
       <div class="main-column">
         <header class="topbar">
-          <a class="mobile-brand" href="/" aria-label="Castonaut home"><img src="/favicon.svg" alt="" /><span><strong>castonaut</strong><small>FIELD JOURNAL · FARCASTER</small></span></a>
+          <a class="mobile-brand" href="/" aria-label="Castonaut home"><img src="/favicon.svg" alt="" /><span><strong>castonaut</strong><small>FARCASTER · CLIENT</small></span></a>
           <div class="crumb"><span class="crumb-dot"></span><span id="page-label">HOME</span></div>
           <div class="top-actions">
             <a class="top-link" href="/tutorial.html">Guide <span>↗</span></a>
+            <button type="button" class="icon-button command-open" id="command-open" aria-label="Jump to a page" title="Jump to a page · Ctrl/⌘ K">⌕</button>
             <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Classic Mac · platinum</option><option value="night-radio">Night radio · violet dusk</option></select></label>
             <button class="avatar-button" id="open-account" aria-label="Account and signer settings"><span id="avatar-initial">?</span></button>
           </div>
@@ -71,12 +72,12 @@
             <div class="room-heading" data-area="feed">
               <div class="hero-copy">
                 <div class="overline"><span class="live-pip"></span> AN INDEPENDENT FARCASTER CLIENT</div>
-                <h1>A Farcaster feed and your personal Desk.</h1>
-                <p class="lead">Catch up in time order. Pin people and posts you want to find again. The hosted client works without running a node.</p>
+                <h1>Your corner of Farcaster.</h1>
+                <p class="lead">Chronological posts. A personal Desk. No node required.</p>
                 <div class="hero-actions"><a class="button button-orange" href="#client-preview" data-scroll-to="client-preview">See the client <span>↓</span></a><a class="hero-secondary" href="/tutorial.html#quickstart">Run your own node <span>↗</span></a></div>
               </div>
               <div class="hero-route" aria-label="A cast moves from your browser through your read node to the network, then is confirmed back in the feed.">
-              <div class="route-heading"><span>HOW A CAST TRAVELS</span><span>37 · NETWORK MAP</span></div>
+              <div class="route-heading"><span>HOW A CAST TRAVELS</span><span>37</span></div>
                 <svg class="route-map" viewBox="0 0 430 250" role="img" aria-labelledby="route-title route-description">
                   <title id="route-title">A cast’s route through your own node</title><desc id="route-description">Your browser signs a message, your Snapchain read node relays it, validators include it, and Castonaut reads it back for confirmation.</desc>
                   <defs><pattern id="route-grid" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M18 0H0V18" fill="none" stroke="currentColor" stroke-opacity=".08" stroke-width=".6"/></pattern><marker id="route-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="currentColor"/></marker></defs>
@@ -86,19 +87,18 @@
                   <g class="route-node route-network"><circle cx="369" cy="120" r="27"/><path d="m359 120 7 7 14-16M357 106h-7m37 0h-7m-23 28-5 6m38-6 5 6"/><text x="369" y="165" text-anchor="middle">NETWORK</text><text x="369" y="179" text-anchor="middle" class="route-sub">validators confirm</text></g>
                   <text x="214" y="233" text-anchor="middle" class="route-return">READ BACK · CONFIRMATION RETURNS TO YOUR FEED</text>
                 </svg>
-              <div class="route-legend"><span><i class="legend-dot"></i>your node, your route</span><span>RUN IT YOURSELF · OPTIONAL</span></div>
               </div>
             </div>
 
             <div class="node-ribbon" id="node-ribbon" data-area="feed">
-              <div class="node-ribbon-left"><span class="node-led" id="node-led"></span><div><strong id="node-state">Checking the connection…</strong><small id="node-detail">Checking the feed service. You can still explore profiles while it connects.</small></div></div>
+              <div class="node-ribbon-left"><span class="node-led" id="node-led"></span><div><strong id="node-state">Ready when you are</strong><small id="node-detail">Status checked on demand.</small></div></div>
               <div class="node-ribbon-right"><a class="node-setup-link" id="node-setup-link" href="/tutorial.html" aria-label="Open the feed setup guide" hidden>Feed setup ↗</a><button class="icon-button" id="refresh-node" aria-label="Check connection status">↻</button></div>
             </div>
 
             <section class="client-preview" id="client-preview" aria-labelledby="preview-title" data-area="feed">
-              <div class="preview-heading"><div><span class="overline">SAMPLE FEED · EXAMPLE POSTS</span><h2 class="sr-only" id="preview-title">Sample Farcaster feed and personal Desk</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
-              <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>People and posts you pin.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>M</b> marav</span><span class="preview-pin"><b>R</b> ravi</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
-              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3><p>Newest posts first.</p></div></div>
+              <div class="preview-heading"><div><span class="overline">SAMPLE FEED</span><h2 class="sr-only" id="preview-title">Sample Farcaster feed and personal Desk</h2></div><span class="preview-badge"><i></i> PREVIEW</span></div>
+              <div class="preview-desk"><div class="preview-desk-title"><span>⌖</span><div><small>YOUR DESK</small><strong>Keep what matters close.</strong></div></div><div class="preview-pins"><span class="preview-pin"><b>M</b> marav</span><span class="preview-pin"><b>R</b> ravi</span><span class="preview-topic"># onchain-art</span><span class="preview-topic">+ Pin a person or topic</span></div></div>
+              <div class="preview-feed"><div class="preview-feed-head"><div><span class="overline">YOUR TIMELINE</span><h3>Following</h3></div></div>
                 <article class="preview-post"><div class="preview-avatar avatar-amber">M</div><div class="preview-post-main"><div class="preview-byline"><strong>Mara V.</strong><span>@marav</span><time>8 min</time></div><p>The little weather display is finally working. Three LEDs and a completely unnecessary sunrise animation. 🌤️</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">SAMPLE</span></div></div></article>
                 <article class="preview-post"><div class="preview-avatar avatar-lilac">R</div><div class="preview-post-main"><div class="preview-byline"><strong>Ravi</strong><span>@ravi</span><time>21 min</time></div><p>Weekend question: what are you tinkering with right now?</p><div class="preview-post-foot"><span>↩ &nbsp;Reply</span><span>♡ &nbsp;Like</span><span>↗ &nbsp;Cast</span><span class="preview-client-tag">SAMPLE</span></div></div></article>
                 <div class="preview-end"><span>✦</span> You’re all caught up <span>✦</span></div>
@@ -106,10 +106,10 @@
             </section>
 
             <aside class="public-browse-note" id="public-browse-note" data-area="search" hidden>
-              <span>READ ONLY · NO SIGN-IN PHRASE</span>
-              <p>Explore profiles. Sign in to follow or post.</p>
+              <span>PUBLIC PROFILES</span>
+              <p>Sign in to follow or post.</p>
             </aside>
-            <div class="area-heading search-heading" data-area="search"><span class="overline">EXPLORE FARCASTER</span><h1>Find someone.</h1><p>Open a profile, follow them, or add them to your circle.</p></div>
+            <div class="area-heading search-heading" data-area="search"><span class="overline">PEOPLE</span><h1>Find someone.</h1><p>Open a profile, follow, or add to Circle.</p></div>
             <form class="people-search" id="people-search" role="search" data-area="search">
               <label class="sr-only" for="people-query">Find a public Farcaster profile by username or FID</label>
               <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="200" placeholder="Search @username or paste a profile link" autocomplete="off" />
@@ -123,18 +123,18 @@
               <p id="feed-search-status" role="status" aria-live="polite" hidden></p>
             </form>
             <section class="suggested-panel search-network-panel" id="search-network" aria-labelledby="search-network-title" data-area="search">
-              <div class="suggested-panel-head"><div><span class="overline">YOUR FARCASTER CIRCLE</span><h3 id="search-network-title">People your follows know</h3><p>Ranked by how many people you follow also follow them.</p></div><button type="button" class="icon-button" id="search-network-refresh" aria-label="Refresh people suggestions">↻</button></div>
-              <div class="suggested-list" id="search-network-list" aria-live="polite"><p class="suggested-empty">Sign in to see suggestions from your circle.</p></div>
+              <div class="suggested-panel-head"><div><span class="overline">YOUR FOLLOW GRAPH</span><h3 id="search-network-title">People your follows know</h3><p>Ranked by how many people you follow also follow them.</p></div><button type="button" class="icon-button" id="search-network-refresh" aria-label="Refresh people suggestions">↻</button></div>
+              <div class="suggested-list" id="search-network-list" aria-live="polite"><p class="suggested-empty">Sign in to see recommendations from your follows.</p></div>
             </section>
 
             <section class="portal-gate" id="portal-gate" aria-labelledby="portal-title" data-area="feed">
-              <div class="portal-art" aria-hidden="true"><img class="portal-illustration" src="/astral-atlas-art.webp" alt="" /><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span><span class="portal-art-caption">PLATE 037 <i>·</i> YOUR CORNER OF THE NETWORK</span></div>
+              <div class="portal-art" aria-hidden="true"><img class="portal-illustration" src="/astral-atlas-art.webp" alt="" /><span class="portal-orbit orbit-one"></span><span class="portal-orbit orbit-two"></span><span class="portal-art-caption">PLATE 037 <i>·</i> FARCASTER</span></div>
               <div class="portal-copy">
                 <span class="overline">YOUR FARCASTER ACCOUNT</span>
                 <h2 id="portal-title">Welcome to Castonaut.</h2>
-                <p>Sign in to follow, post, and make your Desk yours.</p>
+                <p>Follow, post, and make your Desk yours.</p>
                 <button class="button button-orange" id="portal-enter">Sign in <span>↗</span></button>
-                <small id="portal-status" role="status">Use your Farcaster recovery phrase to sign in.</small>
+                <small id="portal-status" role="status">Use your Farcaster account.</small>
                 <details class="portal-extras">
                   <summary>Account &amp; safety</summary>
                   <div class="portal-extras-content">
@@ -148,9 +148,9 @@
 
             <div id="member-workspace" hidden>
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title" data-area="desk">
-              <div class="desk-strip-head"><div><span class="overline">YOUR DESK</span><h2 id="desk-title">Your people. Your keepsakes.</h2></div><p><button type="button" class="desk-backup-link" id="desk-backup-open">Move your Desk ↗</button></p></div>
+              <div class="desk-strip-head"><div><span class="overline">YOUR DESK</span><h2 id="desk-title">Your people. Your saves.</h2></div><p><button type="button" class="desk-backup-link" id="desk-backup-open">Move Desk ↗</button></p></div>
               <form class="desk-add-person" id="desk-add-person" role="search">
-                <label for="desk-person-query"><span class="overline">ADD SOMEONE</span><small>Pin a Farcaster profile by handle or FID.</small></label>
+                <label for="desk-person-query"><span class="overline">ADD A PERSON</span></label>
                 <div><input id="desk-person-query" type="search" maxlength="200" placeholder="@username or FID" autocomplete="off" /><button type="submit" class="button button-outline">Add to Desk</button></div>
                 <p id="desk-person-status" role="status" aria-live="polite" hidden></p>
               </form>
@@ -158,8 +158,8 @@
               <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Saved posts and topics"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><span id="desk-cast-count">0 saved</span></div><div class="desk-saved-signals" id="desk-casts"></div></section><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Topics</h3><span id="desk-topic-count">0 pinned</span></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
               <p class="desk-active-topic" id="desk-active-topic" hidden></p>
               <details class="time-capsule" aria-labelledby="capsule-title">
-                <summary class="capsule-heading"><span class="overline">TODAY’S PAGE</span><span class="capsule-heading-title" id="capsule-title">Keep a page from today.</span><span class="capsule-count">14 days · this device</span></summary>
-                <div class="capsule-tools"><p id="capsule-save-note">Save this feed to revisit the people and signals from today.</p><button type="button" class="button button-outline" id="capsule-seal" disabled>Save today’s page</button></div>
+                <summary class="capsule-heading"><span class="overline">TIME CAPSULE</span><span class="capsule-heading-title" id="capsule-title">Today’s page</span><span class="capsule-count">14 days · this device</span></summary>
+                <div class="capsule-tools"><p id="capsule-save-note">Keep today’s feed for later.</p><button type="button" class="button button-outline" id="capsule-seal" disabled>Save today</button></div>
                 <div class="capsule-shelf" id="capsule-shelf" aria-label="Saved time capsules"><span class="capsule-empty">Your first capsule will appear here.</span></div>
                 <section class="capsule-replay" id="capsule-replay" aria-live="polite" hidden><div class="capsule-replay-head"><span><small>LOOKING BACK</small><strong id="capsule-replay-title"></strong></span><button type="button" id="capsule-replay-close" aria-label="Close capsule replay">×</button></div><div class="capsule-replay-list" id="capsule-replay-list"></div></section>
               </details>
@@ -179,10 +179,10 @@
                 <div class="classic-titlebar" aria-hidden="true"><span class="classic-titlebar-close"></span><span class="classic-titlebar-label">CASTONAUT</span><span class="classic-titlebar-grip">◢</span></div>
                 <div class="feed-toolbar">
                   <div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
-                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Friends <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Crew <span id="crew-count">0</span></button></div><details class="feed-extra-menu"><summary class="board-tab" aria-label="More feed options">More <span aria-hidden="true">⌄</span></summary><div class="feed-extra-panel"><button type="button" class="board-tab discover-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel" hidden>Find people</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button><button type="button" class="board-tab media-toggle" id="media-toggle" aria-pressed="false" aria-label="Remote media off. Media hosts can see your IP when enabled.">▧ <span>Media off</span></button></div></details><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
+                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Circle <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Group <span id="crew-count">0</span></button></div><details class="feed-extra-menu"><summary class="board-tab" aria-label="More feed options">More <span aria-hidden="true">⌄</span></summary><div class="feed-extra-panel"><button type="button" class="board-tab discover-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel">Discover</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button><button type="button" class="board-tab media-toggle" id="media-toggle" aria-pressed="false" aria-label="Remote media off. Media hosts can see your IP when enabled.">▧ <span>Media off</span></button></div></details><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
                 </div>
                 <section class="suggested-panel" id="suggested-panel" aria-labelledby="suggested-title" hidden>
-                  <div class="suggested-panel-head"><div><span class="overline">A FEW NEW CONNECTIONS</span><h3 id="suggested-title">People in your circle</h3><p>Suggested because people you follow follow them too.</p></div><button type="button" class="icon-button" id="suggested-close" aria-label="Close suggestions">×</button></div>
+                  <div class="suggested-panel-head"><div><span class="overline">FROM YOUR FOLLOW GRAPH</span><h3 id="suggested-title">People to discover</h3><p>Ranked by how many people you follow also follow them.</p></div><button type="button" class="icon-button" id="suggested-close" aria-label="Close suggestions">×</button></div>
                   <div class="suggested-list" id="suggested-list" aria-live="polite"></div>
                 </section>
                 <section class="profile-summary" id="profile-summary" aria-live="polite" tabindex="-1" hidden></section>
@@ -231,10 +231,10 @@
                     <label class="feed-option-control" id="orbit-only-control"><input id="orbit-only" type="checkbox" /><span>Pinned people only</span></label>
                     <label class="source-control" for="source-fid"><span>Source FID</span><input id="source-fid" type="number" min="1" placeholder="Any" /></label>
                     <label class="source-control" for="source-mode"><span>Show</span><select id="source-mode" class="source-mode"><option value="include">Only source</option><option value="exclude">Hide source</option></select></label>
-                    <label class="source-control crew-name-control" for="crew-name"><span>Crew name</span><input id="crew-name" type="text" maxlength="20" placeholder="Crew" /></label>
+                    <label class="source-control crew-name-control" for="crew-name"><span>Group name</span><input id="crew-name" type="text" maxlength="20" placeholder="My Group" /></label>
                     <label class="external-media-option" for="external-images"><input id="external-images" type="checkbox" /><span>Load remote media<small>Media hosts can see your IP</small></span></label>
                     <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>
-                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Friends <kbd>3</kbd> Crew <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
+                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Circle <kbd>3</kbd> Group <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
                   </div>
                 </details>
                 <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">
@@ -254,31 +254,30 @@
                   <div class="security-line"><span>⌑</span><span>Limited access. Remove it in your Farcaster account settings.</span></div>
                 </section>
                 <details class="side-card status-card" id="status-card">
-                  <summary class="connection-summary"><span>Connection details</span><span id="status-live">● CHECKING</span></summary>
+                  <summary class="connection-summary"><span>Connection details</span><span id="status-live">● ON REQUEST</span></summary>
                   <div class="side-card-head sr-only"><span class="overline">SERVICE DETAILS</span></div>
                   <div class="telemetry-display"><div><span class="telemetry-number" id="telemetry-delay">—</span><span class="telemetry-unit">SEC</span></div><div class="telemetry-label">MAX BLOCK DELAY</div><progress class="meter" id="delay-meter" max="100" value="0" aria-label="Maximum block delay status"></progress></div>
-                  <div class="telemetry-grid"><div><span>VERSION</span><strong id="node-version">Not connected</strong></div><div><span>SHARDS</span><strong id="node-shards">—</strong></div></div>
-                  <p class="telemetry-foot" id="telemetry-foot">A synced read node usually reports a block delay in the single digits.</p>
+              <div class="telemetry-grid"><div><span>VERSION</span><strong id="node-version">Not connected</strong></div><div><span>SHARDS</span><strong id="node-shards">—</strong></div></div>
+                  <p class="telemetry-foot" id="telemetry-foot">Healthy nodes stay close to the network tip.</p>
                 </details>
               </aside>
             </div>
             </div>
             <section class="desk-guest-gate" id="desk-guest-gate" data-area="desk" hidden aria-labelledby="desk-guest-title">
-              <span class="overline">YOUR DESK</span><h2 id="desk-guest-title">A space that’s yours.</h2><p>Sign in to pin people, save posts, and keep pages here on this device.</p><button class="button button-orange" id="desk-signin">Sign in to personalize</button>
+              <span class="overline">YOUR DESK</span><h2 id="desk-guest-title">A space that’s yours.</h2><p>Sign in to pin people and save posts.</p><button class="button button-orange" id="desk-signin">Sign in</button>
             </section>
           </section>
 
           <section class="view node-view" id="node-view" data-panel="node" hidden>
             <div class="overline"><span class="live-pip"></span> ABOUT CASTONAUT</div>
-            <div class="node-page-heading"><div><h1>Your own Snapchain node.</h1><p class="lead">Run your own node to serve the feed and relay signed messages. It’s optional for reading the client.</p></div></div>
+            <div class="node-page-heading"><div><h1>Run your own node.</h1><p class="lead">Optional. Read here without one.</p></div></div>
             <section class="node-journey" aria-labelledby="node-journey-title">
-              <div class="node-journey-head"><div><span class="overline">THE NODE PATH · OPTIONAL</span><h2 id="node-journey-title">Make the network feel closer.</h2><p>Run a Snapchain node and connect your client. Compute and storage cost money.</p></div><div class="node-journey-status"><span class="node-led" id="node-journey-led"></span><span><strong id="node-journey-state">Checking configured node…</strong><small id="node-journey-detail">Checks this client’s feed node only.</small></span></div></div>
-              <div class="node-journey-steps"><article><span>01 / CHECK</span><h3>Know what is live.</h3><p>Check version, shards, and delay.</p></article><article><span>02 / PREPARE</span><h3>Plan the machine.</h3><p>Confirm credits, disk cost, and cleanup.</p></article><article><span>03 / CONNECT</span><h3>Use your own route.</h3><p>Connect locally. Your node sees your public IP.</p></article></div>
-              <div class="node-journey-actions"><button type="button" class="button button-outline" id="node-journey-check">Check configured node</button><a class="button button-orange" href="/tutorial.html#quickstart">Open the node guide ↗</a><a class="text-button" href="/tutorial.html#quickstart">Costs, readiness, and cleanup</a></div>
+            <div class="node-journey-head"><div><span class="overline">OPTIONAL NODE</span><h2 id="node-journey-title">Connect your own.</h2><p>Check status, costs, and setup.</p></div><div class="node-journey-status"><span class="node-led" id="node-journey-led"></span><span><strong id="node-journey-state">Checking configured node…</strong><small id="node-journey-detail">Client feed node.</small></span></div></div>
+              <div class="node-journey-steps"><article><span>01 / CHECK</span><h3>Readiness</h3><p>Version · shards · delay</p></article><article><span>02 / PREPARE</span><h3>Costs</h3><p>Compute · disk · cleanup</p></article><article><span>03 / CONNECT</span><h3>Your route</h3><p>Local requests show your IP.</p></article></div>
+              <div class="node-journey-actions"><button type="button" class="button button-outline" id="node-journey-check">Check node</button><a class="button button-orange" href="/tutorial.html#quickstart">Open quickstart ↗</a></div>
             </section>
-            <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, Friends, and Crew in time order.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
-            <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Personal space, kept personal.</h2><p>Your Desk, notes, and saves stay in this browser. Pulse counts loaded posts; Lens filters to pinned people. Remote images are off by default. Image hosts can see your IP when enabled. Analytics are opt-in.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share basic visit statistics</strong><small>Optional Vercel page analytics. Your choice is saved in this browser; page paths are sent without query strings or fragments.</small></span></label><a class="legal-inline-link" href="/privacy.html">Read the Privacy Notice</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
-            <a class="guide-banner" href="/tutorial.html"><span class="guide-icon">▧</span><span><strong>How Castonaut works</strong><small>Feeds, sign-in, and running a node.</small></span><span class="guide-arrow">↗</span></a>
+            <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, your Circle, and a personal Group in time order.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
+            <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Your space stays yours.</h2><p>Desk, notes, and saves stay here. Remote images can reveal your IP. Analytics are optional.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share visit statistics</strong><small>Optional page views. Your choice stays on this device; URL details are removed.</small></span></label><a class="legal-inline-link" href="/privacy.html">Privacy details</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
           </section>
         </main>
       </div>
@@ -287,6 +286,19 @@
     <footer class="persistent-footer" aria-label="Castonaut links"><span>CASTONAUT</span><nav class="legal-links" aria-label="Footer navigation"><a href="/endorsements.html">Field notes</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/tutorial.html#security">Security</a></nav></footer>
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <dialog class="command-palette" id="command-palette" aria-labelledby="command-title">
+      <div class="command-titlebar"><span class="window-controls" aria-hidden="true"><i></i><i></i><i></i></span><strong id="command-title">CASTONAUT · JUMP TO</strong><button type="button" class="command-close" id="command-close" aria-label="Close menu">×</button></div>
+      <form class="command-search" id="command-search-form" role="search"><label class="sr-only" for="command-query">Find a page or action</label><span aria-hidden="true">⌕</span><input id="command-query" type="search" autocomplete="off" placeholder="Where would you like to go?" /><kbd>ESC</kbd></form>
+      <nav class="command-items" id="command-items" aria-label="Pages and actions">
+        <button type="button" class="command-item" data-command-view="feed"><span class="command-icon">⌂</span><span><strong>Feed</strong><small>Following, Circle, Group, and Discover</small></span></button>
+        <button type="button" class="command-item" data-command-view="desk"><span class="command-icon">⌖</span><span><strong>Desk</strong><small>Pinned people and saved posts</small></span></button>
+        <button type="button" class="command-item" data-command-view="search"><span class="command-icon">⌕</span><span><strong>Search</strong><small>Find a profile or loaded post</small></span></button>
+        <button type="button" class="command-item" data-command-view="node"><span class="command-icon">⌘</span><span><strong>Node</strong><small>Connection and setup</small></span></button>
+        <button type="button" class="command-item" data-command-action="account"><span class="command-icon">◉</span><span><strong>Account</strong><small>Sign in and key settings</small></span></button>
+        <p class="command-empty" id="command-empty" hidden>No matching destination.</p>
+      </nav>
+      <p class="command-help">Type to filter · Enter to open</p>
+    </dialog>
     <dialog class="connect-dialog" id="connect-dialog" aria-labelledby="connect-title">
       <form method="dialog" class="dialog-top"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><button class="dialog-close" value="close" aria-label="Close dialog">×</button></form>
       <div class="dialog-content"><span class="overline">CASTONAUT ACCOUNT</span><h2 id="connect-title" tabindex="-1">Sign in to Farcaster.</h2><p class="dialog-intro">Read freely. Connect to post and follow.</p>

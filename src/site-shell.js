@@ -6,6 +6,31 @@ const route = pathname.endsWith('/tutorial.html') ? 'guide'
       : pathname.endsWith('/terms.html') ? 'terms' : 'client';
 
 const labels = { client: 'HOME', guide: 'GUIDE', notes: 'FIELD NOTES', privacy: 'PRIVACY', terms: 'TERMS' };
+
+// The main SPA tracks its own route changes. Track standalone pages only when
+// the visitor has enabled the same local, opt-in setting there.
+if (!isClient && import.meta.env.PROD) {
+  let analyticsConsent = false;
+  try { analyticsConsent = localStorage.getItem('castonaut.analytics-consent.v1') === 'yes'; }
+  catch { analyticsConsent = false; }
+  if (analyticsConsent) {
+    import('@vercel/analytics').then((analytics) => {
+      analytics.inject({
+        disableAutoTrack: true,
+        beforeSend: (event) => {
+          try { if (localStorage.getItem('castonaut.analytics-consent.v1') !== 'yes') return null; }
+          catch { return null; }
+          const url = new URL(event.url);
+          url.search = '';
+          url.hash = '';
+          return { ...event, url: url.toString() };
+        },
+      });
+      analytics.pageview({ route, path: window.location.pathname });
+    }).catch(() => {});
+  }
+}
+
 function link(label, href, attributes = {}) {
   const anchor = document.createElement('a');
   anchor.textContent = label;
