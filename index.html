@@ -111,7 +111,7 @@
               <span>PUBLIC PROFILES</span>
               <p>Sign in to follow or post.</p>
             </aside>
-            <div class="area-heading search-heading" data-area="search"><span class="overline">PEOPLE</span><h1>Find someone.</h1><p>Open a profile, follow, or add to Circle.</p></div>
+            <div class="area-heading search-heading" data-area="search"><span class="overline">PEOPLE</span><h1>Find someone.</h1><p>Open a profile, follow, or add them to Top people.</p></div>
             <form class="people-search" id="people-search" role="search" data-area="search">
               <label class="sr-only" for="people-query">Find a public Farcaster profile by username or FID</label>
               <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="200" placeholder="Search @username or paste a profile link" autocomplete="off" />
@@ -171,13 +171,13 @@
               <div class="portal-copy">
                 <span class="overline">YOUR FARCASTER ACCOUNT</span>
                 <h2 id="portal-title">Welcome to Castonaut.</h2>
-                <p>Follow, post, and make your Desk yours.</p>
+                <p>Read the sample first. Sign in to follow, post, and keep a personal Desk on this device.</p>
                 <button class="button button-orange" id="portal-enter">Sign in <span>↗</span></button>
                 <small id="portal-status" role="status">Use your Farcaster account.</small>
                 <details class="portal-extras">
                   <summary>Account &amp; safety</summary>
                   <div class="portal-extras-content">
-                    <small>Phrase sign-in is optional. Page code can read a phrase while you enter it, so use only a deployment and device you trust.</small>
+                    <small>Use a linked wallet or sign in with your recovery phrase. Page code can read a phrase while you enter it, so use only a deployment and device you trust. The separate app key can post or delete casts, follow, react, and recast, but cannot move funds. Your Desk and saved posts stay in this browser.</small>
                     <div class="station-voice"><label for="voice-profile">Listen <span>·</span></label><select id="voice-profile" aria-label="Choose a station voice"><option value="navigator">Mae · Navigator</option><option value="radio">Quinn · Radio host</option><option value="archivist">Jules · Archivist</option></select><button type="button" id="voice-play" aria-label="Listen to the station introduction">▶</button><audio id="station-audio" preload="none"></audio></div>
                   </div>
                 </details>
@@ -242,7 +242,8 @@
                 <div class="feed-toolbar">
                   <div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
                   <div class="feed-toolbar-actions">
-                    <div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Circle <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Group <span id="crew-count">0</span></button></div>
+                    <div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Top people <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Focus list <span id="crew-count">0</span></button></div>
+                    <div class="focus-topic-filters" id="focus-topic-filters" role="group" aria-label="Filter focus list by saved topic" hidden></div>
                     <div class="feed-view-controls" role="group" aria-label="Feed view and tools"><button type="button" class="board-tab is-active" id="show-recent" aria-pressed="true">Recent</button><button type="button" class="board-tab" id="show-popular" aria-pressed="false">Popular</button><button type="button" class="board-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel">Discover</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button></div>
                     <span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button>
                   </div>
@@ -264,6 +265,7 @@
                   <div class="suggested-list" id="suggested-list" aria-live="polite"></div>
                 </section>
                 <section class="profile-summary" id="profile-summary" aria-live="polite" tabindex="-1" hidden></section>
+                <section class="profile-timeline-controls" id="profile-timeline-controls" aria-label="Profile timeline" hidden></section>
                 <section class="conversation-view" id="conversation-view" aria-labelledby="conversation-title" hidden>
                   <div class="conversation-head"><div><span class="overline">IN CONTEXT</span><h2 id="conversation-title" tabindex="-1">Conversation</h2><p id="conversation-status" role="status" aria-live="polite"></p></div><button type="button" class="button button-outline" id="conversation-close">Back to feed</button></div>
                   <div class="conversation-root" id="conversation-root"></div>
@@ -300,7 +302,7 @@
                     </details>
                     <p class="media-keyless-note">No account or key needed. Or paste a direct HTTPS image/GIF link above.</p>
                   </section>
-                  <div class="composer-bottom"><small id="draft-status" role="status" aria-live="polite"></small><div><details class="emoji-picker"><summary class="button button-outline" aria-label="Add emoji" aria-haspopup="dialog">Emoji</summary><div class="emoji-picker-popover" role="dialog" aria-label="Choose an emoji"><label class="sr-only" for="emoji-search">Search emoji</label><input id="emoji-search" class="emoji-search" type="search" placeholder="Search emoji…" autocomplete="off" /><div class="emoji-picker-grid" id="emoji-picker-grid" role="group" aria-label="Emoji results"></div><small class="emoji-search-status" id="emoji-search-status" aria-live="polite"></small></div></details><button type="button" class="button button-outline" id="composer-media-toggle">GIFs &amp; images</button><button type="button" class="button button-outline thread-add" id="thread-add">Add to thread</button><span id="char-count">0 / 969 bytes</span><button type="submit" class="button button-orange" id="composer-submit">Post</button></div></div>
+                  <div class="composer-bottom"><small id="draft-status" role="status" aria-live="polite"></small><div><details class="emoji-picker"><summary class="button button-outline" aria-label="Add emoji" aria-haspopup="dialog">Emoji</summary><div class="emoji-picker-popover" role="dialog" aria-label="Choose an emoji"><label class="sr-only" for="emoji-search">Search emoji</label><input id="emoji-search" class="emoji-search" type="search" placeholder="Search emoji…" autocomplete="off" /><div class="emoji-picker-grid" id="emoji-picker-grid" role="group" aria-label="Emoji results"></div><small class="emoji-search-status" id="emoji-search-status" aria-live="polite"></small></div></details><button type="button" class="button button-outline" id="composer-media-toggle" aria-label="GIFs and images" title="GIFs and images"><span class="composer-action-full">GIFs &amp; images</span><span class="composer-action-short" aria-hidden="true">GIF</span></button><button type="button" class="button button-outline thread-add" id="thread-add" aria-label="Add to thread" title="Add to thread"><span class="composer-action-full">Add to thread</span><span class="composer-action-short" aria-hidden="true">Thread</span></button><span id="char-count">0 / 969 bytes</span><button type="submit" class="button button-orange" id="composer-submit">Post</button></div></div>
                   <section class="thread-draft" id="thread-draft" aria-labelledby="thread-draft-title" hidden><div class="thread-draft-head"><strong id="thread-draft-title">Thread draft</strong><span id="thread-draft-count"></span></div><ol id="thread-draft-items"></ol><p id="thread-draft-status" role="status" aria-live="polite"></p><button type="button" class="button button-orange" id="thread-publish">Publish thread</button></section>
                   <button type="button" class="draft-discard" id="draft-discard" hidden>Discard this draft</button>
                 </form>
@@ -322,15 +324,15 @@
                       <label class="feed-option-control"><input id="compact-mode" type="checkbox" /><span>Compact view</span></label>
                       <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" type="checkbox" checked /><span>Group repeats</span></label>
                     </div>
-                    <label class="source-control crew-name-control" for="crew-name"><span>Group name</span><input id="crew-name" type="text" maxlength="20" placeholder="My Group" /></label>
+                    <label class="source-control crew-name-control" for="crew-name"><span>Focus list name</span><input id="crew-name" type="text" maxlength="20" placeholder="Focus list" /></label>
                     <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>
-                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Circle <kbd>3</kbd> Group <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
+                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Top people <kbd>3</kbd> Focus list <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
                   </div>
                 </details>
                 <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">
                   <div class="welcome-card" id="welcome-card">
                     <div class="welcome-illustration" aria-hidden="true"><div class="mini-monitor"><span></span><i></i><b></b></div><div class="mini-cursor">↖</div></div>
-                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Your account is the key.</h3><p>Sign in with your Farcaster recovery phrase.</p><div class="welcome-foot"><span>FARCASTER SIGN-IN · APP KEY ON THIS DEVICE</span></div></div>
+                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Read first. Connect when you’re ready.</h3><p>Following shows recent posts from people you follow. Sign in to react, post, and keep a personal Desk on this device. Your Desk and saved posts stay in this browser.</p><button type="button" class="button button-outline" data-open-account>Connect a Farcaster account</button><div class="welcome-foot"><span>LIMITED SOCIAL KEY · NO FUNDS ACCESS · STORED IN THIS BROWSER</span></div></div>
                   </div>
                 </div>
                 <div class="feed-end" id="feed-end" hidden><span></span><span class="feed-end-label">END OF TRANSMISSION</span><button type="button" class="feed-more-button" id="feed-more" hidden>Load posts from more people</button><span></span></div>
@@ -366,7 +368,7 @@
               <div class="node-journey-steps"><article><span>01 / CHECK</span><h3>Readiness</h3><p>Version · shards · delay</p></article><article><span>02 / PREPARE</span><h3>Costs</h3><p>Compute · disk · cleanup</p></article><article><span>03 / CONNECT</span><h3>Your route</h3><p>Local requests show your IP.</p></article></div>
               <div class="node-journey-actions"><button type="button" class="button button-outline" id="node-journey-check">Check node</button><a class="button button-orange" href="/tutorial.html#quickstart">Open quickstart ↗</a></div>
             </section>
-            <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, your Circle, and a personal Group in time order.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
+            <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, a Top people shortlist, and a fixed Focus list you can narrow by topic.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
             <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Your space stays yours.</h2><p>Desk, notes, and saves stay here. Remote images can reveal your IP. Analytics are optional.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share visit statistics</strong><small>Optional page views. Your choice stays on this device; URL details are removed.</small></span></label><a class="legal-inline-link" href="/privacy.html">Privacy details</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
           </section>
         </main>
@@ -381,7 +383,7 @@
       <form class="command-search" id="command-search-form" role="search"><label class="sr-only" for="command-query">Find a page or action</label><span aria-hidden="true">⌕</span><input id="command-query" type="search" autocomplete="off" placeholder="Where would you like to go?" /><kbd>ESC</kbd></form>
       <nav class="command-items" id="command-items" aria-label="Pages and actions">
         <div class="command-personal-items" id="command-personal-items" aria-label="Your Desk shortcuts"></div>
-        <button type="button" class="command-item" data-command-view="feed"><span class="command-icon">⌂</span><span><strong>Feed</strong><small>Following, Circle, Group, and Discover</small></span></button>
+        <button type="button" class="command-item" data-command-view="feed"><span class="command-icon">⌂</span><span><strong>Feed</strong><small>Following, Top people, Focus list, and Discover</small></span></button>
         <button type="button" class="command-item" data-command-view="desk"><span class="command-icon">⌖</span><span><strong>Desk</strong><small>Pinned people and saved posts</small></span></button>
         <button type="button" class="command-item" data-command-view="search"><span class="command-icon">⌕</span><span><strong>Search</strong><small>Find a profile or loaded post</small></span></button>
         <button type="button" class="command-item" data-command-view="node"><span class="command-icon">⌘</span><span><strong>Node</strong><small>Connection and setup</small></span></button>
@@ -392,7 +394,7 @@
     </dialog>
     <dialog class="connect-dialog" id="connect-dialog" aria-labelledby="connect-title">
       <form method="dialog" class="dialog-top"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><button class="dialog-close" value="close" aria-label="Close dialog">×</button></form>
-      <div class="dialog-content"><span class="overline">CASTONAUT ACCOUNT</span><h2 id="connect-title" tabindex="-1">Sign in to Farcaster.</h2><p class="dialog-intro">Read freely. Connect to post and follow.</p>
+      <div class="dialog-content"><span class="overline">CASTONAUT ACCOUNT</span><h2 id="connect-title" tabindex="-1">Sign in to Farcaster.</h2><p class="dialog-intro">Read freely. Connect to post and follow. Your Desk, saved posts, and preferences stay in this browser. Sign in with your Farcaster recovery phrase or a linked wallet.</p>
         <aside class="signer-request-card" aria-label="Castonaut app-key details"><span class="signer-request-mark" aria-hidden="true">✳</span><span class="signer-request-copy"><span class="overline">CASTONAUT · THIS BROWSER</span><strong>Limited social key for Castonaut.</strong><small>Post, follow, react, and recast · no funds access</small><small>30-day sliding expiry · revoke anytime in Farcaster settings</small></span></aside>
         <p class="dialog-status" id="dialog-status" role="status" tabindex="-1"></p>
         <div class="wallet-review" id="wallet-review" hidden><span class="overline">CHECK THIS IS YOUR ACCOUNT</span><strong id="wallet-review-fid"></strong><code id="wallet-review-address"></code><small>Castonaut is requesting this key. It can only make the social actions above; it cannot move funds. Your wallet will ask you to approve it.</small></div>

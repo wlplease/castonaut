@@ -43,6 +43,9 @@ test('phone layout keeps the feed, composer, profile, and dock inside the viewpo
   assert.match(css, /Unified phone layout: stable header, simple bottom dock/);
   assert.match(css, /grid-template-columns:repeat\(auto-fit,minmax\(0,1fr\)\)/);
   assert.match(css, /\.composer textarea\{width:100%;min-height:102px/);
+  assert.match(css, /\.composer-bottom>div\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(css, /#composer-submit\{grid-column:4;min-width:0;width:100%\}/);
+  assert.match(css, /\.composer-action-short\{display:inline\}/);
   assert.match(css, /\.post-actions\{display:flex;flex-wrap:nowrap;justify-content:space-between/);
   assert.match(css, /env\(safe-area-inset-bottom\)/);
 });

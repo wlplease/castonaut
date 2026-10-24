@@ -1,8 +1,9 @@
 import './runtime-polyfills.js';
 import { groupRepeatedCasts } from './feed-groups.js';
 import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions, visibleInProfileView } from './feed-curation.js';
-import { paceByAuthor, rankFollowRecommendations } from './feed-ranking.js';
+import { rankFollowRecommendations } from './feed-ranking.js';
 import { loadFollowGraph } from './follow-graph.js';
+import { loadFollowedTimeline } from './followed-timeline.js';
 import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
 import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-capsules.js';
 import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
@@ -12,6 +13,7 @@ import { CAST_EMBED_LIMIT, CAST_EMBED_URL_LIMIT, CAST_LIMIT, CAST_USER_LIMIT, ca
 import { castEmbedUrls } from './cast-links.js';
 import { fetchProfilePages, profileRecentStartTimestamp } from './profile-feed.js';
 import { isNotFound } from './snapchain-errors.js';
+import { publishWithConfirmation, removeWithConfirmation } from './write-flow.js';
 import { normalizeProfileSearch } from './profile-search.js';
 import { isVideoAvatarUrl } from './avatar-media.js';
 import { DeviceReadCache, ReadCache } from './read-cache.js';
@@ -60,6 +62,9 @@ const snapchainReadRequests = new Map();
 const engagementCountCache = new Map();
 const engagementCountRequests = new Map();
 const engagementCountEpochs = new Map();
+const viewerReactionCache = new Map();
+const viewerReactionRequests = new Map();
+const viewerReactionEpochs = new Map();
 const engagementObserver = typeof IntersectionObserver === 'function'
   ? new IntersectionObserver((entries) => {
     for (const entry of entries) {
@@ -109,7 +114,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Focus list', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -186,7 +191,8 @@ state.friendFids = readLocalFids(FRIENDS_STORAGE);
 state.crewFids = readLocalFids(CREW_STORAGE);
 state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
 try {
-  state.crewName = (localStorage.getItem(CREW_NAME_STORAGE) || 'My Group').trim().slice(0, 20) || 'My Group';
+  state.crewName = (localStorage.getItem(CREW_NAME_STORAGE) || 'Focus list').trim().slice(0, 20) || 'Focus list';
+  if (state.crewName === 'My Group') { state.crewName = 'Focus list'; localStorage.setItem(CREW_NAME_STORAGE, state.crewName); }
   state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]').filter((topic) => typeof topic === 'string').slice(0, 80);
   state.profilePins = JSON.parse(localStorage.getItem(PROFILE_PINS_STORAGE) || '{}');
   state.profileCovers = JSON.parse(localStorage.getItem(PROFILE_COVERS_STORAGE) || '{}');
@@ -413,6 +419,10 @@ async function fetchFollowGraph(fid, limits = {}, { fresh = false } = {}) {
     (params) => nodeRequest('links', { fid: Number(fid), link_type: 'follow', ...params }, { fresh }),
     { ownFid: Number(fid), maxPages: 20, maxFollows: 2000, ...limits },
   );
+}
+
+async function fetchFollowGraphPage(fid, pageToken, { fresh = false } = {}) {
+  return fetchFollowGraph(fid, { maxPages: 1, maxFollows: 100, pageToken }, { fresh });
 }
 
 function asFid(value) {
@@ -717,7 +727,7 @@ async function importLocalBackup(file) {
     }
     if (state.fid) { loadFlightLog(state.fid); loadCapsules(state.fid); }
     state.deskPins = readLocalFids(DESK_STORAGE); state.friendFids = readLocalFids(FRIENDS_STORAGE); state.crewFids = readLocalFids(CREW_STORAGE); state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
-    try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); state.crewName = localStorage.getItem(CREW_NAME_STORAGE) || 'My Group'; const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
+    try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); state.crewName = localStorage.getItem(CREW_NAME_STORAGE) || 'Focus list'; const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
     if ($('#desk-notepad-text')) $('#desk-notepad-text').value = localStorage.getItem(DESK_NOTEPAD_STORAGE) || '';
     updateDeskNotepadControls();
     renderDesk(); renderDeskShortcuts(); renderFeed(); renderFlightLogCount(); setBackupStatus(`Restored ${entries.length} items/settings${backup.accountFid ? ` for FID ${backup.accountFid}` : ''}.`); setNotice('Your Castonaut backup is restored on this device.', 'success');
@@ -764,6 +774,7 @@ async function checkNode() {
     const detail = inSync ? 'Connected. Sign in to open your feed.' : `Connected, but the feed is not current: its latest network data is about ${maxDelay === null ? 'an unknown amount' : formatNodeDelay(maxDelay)} behind.`;
     setNodeState(inSync ? 'good' : '', title, detail);
     const foot = $('#telemetry-foot'); if (foot) foot.textContent = inSync ? 'Connection and network freshness are healthy.' : 'Connection works; feed results may be incomplete until catch-up finishes.';
+    if (state.feedMode === 'following') updateFollowingCoverage();
     const list = $('#shard-list');
     if (list) list.replaceChildren();
     for (const shard of list ? (info.shardInfos || []) : []) {
@@ -883,6 +894,11 @@ function originalProfileUrl(profile) {
 }
 
 function updateFeedTabs() {
+  const profileView = state.boardMode === 'signals' && state.feedMode === 'profile';
+  const profileLayout = $('.feed-layout');
+  const feedWindow = $('#feed-window');
+  if (profileLayout) profileLayout.dataset.profileView = String(profileView);
+  if (feedWindow) feedWindow.dataset.profileView = String(profileView);
   const modes = ['following', 'friends', 'crew'];
   for (const mode of modes) {
     const button = document.querySelector(`[data-feed-tab="${mode}"]`);
@@ -894,6 +910,11 @@ function updateFeedTabs() {
   $('#crew-count').textContent = String(state.crewFids.length);
   $('#crew-count').hidden = state.crewFids.length === 0;
   $('#show-crew').firstChild.textContent = `${state.crewName} `;
+  const peopleTabs = $('.board-switch');
+  if (peopleTabs) peopleTabs.hidden = state.feedMode === 'profile' || state.boardMode !== 'signals';
+  const feedTools = $('.feed-view-controls');
+  if (feedTools) feedTools.hidden = state.feedMode === 'profile';
+  renderFocusTopicFilters();
   const recentSort = $('#show-recent');
   const popularSort = $('#show-popular');
   if (recentSort) {
@@ -910,7 +931,7 @@ function updateFeedTabs() {
   }
   const discover = $('#show-suggested');
   if (discover) {
-    discover.hidden = state.boardMode !== 'signals';
+    discover.hidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
     if (discover.hidden) { $('#suggested-panel').hidden = true; discover.setAttribute('aria-expanded', 'false'); }
   }
   $('#crew-name').value = state.crewName;
@@ -918,11 +939,25 @@ function updateFeedTabs() {
   $('#show-flight-log').setAttribute('aria-pressed', String(state.boardMode === 'flight-log'));
 }
 
+function renderFocusTopicFilters() {
+  const container = $('#focus-topic-filters');
+  if (!container) return;
+  container.replaceChildren();
+  container.hidden = state.feedMode !== 'crew' || state.deskTopics.length === 0;
+  if (container.hidden) return;
+  const label = document.createElement('span'); label.className = 'focus-topic-label'; label.textContent = 'TOPICS'; container.append(label);
+  const all = document.createElement('button'); all.type = 'button'; all.className = `focus-topic-button${state.activeDeskTopic ? '' : ' is-active'}`; all.dataset.focusTopic = ''; all.textContent = 'All'; all.setAttribute('aria-pressed', String(!state.activeDeskTopic)); container.append(all);
+  for (const topic of state.deskTopics) {
+    const button = document.createElement('button'); button.type = 'button'; button.className = `focus-topic-button${state.activeDeskTopic === topic ? ' is-active' : ''}`;
+    button.dataset.focusTopic = topic; button.textContent = topic.replace(/^site:/, ''); button.setAttribute('aria-pressed', String(state.activeDeskTopic === topic)); container.append(button);
+  }
+}
+
 function feedDescription(mode = state.feedMode) {
-  if (mode === 'friends') return `Your handpicked Circle · ${state.feedSort === 'popular' ? 'popular, last 30 days' : 'last 30 days · newest first'}.`;
-  if (mode === 'crew') return `Your ${state.crewName} group · ${state.feedSort === 'popular' ? 'popular, last 30 days' : 'last 30 days · newest first'}.`;
+  if (mode === 'friends') return `Your top people shortlist · ${state.feedSort === 'popular' ? 'popular, last 30 days' : 'last 30 days · newest first'}.`;
+  if (mode === 'crew') return `Your fixed ${state.crewName} list · narrow it with a saved Desk topic.`;
   if (mode === 'profile') return 'Recent posts from this profile.';
-  return state.feedSort === 'popular' ? 'Most liked and recast · last 30 days.' : 'Last 30 days · newest first.';
+  return state.feedSort === 'popular' ? 'Most liked and recast · last 30 days.' : 'Newest first · last 30 days · checking followed accounts in small groups.';
 }
 
 function recentFeedStartTimestamp(nowMs = Date.now()) { return profileRecentStartTimestamp(nowMs, 30); }
@@ -1181,12 +1216,14 @@ function renderCast(message, { priority = false } = {}) {
   const like = document.createElement('button'); like.type = 'button'; like.className = 'post-action'; like.dataset.action = 'like';
   const likeGlyph = document.createElement('span'); likeGlyph.className = 'post-action-glyph'; likeGlyph.textContent = '♡';
   const likeCount = document.createElement('span'); likeCount.className = 'post-action-count'; likeCount.dataset.engagementCount = 'Like'; likeCount.textContent = '…';
-  like.append(likeGlyph, likeCount); like.setAttribute('aria-label', 'Like cast'); like.title = 'Like';
+  like.append(likeGlyph, likeCount); like.setAttribute('aria-label', Number(state.fid) > 0 ? 'Checking like status' : 'Like cast'); like.title = 'Like';
+  like.dataset.reactionState = Number(state.fid) > 0 ? 'loading' : 'unknown';
   like.setAttribute('aria-pressed', 'false');
   const recast = document.createElement('button'); recast.type = 'button'; recast.className = 'post-action'; recast.dataset.action = 'recast';
   const recastGlyph = document.createElement('span'); recastGlyph.className = 'post-action-glyph'; recastGlyph.textContent = '⟳';
   const recastCount = document.createElement('span'); recastCount.className = 'post-action-count'; recastCount.dataset.engagementCount = 'Recast'; recastCount.textContent = '…';
-  recast.append(recastGlyph, recastCount); recast.setAttribute('aria-label', 'Recast'); recast.title = 'Recast';
+  recast.append(recastGlyph, recastCount); recast.setAttribute('aria-label', Number(state.fid) > 0 ? 'Checking recast status' : 'Recast'); recast.title = 'Recast';
+  recast.dataset.reactionState = Number(state.fid) > 0 ? 'loading' : 'unknown';
   recast.setAttribute('aria-pressed', 'false');
   const reply = document.createElement('button'); reply.type = 'button'; reply.className = 'post-action'; reply.dataset.action = 'reply';
   const replyGlyph = document.createElement('span'); replyGlyph.className = 'post-action-glyph'; replyGlyph.textContent = '↩';
@@ -1215,7 +1252,7 @@ function renderCast(message, { priority = false } = {}) {
   menu.append(menuAction(state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk', state.deskPins.includes(fid) ? 'unpin-person' : 'pin-person', fid));
   menu.append(menuAction(state.following.get(fid) ? 'Unfollow person' : 'Follow person', 'follow', fid, { hash: postHash(message) }));
   menu.append(flightLog);
-  menu.append(menuAction(state.friendFids.includes(fid) ? 'Remove from Circle' : 'Add to Circle', 'toggle-friend', fid));
+  menu.append(menuAction(state.friendFids.includes(fid) ? 'Remove from Top people' : 'Add to Top people', 'toggle-friend', fid));
   menu.append(menuAction(state.crewFids.includes(fid) ? `Remove from ${state.crewName}` : `Add to ${state.crewName}`, 'toggle-crew', fid));
   menu.append(menuAction(state.mutedAuthors.includes(fid) ? 'Unhide author' : 'Hide author', 'toggle-author-mute', fid));
   const topics = topicsForCast(message);
@@ -1247,22 +1284,98 @@ function displayEngagementCount({ count, more }) {
   return more ? `${formatted}+` : formatted;
 }
 
+function paintReactionButtonState(button, type, active) {
+  if (!button) return;
+  const isLike = type === 'Like';
+  button.dataset.reactionState = active ? 'active' : 'inactive';
+  button.setAttribute('aria-pressed', String(active));
+  const glyph = button.querySelector('.post-action-glyph');
+  if (glyph) glyph.textContent = isLike ? (active ? '♥' : '♡') : (active ? '✓' : '⟳');
+  const count = button.querySelector(`[data-engagement-count="${type}"]`);
+  const label = isLike ? (active ? 'Remove like' : 'Like cast') : (active ? 'Remove recast' : 'Recast');
+  const countLabel = count?.dataset.countState === 'ready'
+    ? ` · ${count.textContent} ${type === 'Like' ? 'likes' : 'recasts'}`
+    : count?.dataset.countState === 'error' ? ` · ${type === 'Like' ? 'likes' : 'recasts'} count unavailable` : '';
+  button.setAttribute('aria-label', `${label}${countLabel}`);
+  button.title = label;
+}
+
 function paintEngagementCount(card, type, result) {
   const count = card.querySelector(`[data-engagement-count="${type}"]`);
   if (!count) return;
   count.textContent = result ? displayEngagementCount(result) : '—';
   count.dataset.countState = result ? 'ready' : 'error';
+  count.dataset.countMore = result?.more ? 'true' : 'false';
   const label = type === 'Like' ? 'likes' : type === 'Recast' ? 'recasts' : 'replies';
   const button = count.closest('button');
-  if (button) {
-    const spoken = result ? `${result.more ? 'At least ' : ''}${result.count} ${label}` : `${label} count unavailable`;
-    const pressed = button.getAttribute('aria-pressed') === 'true';
-    const action = type === 'Like' ? (pressed ? 'Remove like' : 'Like cast')
-      : type === 'Recast' ? (pressed ? 'Remove recast' : 'Recast')
-        : 'Reply';
-    button.setAttribute('aria-label', `${action} · ${spoken}`);
-    button.title = spoken;
+  if (type === 'Like' || type === 'Recast') {
+    paintReactionButtonState(button, type, button?.getAttribute('aria-pressed') === 'true');
+    return;
   }
+  if (button) {
+    button.setAttribute('aria-label', `${result ? `${result.more ? 'At least ' : ''}${result.count} ${label}` : `${label} count unavailable`} · Reply`);
+    button.title = result ? `${result.count} ${label}` : `${label} count unavailable`;
+  }
+}
+
+function viewerReactionKey(viewerFid, targetFid, hash) {
+  return `${Number(viewerFid)}:${Number(targetFid)}:${String(hash).toLowerCase()}`;
+}
+
+async function readViewerReactionState(viewerFid, targetFid, hash, type) {
+  const key = `${viewerReactionKey(viewerFid, targetFid, hash)}:${type}`;
+  const cached = viewerReactionCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.active;
+  if (viewerReactionRequests.has(key)) return viewerReactionRequests.get(key);
+  const epoch = viewerReactionEpochs.get(key) || 0;
+  const request = (async () => {
+    let active = false;
+    try {
+      await nodeRequest('reactionById', { fid: Number(viewerFid), target_fid: Number(targetFid), target_hash: hash, reaction_type: type });
+      active = true;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+    }
+    if ((viewerReactionEpochs.get(key) || 0) === epoch) {
+      viewerReactionCache.set(key, { active, expiresAt: Date.now() + 30_000 });
+      if (viewerReactionCache.size > 1200) viewerReactionCache.delete(viewerReactionCache.keys().next().value);
+    }
+    return active;
+  })();
+  viewerReactionRequests.set(key, request);
+  try { return await request; }
+  finally { if (viewerReactionRequests.get(key) === request) viewerReactionRequests.delete(key); }
+}
+
+function saveViewerReactionState(viewerFid, targetFid, hash, type, active) {
+  const key = `${viewerReactionKey(viewerFid, targetFid, hash)}:${type}`;
+  viewerReactionEpochs.set(key, (viewerReactionEpochs.get(key) || 0) + 1);
+  viewerReactionRequests.delete(key);
+  viewerReactionCache.set(key, { active, expiresAt: Date.now() + 30_000 });
+}
+
+function loadViewerReactionState(card, type) {
+  const viewerFid = Number(state.fid);
+  if (!Number.isSafeInteger(viewerFid) || viewerFid < 1) return;
+  const targetFid = Number(card.dataset.castFid);
+  const hash = card.dataset.castHash;
+  const action = type === 'Like' ? 'like' : 'recast';
+  const button = card.querySelector(`[data-action="${action}"]`);
+  if (!button) return;
+  const key = `${viewerReactionKey(viewerFid, targetFid, hash)}:${type}`;
+  const epoch = viewerReactionEpochs.get(key) || 0;
+  void readViewerReactionState(viewerFid, targetFid, hash, type).then((active) => {
+    if (!card.isConnected || Number(state.fid) !== viewerFid) return;
+    if ((viewerReactionEpochs.get(key) || 0) !== epoch) return;
+    paintReactionButtonState(button, type, active);
+  }).catch(() => {
+    if (card.isConnected && Number(state.fid) === viewerFid) {
+      button.dataset.reactionState = 'unavailable';
+      const label = type === 'Like' ? 'Like' : 'Recast';
+      button.setAttribute('aria-label', `${label} status unavailable · refresh to try again`);
+      button.title = `${label} status unavailable`;
+    }
+  });
 }
 
 async function readEngagementCount(card, type) {
@@ -1294,6 +1407,8 @@ async function readEngagementCount(card, type) {
 async function loadCastEngagement(card) {
   if (!card?.isConnected) return;
   card.dataset.engagementLoaded = 'true';
+  loadViewerReactionState(card, 'Like');
+  loadViewerReactionState(card, 'Recast');
   await Promise.all(['Like', 'Recast', 'Reply'].map(async (type) => {
     const key = engagementKey(card.dataset.castFid, card.dataset.castHash, type);
     const epoch = engagementCountEpochs.get(key) || 0;
@@ -1522,6 +1637,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     casts: state.casts,
   };
   let fid;
+  let partialLoadFailures = 0;
   try {
     fid = asFid(fidValue);
     if (mode !== 'profile' && fid !== Number(state.fid)) throw new Error('Feeds can only be opened for the connected Farcaster account.');
@@ -1539,6 +1655,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   if (state.feedMode === 'following') { state.suggestedPeople = []; state.suggestionsLoadedFor = 0; $('#suggested-panel').hidden = true; $('#show-suggested')?.setAttribute('aria-expanded', 'false'); }
   state.feedSources = [];
   state.feedSourceOffset = 0;
+  state.feedFollowNextPageToken = '';
+  state.feedFollowComplete = true;
   state.profileNextPageToken = '';
   state.profileWindowStart = state.feedMode === 'profile' ? profileRecentStartTimestamp() : 0;
   state.profileArchiveMode = false;
@@ -1560,23 +1678,24 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   state.feedBusy = true;
   $('#show-suggested').disabled = true;
   const list = $('#feed-list'); list.setAttribute('aria-busy', 'true');
-  const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Circle' : state.feedMode === 'crew' ? state.crewName : 'Following';
+  const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Top people' : state.feedMode === 'crew' ? state.crewName : 'Following';
   if (state.boardMode === 'signals') {
     $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
     $('#feed-caption').textContent = state.feedMode === 'profile' ? 'Last 30 days · newest first.' : feedDescription(state.feedMode);
   }
-  renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Loading your feed.');
+  renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Checking the first group of followed accounts and loading their newest posts.');
   try {
     if (!state.nodeInfo) checkNode();
     const [followGraph, profile] = await Promise.all([
-      state.feedMode === 'following' ? fetchFollowGraph(fid, {}, { fresh }) : Promise.resolve({ fids: [], complete: true }),
-      fetchProfile(state.feedMode === 'profile' ? fid : Number(state.fid), { fresh }),
+      state.feedMode === 'following' ? fetchFollowGraph(fid, { maxPages: 1, maxFollows: 100 }, { fresh }) : Promise.resolve({ fids: [], complete: true, nextPageToken: '' }),
+      state.feedMode === 'profile' ? fetchProfile(fid, { fresh }) : Promise.resolve(null),
     ]);
     const followFids = followGraph.fids;
     if (state.feedMode === 'following') {
       state.following.clear();
       for (const target of followFids) state.following.set(target, true);
       state.feedFollowComplete = followGraph.complete;
+      state.feedFollowNextPageToken = followGraph.nextPageToken || '';
     }
     const uniqueFids = state.feedMode === 'profile' ? [fid]
       : state.feedMode === 'friends' ? [...state.friendFids]
@@ -1584,8 +1703,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
           : [...new Set(followFids)];
     const limitedFids = [...new Set(uniqueFids)].filter((target) => Number.isSafeInteger(target) && target > 0);
     state.feedSources = state.feedMode === 'following' ? limitedFids : [];
-    state.feedSourceOffset = state.feedMode === 'following' ? Math.min(6, limitedFids.length) : 0;
-    state.feedFollowTotal = state.feedMode === 'following' ? followFids.length : 0;
+    state.feedSourceOffset = 0;
+    state.feedFollowTotal = state.feedMode === 'following' ? state.following.size : 0;
     if (state.suggestionsLoadedFor !== Number(state.fid)) state.suggestedPeople = [];
     $('#suggested-panel').hidden = true;
     renderSuggestedPeople();
@@ -1600,17 +1719,25 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
       restoreFeedScroll();
       return true;
     }
-    const firstPageFids = state.feedMode === 'following' ? limitedFids.slice(0, 6) : limitedFids;
-    const castGroups = await mapLimit(firstPageFids, 6, async (target) => {
-      if (state.feedMode === 'profile') {
-        const [page, profileData] = await Promise.all([fetchProfileRecentPages(target, { fresh }), fetchProfile(target, { fresh })]);
-        return { ...page, profileData };
-      }
-      const [response] = await Promise.all([
-        nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh }),
-      ]);
-      return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '', seenPageTokens: new Set() };
-    });
+    let castGroups;
+    if (state.feedMode === 'following') {
+      const timeline = await loadFollowedTimeline(limitedFids, async (target) => {
+        const response = await nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh });
+        return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
+      }, { minPosts: 30, maxSources: 24, batchSize: 6 });
+      partialLoadFailures = timeline.failedFids.length;
+      state.feedSourceOffset = timeline.sourceOffset;
+      castGroups = [{ messages: timeline.messages }];
+    } else {
+      castGroups = await mapLimit(limitedFids, 6, async (target) => {
+        if (state.feedMode === 'profile') {
+          const [page, profileData] = await Promise.all([fetchProfileRecentPages(target, { fresh }), fetchProfile(target, { fresh })]);
+          return { ...page, profileData };
+        }
+        const response = await nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh });
+        return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '', seenPageTokens: new Set() };
+      });
+    }
     if (requestId !== state.feedRequest) return false;
     if (state.feedMode === 'profile') {
       state.profileNextPageToken = castGroups[0]?.nextPageToken || '';
@@ -1628,7 +1755,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
         return true;
       })
       .sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
-    const messages = state.feedMode === 'profile' ? newestFirst : paceByAuthor(newestFirst).slice(0, 30);
+    const messages = state.feedMode === 'profile' ? newestFirst : newestFirst.slice(0, 30);
     state.casts = messages;
     if (state.feedSort === 'popular' && state.feedMode !== 'profile') await loadPopularScores(messages);
     if (requestId !== state.feedRequest) return false;
@@ -1645,6 +1772,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     if (!messages.length) $('#feed-count').textContent = '0 POSTS';
     renderFeedMore();
     updateFollowingCoverage();
+    if (partialLoadFailures) setNotice(`Loaded what was available. ${partialLoadFailures} followed ${partialLoadFailures === 1 ? 'account could' : 'accounts could'} not be checked; use refresh to retry.`, 'error');
     restoreFeedScroll();
     // Show posts as soon as the cast requests finish. Hydrate names and avatars
     // afterward so slower profile lookups do not hold the whole feed hostage.
@@ -1702,17 +1830,19 @@ function renderFeedMore() {
   if (!footer || !button) return false;
   const hasProfileMore = state.boardMode === 'signals' && state.feedMode === 'profile'
     && (!!state.profileNextPageToken || !state.profileArchiveMode);
-  const hasMore = state.boardMode === 'signals' && ((state.feedMode === 'following' && state.feedSourceOffset < state.feedSources.length) || hasProfileMore);
+  const hasMore = state.boardMode === 'signals' && ((state.feedMode === 'following' && (state.feedSourceOffset < state.feedSources.length || !!state.feedFollowNextPageToken)) || hasProfileMore);
   button.hidden = !hasMore;
   button.disabled = state.feedMoreBusy;
   const moreCount = Math.min(6, state.feedSources.length - state.feedSourceOffset);
   button.textContent = state.feedMoreBusy
     ? (state.feedMode === 'profile' ? 'Loading older posts…' : 'Loading more people…')
-    : hasProfileMore ? (state.profileArchiveMode ? 'Load older posts' : state.profileNextPageToken ? 'More from this month' : 'Load earlier posts') : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
+    : hasProfileMore ? (state.profileArchiveMode ? 'Load older posts' : state.profileNextPageToken ? 'More from this month' : 'Load earlier posts')
+      : state.feedSourceOffset < state.feedSources.length ? `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`
+        : `Check ${Math.min(100, Math.max(1, state.feedFollowTotal || 100))} more followed accounts`;
   if (label) {
     label.hidden = hasMore;
-    label.textContent = hasProfileMore ? (state.profileArchiveMode ? 'MORE POSTS BELOW' : 'LAST 30 DAYS · MORE BELOW') : state.feedMode === 'following' && state.feedFollowTotal > state.feedSources.length
-      ? `FIRST ${state.feedSources.length} OF ${state.feedFollowTotal} FOLLOWED ACCOUNTS CHECKED`
+    label.textContent = hasProfileMore ? (state.profileArchiveMode ? 'MORE POSTS BELOW' : 'LAST 30 DAYS · MORE BELOW') : state.feedMode === 'following' && state.feedFollowTotal > 0
+      ? `${state.feedFollowComplete ? 'CHECKED' : 'AT LEAST'} ${state.feedFollowTotal} FOLLOWED ACCOUNTS`
       : state.feedMode === 'profile' ? 'END OF PROFILE' : 'END OF TRANSMISSION';
   }
   footer.hidden = !hasMore && state.casts.length === 0;
@@ -1762,14 +1892,51 @@ async function loadOlderProfilePosts() {
 function updateFollowingCoverage() {
   const caption = $('#feed-caption');
   if (!caption || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
-  caption.textContent = '';
+  const summary = state.feedSort === 'popular'
+    ? 'Followed accounts · most liked and recast in the last 30 days.'
+    : 'Newest first · last 30 days · checking followed accounts in small groups.';
+  const delays = (state.nodeInfo?.shardInfos || []).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
+  const maxDelay = delays.length ? Math.max(...delays) : null;
+  caption.textContent = maxDelay !== null && maxDelay > 10
+    ? `${summary} Node data is ${formatNodeDelay(maxDelay)} behind; recent posts may be missing.`
+    : summary;
 }
 
 async function loadMoreFollowed() {
   if (state.feedMoreBusy || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
   const requestId = state.feedRequest;
   const start = state.feedSourceOffset;
-  const batch = state.feedSources.slice(start, start + 6);
+  if (start >= state.feedSources.length && state.feedFollowNextPageToken) {
+    state.feedMoreBusy = true;
+    renderFeedMore();
+    try {
+      let pagesRead = 0;
+      while (state.feedFollowNextPageToken && state.feedSourceOffset >= state.feedSources.length && pagesRead < 4) {
+        const page = await fetchFollowGraphPage(state.fid, state.feedFollowNextPageToken);
+        if (requestId !== state.feedRequest) return;
+        state.feedFollowNextPageToken = page.nextPageToken || '';
+        state.feedFollowComplete = page.complete;
+        for (const target of page.fids) {
+          if (state.following.has(target)) continue;
+          state.following.set(target, true);
+          state.feedSources.push(target);
+        }
+        state.feedFollowTotal = state.following.size;
+        pagesRead += 1;
+      }
+    } catch (error) {
+      if (requestId === state.feedRequest) setNotice(`Could not check more followed accounts. ${clientErrorText(error)}`, 'error');
+      state.feedMoreBusy = false;
+      renderFeedMore();
+      return;
+    } finally {
+      if (requestId === state.feedRequest && state.feedSourceOffset >= state.feedSources.length) {
+        state.feedMoreBusy = false;
+        renderFeedMore();
+      }
+    }
+  }
+  const batch = state.feedSources.slice(state.feedSourceOffset, state.feedSourceOffset + 6);
   if (!batch.length) return;
   state.feedMoreBusy = true;
   renderFeedMore();
@@ -1790,8 +1957,8 @@ async function loadMoreFollowed() {
       const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
       if (!existing.has(key)) { existing.add(key); state.casts.push(message); }
     }
-    state.casts = paceByAuthor(state.casts.sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0))).slice(0, 60);
-    state.feedSourceOffset = start + batch.length;
+    state.casts = state.casts.sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0)).slice(0, 60);
+    state.feedSourceOffset += batch.length;
     if (state.feedSort === 'popular') await loadPopularScores(state.casts);
     if (requestId !== state.feedRequest) return;
     await mapLimit([...new Set(state.casts.flatMap((message) => [Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid)]).filter((fid) => fid > 0 && !state.people.has(fid)))], 6, fetchProfile);
@@ -1860,7 +2027,9 @@ function renderFeed() {
     if (state.boardMode === 'flight-log') {
       renderEmpty('Nothing saved yet.', 'Save a post from any feed to keep it here.');
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedSourceOffset < state.feedSources.length) {
-      renderEmpty('Your feed is quiet.', 'Load more follows to check a wider circle.');
+      renderEmpty('Your first group is quiet.', 'Load posts from the next six followed accounts.');
+    } else if (state.feedMode === 'following' && !state.casts.length && state.feedFollowNextPageToken) {
+      renderEmpty('Your Following list continues.', 'The first page had no recent posts. Check the next page of followed accounts.');
     } else if (query) {
       renderEmpty('No loaded posts match.', 'Load more posts or clear your search.');
     } else if (state.casts.length && sourceFilter) {
@@ -1872,11 +2041,11 @@ function renderFeed() {
       const handle = profile?.username ? `@${profile.username}` : 'this profile';
       renderEmpty(isMediaTab ? 'No media yet.' : isRepliesTab ? 'No replies yet.' : 'No original posts yet.', `Nothing to show for ${handle}.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
     } else if (state.feedMode === 'friends' && !state.friendFids.length) {
-      renderEmpty('Your Circle is empty.', 'Add people from Search.');
+      renderEmpty('Your Top people list is empty.', 'Open a profile or use Search to add people.');
     } else if (state.feedMode === 'crew' && !state.crewFids.length) {
-      renderEmpty(`${state.crewName} is ready.`, 'Use ••• on a post to add people.');
+      renderEmpty('Your Focus list is ready.', 'Add people from a post menu, then narrow the list with a saved Desk topic.');
     } else if (state.feedMode === 'following' && state.feedSources.length) {
-      renderEmpty('No recent posts.', 'Try Circle or check back later.');
+      renderEmpty(`No recent posts in ${state.crewName}.`, 'Add people to this fixed list, choose a saved topic, or switch to Top people.', { type: 'profile', label: 'View your posts' });
     } else if (state.orbitOnly && !state.deskPins.length) {
       renderEmpty('No pinned people yet.', 'Pin someone to your Desk to use this filter.');
     } else if (state.orbitOnly) {
@@ -1933,14 +2102,14 @@ function profileLabel(profile, fid) {
 
 function relationshipForCast(fid) {
   if (Number(state.fid) === Number(fid)) return 'You';
-  if (state.friendFids.includes(Number(fid))) return 'In Circle';
+  if (state.friendFids.includes(Number(fid))) return 'Top person';
   if (state.following.get(Number(fid))) return 'Following';
   if (state.feedMode === 'crew' && state.crewFids.includes(Number(fid))) return state.crewName;
   return '';
 }
 
 function relationshipTitle(label) {
-  if (label === 'In Circle') return 'You added this person to your Circle on this device.';
+  if (label === 'Top person') return 'You added this person to Top people on this device.';
   if (label === 'Following') return 'You follow this person on Farcaster.';
   if (label === 'You') return 'This is your account.';
   return `In your ${state.crewName} list on this device.`;
@@ -1979,8 +2148,10 @@ function renderFeedPulse(messages) {
 function renderProfileSummary() {
   const card = $('#profile-summary');
   if (!card) return;
+  const timelineControls = $('#profile-timeline-controls');
   const isProfile = state.boardMode === 'signals' && state.feedMode === 'profile' && state.feedTargetFid;
   card.hidden = !isProfile;
+  if (timelineControls) timelineControls.hidden = !isProfile;
   if (!isProfile) return;
   const profile = state.people.get(state.feedTargetFid) || { fid: state.feedTargetFid, name: `Farcaster ${state.feedTargetFid}`, username: `fid-${state.feedTargetFid}`, avatar: '', bio: '' };
   const isOwnProfile = !!state.signerReady && Number(profile.fid) === Number(state.fid);
@@ -2004,7 +2175,7 @@ function renderProfileSummary() {
   const compose = document.createElement('button'); compose.type = 'button'; compose.className = 'button button-orange'; compose.dataset.composeCast = 'true'; compose.textContent = 'Write a cast'; compose.setAttribute('aria-label', 'Write a cast from your account');
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'button button-outline'; pin.dataset.profilePin = String(profile.fid); pin.textContent = state.deskPins.includes(profile.fid) ? 'On your Desk ✓' : 'Pin to Desk';
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline'; follow.dataset.action = 'follow'; follow.dataset.fid = String(profile.fid); updateFollowButton(follow, profile.fid);
-  const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Circle' : '＋ Add to Circle'; friend.disabled = Number(profile.fid) === Number(state.fid);
+  const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Top people' : '＋ Add to Top people'; friend.disabled = Number(profile.fid) === Number(state.fid);
   const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.copyProfile = String(profile.fid); share.textContent = 'Share'; share.setAttribute('aria-label', `Share ${localProfileName(profile)}’s profile`);
   const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button button-outline'; edit.dataset.editProfile = String(profile.fid); edit.textContent = isOwnProfile ? 'Local name & note' : 'Personalize';
   const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = isOwnProfile ? 'Your page cover' : 'Local cover';
@@ -2084,7 +2255,8 @@ function renderProfileSummary() {
     const label = document.createElement('div'); label.className = 'profile-pinned-label'; label.textContent = 'Pinned here · only you';
     pinnedSlot.append(label, renderCast(pinned));
   }
-  cover.append(shell); card.replaceChildren(cover, tabs, pinnedSlot);
+  cover.append(shell); card.replaceChildren(cover);
+  timelineControls?.replaceChildren(tabs, pinnedSlot);
   watchCastEngagement(card);
 }
 
@@ -2766,7 +2938,7 @@ function setBoardMode(mode) {
   updateFeedTabs();
   renderDeskShortcuts();
   $('#page-label').textContent = logMode ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
-  $('#feed-title').textContent = logMode ? 'Saved' : state.feedMode === 'profile' ? 'Posts' : state.feedMode === 'crew' ? state.crewName : state.feedMode === 'friends' ? 'Circle' : 'Following';
+  $('#feed-title').textContent = logMode ? 'Saved' : state.feedMode === 'profile' ? 'Posts' : state.feedMode === 'crew' ? state.crewName : state.feedMode === 'friends' ? 'Top people' : 'Following';
   $('#feed-caption').textContent = logMode
     ? 'Saved on this device.'
     : state.feedMode === 'profile' ? `@${state.people.get(state.feedTargetFid)?.username || 'this profile'}` : feedDescription();
@@ -3247,53 +3419,30 @@ async function signAndRelay(messageResult, successRoute, successParams, successT
   // Check the signed message's final state before relaying it. If an earlier
   // request reached Snapchain but the browser lost its response, retrying the
   // same signed message must not make the user guess whether it was published.
-  try {
-    await nodeRequest(successRoute, successParams, { fresh: true });
-    setNotice(successText, 'success');
-    return { alreadyMerged: true };
-  } catch (error) {
-    if (!isNotFound(error)) throw error;
-  }
-  let accepted;
-  try {
-    accepted = await submitMessage(message);
-  } catch (error) {
-    if (await waitForMerge(successRoute, successParams, 3)) {
-      setNotice(successText, 'success');
-      return { alreadyMerged: true };
-    }
-    throw error;
-  }
-  setNotice('The app service accepted your message for relay. Waiting for network confirmation…', 'pending');
-  const confirmed = await waitForMerge(successRoute, successParams);
-  if (!confirmed) throw new Error('The node accepted the message for relay, but merge is not confirmed yet. Try refresh in a moment.');
-  setNotice(successText, 'success');
-  return accepted;
+  return publishWithConfirmation({
+    lookup: async () => {
+      try { await nodeRequest(successRoute, successParams, { fresh: true }); }
+      catch (error) { if (isNotFound(error)) error.notFound = true; throw error; }
+    },
+    submit: () => submitMessage(message),
+    onStatus: setNotice,
+    successText,
+    waitForMerge: (tries) => waitForMerge(successRoute, successParams, tries),
+  });
 }
 
 async function signAndRelayRemoval(messageResult, route, params, successText) {
   const message = resultOrThrow(messageResult, 'Could not create removal message');
-  try {
-    await nodeRequest(route, params, { fresh: true });
-  } catch (error) {
-    if (isNotFound(error)) {
-      setNotice(successText, 'success');
-      return { alreadyRemoved: true };
-    }
-    throw error;
-  }
-  try {
-    await submitMessage(message);
-  } catch (error) {
-    if (await waitForRemoval(route, params, 3)) {
-      setNotice(successText, 'success');
-      return { alreadyRemoved: true };
-    }
-    throw error;
-  }
-  setNotice('Removal relayed. Waiting for Snapchain confirmation…', 'pending');
-  if (!await waitForRemoval(route, params)) throw new Error('Removal was relayed but the node has not confirmed it yet. Check again before retrying.');
-  setNotice(successText, 'success');
+  return removeWithConfirmation({
+    lookup: async () => {
+      try { await nodeRequest(route, params, { fresh: true }); }
+      catch (error) { if (isNotFound(error)) error.notFound = true; throw error; }
+    },
+    submit: () => submitMessage(message),
+    onStatus: setNotice,
+    successText,
+    waitForRemoval: (tries) => waitForRemoval(route, params, tries),
+  });
 }
 
 function renderIdentity() {
@@ -3824,6 +3973,12 @@ stationAudio.addEventListener('pause', () => {
   }
 });
 document.querySelectorAll('[data-feed-tab]').forEach((button) => button.addEventListener('click', () => setFeedTab(button.dataset.feedTab)));
+$('#focus-topic-filters')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-focus-topic]');
+  if (!button) return;
+  state.activeDeskTopic = button.dataset.focusTopic || '';
+  renderFocusTopicFilters(); renderDeskShortcuts(); renderFeed();
+});
 $('#show-flight-log').addEventListener('click', () => setBoardMode('flight-log'));
 $('#show-recent')?.addEventListener('click', () => selectFeedSort('recent'));
 $('#show-popular')?.addEventListener('click', () => selectFeedSort('popular'));
@@ -3970,7 +4125,7 @@ $('#quick-controls-more')?.addEventListener('click', () => {
 });
 $('#crew-name').value = state.crewName;
 $('#crew-name').addEventListener('change', (event) => {
-  state.crewName = event.currentTarget.value.trim().slice(0, 20) || 'My Group';
+  state.crewName = event.currentTarget.value.trim().slice(0, 20) || 'Focus list';
   try { localStorage.setItem(CREW_NAME_STORAGE, state.crewName); } catch { setNotice('This browser could not save the group name.', 'error'); }
   updateFeedTabs();
   if (state.feedMode === 'crew') { $('#feed-title').textContent = state.crewName; renderFeed(); }
@@ -4128,6 +4283,7 @@ document.addEventListener('keydown', (event) => {
   cards[next].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
 $('#open-account').addEventListener('click', openConnectDialog);
+$('#welcome-card [data-open-account]')?.addEventListener('click', openConnectDialog);
 $('#portal-enter').addEventListener('click', () => {
   openConnectDialog();
   if (state.signer && !state.signerReady) $('#check-signer').hidden = false;
@@ -4598,7 +4754,7 @@ document.addEventListener('click', async (event) => {
       if (state.feedMode === 'friends') await loadFeed(state.fid, 'friends');
       else renderFeed();
       if (state.feedMode === 'profile' && Number(state.feedTargetFid) === targetFid) renderProfileSummary();
-      setNotice(state.friendFids.includes(targetFid) ? 'Added to Circle on this device.' : 'Removed from Circle.', 'success'); return;
+      setNotice(state.friendFids.includes(targetFid) ? 'Added to Top people on this device.' : 'Removed from Top people.', 'success'); return;
     }
     if (button.dataset.action === 'toggle-crew') {
       const next = state.crewFids.includes(targetFid) ? state.crewFids.filter((fid) => fid !== targetFid) : [...state.crewFids, targetFid];
@@ -4684,12 +4840,8 @@ document.addEventListener('click', async (event) => {
       const label = routeType === 'Like' ? (active ? 'Like removed from Snapchain.' : 'Like confirmed in Snapchain.') : (active ? 'Recast removed from Snapchain.' : 'Recast confirmed in Snapchain.');
       if (active) await signAndRelayRemoval(message, 'reactionById', params, label);
       else await signAndRelay(message, 'reactionById', params, label);
-      const glyph = button.querySelector('.post-action-glyph');
-      if (glyph) glyph.textContent = routeType === 'Like' ? (active ? '♡' : '♥') : (active ? '⟳' : '✓');
-      else button.textContent = routeType === 'Like' ? (active ? '♡' : '♥') : (active ? '⟳' : '✓');
-      button.setAttribute('aria-label', active ? (routeType === 'Like' ? 'Like cast' : 'Recast') : (routeType === 'Like' ? 'Remove like' : 'Remove recast'));
-      button.title = button.getAttribute('aria-label');
-      button.setAttribute('aria-pressed', String(!active));
+      saveViewerReactionState(state.fid, targetFid, hash, routeType, !active);
+      paintReactionButtonState(button, routeType, !active);
       refreshCastEngagement(targetFid, hash);
     }
     button.disabled = false;

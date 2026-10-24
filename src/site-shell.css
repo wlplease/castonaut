@@ -47,6 +47,17 @@
 .site-account-tools:empty { display: none; }
 .site-header .theme-picker { min-height: 36px; }
 .site-header .avatar-button { flex: 0 0 auto; }
+.site-header .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .site-footer {
   min-height: 70px;
@@ -148,8 +159,8 @@ html[data-theme="soft-reset"] .site-brand img { border-radius:5px; box-shadow:in
   .site-brand strong { font-size: 17px; }
   .site-brand small { font-size: 6.5px; letter-spacing: .08em; }
   .site-nav a { padding-inline: 10px; }
-  .site-account-tools .theme-picker { width: 35px; min-width: 35px; padding: 0; justify-content: center; }
-  .site-account-tools .theme-picker select { position: absolute; width: 35px; height: 34px; opacity: 0; }
+  .site-account-tools .theme-picker { position: relative; width: 35px; min-width: 35px; padding: 0; justify-content: center; }
+  .site-account-tools .theme-picker select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
   .site-account-tools .avatar-button { width: 34px; height: 34px; }
   .site-footer { padding-inline: 14px; }
   .site-footer-brand { white-space: normal; }

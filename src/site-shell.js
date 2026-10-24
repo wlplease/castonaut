@@ -97,9 +97,6 @@ if (isClient && oldHeader) {
 }
 oldHeader?.remove();
 document.querySelectorAll('.app-frame .sidebar .brand').forEach((brand) => brand.remove());
-if (isClient) {
-  document.querySelectorAll('.app-frame .sidebar .nav-item[href="/tutorial.html"], .app-frame .sidebar .nav-item[href="/endorsements.html"]').forEach((link) => link.remove());
-}
 document.querySelectorAll('.page-footer, .guide-footer, .endorse-footer, .legal-footer').forEach((footer) => footer.remove());
 
 const frame = document.querySelector('.app-frame');

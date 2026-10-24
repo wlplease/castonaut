@@ -57,7 +57,7 @@ test('profile timelines load the last month and keep earlier history available b
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const profileFeed = await readFile(new URL('../src/profile-feed.js', import.meta.url), 'utf8');
   assert.match(source, /fetchProfilePages\(/);
-  assert.match(source, /const messages = state\.feedMode === 'profile' \? newestFirst : paceByAuthor\(newestFirst\)\.slice\(0, 30\)/);
+  assert.match(source, /const messages = state\.feedMode === 'profile' \? newestFirst : newestFirst\.slice\(0, 30\)/);
   assert.match(source, /state\.profileNextPageToken = castGroups\[0\]\?\.nextPageToken \|\| ''/);
   assert.match(source, /startTimestamp: state\.profileWindowStart/);
   assert.match(source, /stopTimestamp: state\.profileWindowStart/);

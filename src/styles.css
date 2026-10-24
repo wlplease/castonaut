@@ -1711,10 +1711,46 @@ html[data-theme="night-radio"] .node-journey:before{border-color:color-mix(in sr
 .feed-more-button{min-height:34px;padding:0 13px;border:1px solid var(--station-line);border-radius:999px;background:var(--station-card);color:var(--station-accent);font:600 10px var(--display);letter-spacing:0;transition:background .16s,border-color .16s,transform .16s}
 .feed-more-button:hover{transform:translateY(-1px);border-color:var(--station-accent);background:var(--station-soft)}
 .feed-more-button:disabled{opacity:.65;cursor:wait;transform:none}
+.focus-topic-filters{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;padding:3px 0 1px}
+.feed-toolbar-actions>.focus-topic-filters{grid-column:1/-1}
+.focus-topic-label{margin-right:3px;color:var(--station-copy-muted);font:8px var(--mono);letter-spacing:.1em}
+.focus-topic-button{min-height:27px;padding:3px 9px;border:1px solid var(--station-line);border-radius:999px;background:var(--station-card);color:var(--station-copy-muted);font:500 10px var(--display);cursor:pointer}
+.focus-topic-button:hover,.focus-topic-button.is-active{border-color:var(--station-accent);background:var(--station-soft);color:var(--station-ink)}
+.focus-topic-button:focus-visible{outline:2px solid var(--station-accent);outline-offset:2px}
+
+/* Profile view: give the identity room, then introduce the post timeline below it. */
+.feed-layout[data-profile-view="true"]{grid-template-columns:minmax(0,1fr);gap:0}
+.feed-layout[data-profile-view="true"]>.right-column{display:none}
+.feed-window[data-profile-view="true"]>.profile-summary{order:0;margin:12px 18px 0;padding:12px}
+.feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:190px;padding:clamp(22px,4vw,42px);display:flex;align-items:flex-end}
+.feed-window[data-profile-view="true"]>.profile-summary .profile-summary-main{width:100%;grid-template-columns:72px minmax(0,1fr);gap:14px 18px;padding:18px}
+.feed-window[data-profile-view="true"]>.profile-summary .profile-summary-avatar{width:72px;height:72px;border-radius:15px}
+.feed-window[data-profile-view="true"]>.profile-summary .profile-summary-identity .profile-summary-bio{max-width:78ch;font-size:13px;line-height:1.65}
+.feed-window[data-profile-view="true"]>.profile-summary .profile-summary-actions{gap:8px;padding-top:12px}
+.feed-window[data-profile-view="true"]>.feed-toolbar{order:1;min-height:0;padding:11px 20px 8px;border-bottom:0;background:transparent}
+.feed-window[data-profile-view="true"]>.feed-toolbar h2{margin:0;font-size:18px;letter-spacing:-.025em}
+.feed-window[data-profile-view="true"]>.feed-toolbar #feed-caption{display:none}
+.feed-window[data-profile-view="true"]>.profile-timeline-controls{order:2;margin:0 18px 8px}
+.profile-timeline-controls .profile-tabs{margin:0;padding:0 4px;border-bottom:1px solid var(--station-line)}
+.profile-timeline-controls .profile-pinned-slot{margin:10px 0 0}
+@media(max-width:760px){
+  .feed-window[data-profile-view="true"]>.profile-summary{margin:9px 10px 0;padding:8px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:160px;padding:16px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-main{grid-template-columns:58px minmax(0,1fr);gap:10px 12px;padding:13px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-avatar{width:58px;height:58px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-actions{grid-column:1/-1}
+  .feed-window[data-profile-view="true"]>.feed-toolbar{padding:9px 14px 6px}
+  .feed-window[data-profile-view="true"]>.profile-timeline-controls{margin:0 10px 7px}
+}
+@media(max-width:480px){
+  .feed-window[data-profile-view="true"]>.profile-summary{margin:7px 5px 0;padding:6px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:145px;padding:10px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-main{grid-template-columns:48px minmax(0,1fr);gap:8px 10px;padding:10px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-avatar{width:48px;height:48px;border-radius:10px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-actions>.button,.feed-window[data-profile-view="true"]>.profile-summary .profile-more-options>summary{min-height:38px}
+  .feed-window[data-profile-view="true"]>.profile-timeline-controls{margin-inline:5px}
+}
 @media(max-width:620px){
-  /* Keep the phone dock to three destinations: home, discovery, and the user's desk. */
-  .sidebar .nav-item[href="/tutorial.html"]{display:none}
-  body[data-account-view="member"] .sidebar .nav-item[data-view="node"]{display:none}
   .room-heading{padding:15px 2px 17px}
   .room-heading h1{max-width:13ch;font-size:clamp(36px,9vw,44px);line-height:1.01}
   .room-heading .lead{max-width:34ch;font-size:12px;line-height:1.5}
@@ -2829,10 +2865,7 @@ html[data-theme="atlas"] .command-titlebar{background-color:#e5e4e0;background-i
   .feed-layout { grid-template-columns: minmax(0, 1fr) 195px; gap: 14px; }
 }
 @media (max-width: 620px) {
-  /* Guide and Field notes remain in the persistent footer; the app rail stays focused. */
-  .sidebar .nav-item[href="/tutorial.html"],
-  .sidebar .nav-item[href="/endorsements.html"] { display: none; }
-  .sidebar .nav-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  /* The navigation dock remains horizontally scrollable when all destinations do not fit. */
   .sidebar .nav-item { min-height: 48px; height: 48px; font-size: 10px; }
   .sidebar .nav-item .nav-symbol { font-size: 17px; }
   .feed-layout, .feed-window, .feed-list, .post-card, .post-card > div { min-width: 0; }
@@ -2846,6 +2879,7 @@ html[data-theme="atlas"] .command-titlebar{background-color:#e5e4e0;background-i
   .profile-tab { flex: 0 0 auto; min-height: 42px; }
   .page-footer { padding-bottom: 8px; }
 }
+
 @media (max-width: 380px) {
   .mobile-brand small { display: none; }
   .crumb { display: none; }
@@ -3716,4 +3750,29 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .sidebar .nav-item{font-size:8px}
   .persistent-footer .legal-links{gap:5px 8px}
   .persistent-footer .legal-links a{font-size:7px}
+}
+
+.composer-action-short{display:none}
+@media(max-width:620px){
+  .composer-bottom{display:flex;flex-direction:column;align-items:stretch;gap:4px}
+  .composer-bottom>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:4px;width:100%;min-width:0}
+  .composer-bottom>div>.emoji-picker{grid-column:1;min-width:0}
+  .composer-bottom>div>#composer-media-toggle{grid-column:2;min-width:0}
+  .composer-bottom>div>#thread-add{grid-column:3;min-width:0}
+  .composer-bottom>div>#composer-submit{grid-column:4;min-width:0;width:100%}
+  .composer-bottom>div>#char-count{grid-column:1/-1;grid-row:2;justify-self:end}
+  .composer-bottom>div>.button,.composer-bottom>div>.emoji-picker>summary{display:flex;align-items:center;justify-content:center;width:100%;min-width:0;min-height:34px;padding:0 3px;border-radius:5px;font-size:clamp(8px,2.5vw,10px);line-height:1;white-space:nowrap}
+  .composer-action-full{display:none}
+  .composer-action-short{display:inline}
+  .composer-bottom>#draft-status{order:2;min-height:0;text-align:right;font-size:8px}
+}
+
+/* Keep every destination reachable in the phone navigation dock. */
+@media(max-width:620px){
+  .sidebar .nav-list{display:flex;width:100%;height:50px;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;gap:4px;padding:0 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;touch-action:pan-x}
+  .sidebar .nav-list::-webkit-scrollbar{display:none}
+  .sidebar .nav-list .nav-item{display:flex;flex:0 0 clamp(56px,16vw,72px);width:clamp(56px,16vw,72px);max-width:none;scroll-snap-align:start}
+  .sidebar .nav-list .nav-item[href="/tutorial.html"],
+  .sidebar .nav-list .nav-item[href="/endorsements.html"],
+  body[data-account-view="member"] .sidebar .nav-list .nav-item[data-view="node"]{display:flex}
 }
