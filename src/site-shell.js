@@ -79,7 +79,7 @@ accountToolsSlot.className = 'site-account-tools';
 if (!isClient) {
   const themePicker = document.createElement('label');
   themePicker.className = 'theme-picker site-theme-picker';
-  themePicker.innerHTML = '<span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Spacebar · warm platinum</option><option value="soft-reset">Soft Reset · lilac dusk</option><option value="night-radio">Night Radio · violet dusk</option></select>';
+  themePicker.innerHTML = '<span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Spacebar · Platinum</option><option value="soft-reset">Lilac Spacebar</option><option value="night-radio">Night Radio</option></select>';
   accountToolsSlot.append(themePicker);
 }
 tools.append(context, accountToolsSlot);

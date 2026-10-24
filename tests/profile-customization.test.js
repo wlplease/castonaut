@@ -55,7 +55,7 @@ test('profile links are restricted to valid handles and opened without opener ac
 test('profile timelines prioritize the last week and keep earlier history available by cursor', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const profileFeed = await readFile(new URL('../src/profile-feed.js', import.meta.url), 'utf8');
-  assert.match(source, /state\.feedMode === 'profile' \? 100 : 10/);
+  assert.match(source, /const pageSize = 100/);
   assert.match(source, /const messages = state\.feedMode === 'profile' \? newestFirst : paceByAuthor\(newestFirst\)\.slice\(0, 30\)/);
   assert.match(source, /state\.profileNextPageToken = castGroups\[0\]\?\.nextPageToken \|\| ''/);
   assert.match(source, /startTimestamp: state\.profileWindowStart/);

@@ -1520,9 +1520,7 @@ html[data-theme="night-radio"] .people-search p[data-state="success"]{color:#8dd
 @media(max-width:620px){.people-search,.conversation-view{margin-left:10px;margin-right:10px}.people-search{grid-template-columns:18px minmax(0,1fr) auto;gap:6px;padding-inline:9px}.people-search .button{grid-column:3;grid-row:1;justify-self:start;padding-inline:9px}.people-search p{grid-column:1/-1}.conversation-head{align-items:flex-start;padding:15px 13px}.conversation-head h2{font-size:19px}.conversation-head .button{min-height:36px;padding:0 9px;white-space:nowrap}.conversation-root{padding:3px}.conversation-replies .post-card{padding-left:20px}.conversation-replies .post-card:before{left:10px}}
 
 /* A quieter home: one route illustration, no stack of duplicate feature cards. */
-html[data-theme="atlas"],
-
-/* A quieter home: one route illustration{
+html[data-theme="atlas"] {
   --station-paper:#f5f0e5;--station-card:#fffdf8;--station-line:#ddd3c2;--station-ink:#252a36;
   --station-accent:#394d75;--station-soft:#ece9e2;--station-gold:#b84b3c;--station-muted:#6e7078;
   --station-copy:#263238;--station-copy-muted:#515e62;--station-copy-soft:#6c7878;--station-wash:#e9eee8;
@@ -1804,9 +1802,7 @@ html,body{max-width:100%;overflow-x:clip}
 @media(prefers-reduced-motion:reduce){.hero-secondary span{transition:none}}
 
 /* Castonaut's signature: a warm paper atlas with a violet, radio-lit night mode. */
-html[data-theme="atlas"],
-
-/* Castonaut's signature: a warm paper atlas with a violet{
+html[data-theme="atlas"] {
   --station-accent:#51436f;
   --station-focus:#51436f;
   --station-wash:#eee8f2;
@@ -1893,9 +1889,7 @@ html[data-theme="night-radio"] .mini-monitor i{background:#efddff;box-shadow:0 6
 html[data-theme="night-radio"] .toggle-label input:checked+.toggle-track{background:#8869b5}
 
 /* Castonaut home: an editorial atlas, with the sample client as the main event. */
-html[data-theme="atlas"],
-
-/* Castonaut home: an editorial atlas{
+html[data-theme="atlas"] {
   --station-paper:#f4f1e8;
   --station-card:#fffdf8;
   --station-line:#d8d3c8;
@@ -2239,9 +2233,7 @@ html[data-theme="atlas"] .post-card:hover{box-shadow:0 5px 16px #252a3610}
 .reply-profile-link:hover{text-decoration:underline;text-underline-offset:2px}
 
 /* Finish: a quiet platinum desktop with a clear, modern feed hierarchy. */
-html[data-theme="atlas"],
-
-/* Finish: a quiet platinum desktop with a clear{
+html[data-theme="atlas"] {
   --station-paper:#efeee9;
   --station-card:#fbfaf7;
   --station-line:#d5d1c9;
@@ -2654,10 +2646,7 @@ video.remote-avatar-motion{background:var(--station-soft)}
 
 /* Castonaut's own platinum desktop: inspired by early personal computers,
    with original colors, marks, and controls. */
-html[data-theme="atlas"],
-
-/* Castonaut's own platinum desktop: inspired by early personal computers,
-   with original colors, marks{
+html[data-theme="atlas"] {
   --station-paper:#eeede9;
   --station-card:#fbfaf7;
   --station-soft:#e8e6e2;
@@ -2981,11 +2970,14 @@ html[data-theme="atlas"] .command-titlebar{background-color:#e5e4e0;background-i
 .desk-atlas-self>span{display:grid;width:41px;height:41px;place-items:center;border:2px solid var(--station-card);border-radius:50%;background:linear-gradient(145deg,var(--station-accent),color-mix(in srgb,var(--station-accent) 62%,#dc9b5d));box-shadow:0 0 0 4px color-mix(in srgb,var(--station-accent) 19%,transparent),0 3px 10px #19152625;color:var(--station-card);font:600 15px var(--display)}
 .desk-atlas-self small{color:var(--station-copy-muted);font:8px var(--mono);letter-spacing:.12em}
 .desk-atlas-person{position:absolute;z-index:2;display:grid;width:34px;height:34px;place-items:center;padding:0;border:2px solid var(--station-card);border-radius:50%;background:color-mix(in srgb,var(--station-card) 94%,var(--station-soft));box-shadow:0 0 0 2px color-mix(in srgb,var(--station-accent) 48%,transparent),0 2px 7px #19152621;color:var(--station-accent);font:600 11px var(--display);cursor:pointer;transform:translate(-50%,-50%);transition:transform .16s ease,box-shadow .16s ease}
+.desk-atlas-person img,.desk-atlas-person video,.desk-atlas-avatar img,.desk-atlas-avatar video{display:block;width:100%;height:100%;border-radius:inherit;object-fit:cover}
+.desk-atlas-person.avatar-loading{background:linear-gradient(105deg,var(--station-soft) 22%,color-mix(in srgb,var(--station-card) 72%,var(--station-accent)) 48%,var(--station-soft) 74%);background-size:220% 100%;animation:avatar-sheen 1.2s ease-in-out infinite}
+.desk-atlas-avatar{display:grid;width:41px;height:41px;place-items:center;overflow:hidden;border:2px solid var(--station-card);border-radius:50%;background:linear-gradient(145deg,var(--station-accent),color-mix(in srgb,var(--station-accent) 62%,#dc9b5d));box-shadow:0 0 0 4px color-mix(in srgb,var(--station-accent) 19%,transparent),0 3px 10px #19152625;color:var(--station-card);font:600 15px var(--display)}
 .desk-atlas-person:hover,.desk-atlas-person:focus-visible{z-index:3;outline:2px solid var(--station-accent);outline-offset:3px;box-shadow:0 0 0 5px color-mix(in srgb,var(--station-accent) 18%,transparent),0 3px 10px #19152624;transform:translate(-50%,-50%) scale(1.12)}
 .desk-atlas-caption{display:block;padding:7px 0 9px;color:var(--station-copy-muted);font:9px var(--mono);text-align:center}
 .desk-atlas-empty{margin:0;padding:25px 8px;color:var(--station-copy-muted);font-size:11px;text-align:center}
 .desk-atlas-note{margin:0;padding:0 12px 10px;color:var(--station-copy-muted);font-size:9px;text-align:center}
-@media(max-width:620px){.desk-atlas>summary{min-height:48px;padding-inline:9px}.desk-atlas>summary small{font-size:9px}.desk-atlas-map{padding-inline:7px}.desk-atlas-stage{height:220px}.desk-atlas-person{width:31px;height:31px;font-size:10px}.desk-atlas-self>span{width:36px;height:36px}.desk-atlas-note{font-size:8px}}
+@media(max-width:620px){.desk-atlas>summary{min-height:48px;padding-inline:9px}.desk-atlas>summary small{font-size:9px}.desk-atlas-map{padding-inline:7px}.desk-atlas-stage{height:220px}.desk-atlas-person{width:31px;height:31px;font-size:10px}.desk-atlas-avatar{width:36px;height:36px}.desk-atlas-note{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.desk-atlas-person{transition:none}}
 
 /* A small sample-based rhythm view adds context without extra node requests. */
@@ -3070,6 +3062,10 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 .directory-group { min-width: 0; padding: 12px; border: 1px solid var(--station-line); border-radius: 10px; background: color-mix(in srgb,var(--station-card) 94%,var(--station-soft)); }
 .directory-group h3 { margin: 0 0 10px; color: var(--station-copy-muted); font: 8px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .directory-people { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.directory-people-scroll { grid-template-columns: minmax(0,1fr); max-height: 176px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--station-accent) transparent; padding: 1px 4px 4px 1px; }
+.directory-find-more { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 34px; margin-top: 7px; padding: 5px 8px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--station-accent); font: 9px var(--mono); text-align: left; cursor: pointer; }
+.directory-find-more:hover { border-color: var(--station-line); background: var(--station-card); }
+.directory-find-more:focus-visible,.directory-people-scroll:focus-visible { outline: 2px solid var(--station-accent); outline-offset: 2px; }
 .directory-person { display: grid; grid-template-columns: 30px minmax(0,1fr) 12px; align-items: center; gap: 7px; min-width: 0; min-height: 46px; padding: 5px 7px; border: 1px solid color-mix(in srgb,var(--station-line) 80%,transparent); border-radius: 7px; background: var(--station-card); color: var(--station-ink); text-align: left; cursor: pointer; }
 .directory-person:hover { border-color: var(--station-accent); background: color-mix(in srgb,var(--station-soft) 60%,var(--station-card)); }
 .directory-person > span:nth-child(2) { display: grid; min-width: 0; gap: 2px; }
@@ -3083,6 +3079,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .search-directory { margin: 9px 0 15px; }
   .directory-groups { grid-template-columns: 1fr; gap: 7px; }
   .directory-group { padding: 9px; }
+  .directory-people-scroll { max-height: 176px; }
 }
 @media(max-width:360px) { .directory-people { grid-template-columns: 1fr; } }
 
@@ -3211,3 +3208,36 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .post-avatar.avatar-loading,.profile-summary-avatar.avatar-loading,.profile-avatar.avatar-loading,.post-image-frame.is-loading { animation:none; }
   .post-avatar img,.profile-summary-avatar img,.profile-avatar img,.post-image-frame .post-image { transition:none; }
 }
+
+/* Reaction totals keep actions readable while matching compact social feeds. */
+.post-actions .post-action { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:36px; font-variant-numeric:tabular-nums; }
+.post-action-glyph { line-height:1; }
+.post-action-count { min-width:1ch; color:var(--station-copy-muted); font:8px var(--mono); font-variant-numeric:tabular-nums; }
+.post-action-count[data-count-state="loading"] { opacity:.58; }
+.post-action-count[data-count-state="error"] { color:var(--station-copy-soft); }
+.post-action[aria-pressed="true"] .post-action-count { color:var(--station-accent); }
+@media(max-width:620px) {
+  .post-actions .post-action { min-width:34px; gap:4px; padding-inline:7px; }
+  .post-action-count { font-size:8px; }
+}
+
+/* Keep the Desk add-person control inside its panel at narrow desktop widths. */
+.desk-add-person { width:100%; min-width:0; grid-template-columns:minmax(0,.55fr) minmax(0,1.45fr); }
+.desk-add-person > label,.desk-add-person > div { min-width:0; }
+.desk-add-person > div { grid-template-columns:minmax(0,1fr) max-content; }
+.desk-add-person .button { min-width:0; max-width:100%; padding-inline:clamp(7px,1vw,12px); }
+@media(max-width:380px) {
+  .desk-add-person > div { grid-template-columns:minmax(0,1fr); }
+  .desk-add-person .button { width:100%; }
+}
+
+/* A small, practical welcome note for the community directory. */
+.network-state-card{display:grid;grid-template-columns:minmax(190px,.72fr) minmax(0,1.28fr);align-items:center;gap:8px 22px;margin-top:14px;padding:16px 18px;border:1px solid var(--station-line);border-left:3px solid var(--station-gold);border-radius:7px;background:linear-gradient(115deg,color-mix(in srgb,var(--station-soft) 55%,var(--station-card)),var(--station-card) 70%);box-shadow:inset 0 1px #fff8}
+.network-state-heading .overline{font-size:8px}
+.network-state-heading h3{margin:6px 0 2px;color:var(--station-ink);font:600 16px/1.2 var(--display);letter-spacing:-.025em}
+.network-state-heading p{margin:0;color:var(--station-copy-muted);font-size:10px}
+.network-state-card ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 14px;list-style:none;margin:0;padding:0}
+.network-state-card li{position:relative;padding-left:12px;color:var(--station-copy);font-size:10px;line-height:1.45}
+.network-state-card li::before{position:absolute;left:0;color:var(--station-gold);content:'✳'}
+.network-state-balaji{grid-column:2;max-width:280px;min-height:40px}
+@media(max-width:700px){.network-state-card{grid-template-columns:minmax(0,1fr);gap:12px;padding:14px}.network-state-card ul{grid-template-columns:minmax(0,1fr)}.network-state-balaji{grid-column:1}}
