@@ -11,6 +11,7 @@ const ROUTES = {
   castById: { path: '/v1/castById', method: 'GET', params: ['fid', 'hash'] },
   linkById: { path: '/v1/linkById', method: 'GET', params: ['fid', 'target_fid', 'link_type'] },
   reactionById: { path: '/v1/reactionById', method: 'GET', params: ['fid', 'target_fid', 'target_hash', 'reaction_type'] },
+  reactionsByCast: { path: '/v1/reactionsByCast', method: 'GET', params: ['target_fid', 'target_hash', 'reaction_type', 'pageSize', 'pageToken', 'reverse'] },
   submit: { path: '/v1/submitMessage', method: 'POST', params: [] },
 };
 
@@ -174,6 +175,7 @@ export default async function snapchain(req, res) {
   if (routeName === 'replies' && (!target.searchParams.has('fid') || !target.searchParams.has('hash'))) return res.status(400).json({ error: 'parent fid and hash are required' });
   if (routeName === 'linkById' && !target.searchParams.has('target_fid')) return res.status(400).json({ error: 'target_fid is required' });
   if (routeName === 'reactionById' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return res.status(400).json({ error: 'reaction target and type are required' });
+  if (routeName === 'reactionsByCast' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return res.status(400).json({ error: 'reaction target and type are required' });
   if ((process.env.SNAPCHAIN_HTTP_USER || process.env.SNAPCHAIN_HTTP_PASS) && target.protocol !== 'https:') {
     return res.status(500).json({ error: 'Proxy credentials require an HTTPS Snapchain endpoint.' });
   }

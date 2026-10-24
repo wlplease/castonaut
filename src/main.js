@@ -52,7 +52,7 @@ try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) === 'yes') enableAnaly
 const $ = (selector) => document.querySelector(selector);
 const snapchainReadCache = new ReadCache({ maxEntries: 36, maxBytes: 2_000_000 });
 const snapchainReadRequests = new Map();
-const READ_CACHE_TTL = { info: 10_000, casts: 8_000, replies: 8_000, castById: 30_000, userData: 60_000, username: 60_000 };
+const READ_CACHE_TTL = { info: 10_000, casts: 8_000, replies: 8_000, castById: 30_000, reactionsByCast: 20_000, userData: 60_000, username: 60_000 };
 let snapchainReadCacheVersion = 0;
 function clearSnapchainReadCache() { snapchainReadCacheVersion += 1; snapchainReadCache.clear(); }
 function isAddress(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value); }
@@ -418,17 +418,45 @@ function makeRemoteAvatar(url, className = '') {
   if (!isVideoAvatarUrl(url)) return makeRemoteImage(url, className);
   const video = document.createElement('video');
   video.className = ['remote-image', 'remote-avatar-motion', className].filter(Boolean).join(' ');
-  video.src = url;
+  video.dataset.avatarSrc = url;
   video.muted = true;
   video.loop = true;
   video.playsInline = true;
-  video.preload = 'metadata';
+  video.preload = 'none';
+  video.autoplay = false;
   video.setAttribute('aria-hidden', 'true');
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) video.autoplay = false;
-  else video.autoplay = true;
   video.referrerPolicy = 'no-referrer';
+  if (avatarMotionObserver) avatarMotionObserver.observe(video);
+  else { video.src = url; video.preload = 'metadata'; }
   return video;
 }
+
+const avatarMotionObserver = typeof IntersectionObserver === 'function'
+  ? new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      const video = entry.target;
+      if (!entry.isIntersecting || document.hidden) {
+        video.pause();
+        continue;
+      }
+      if (!video.dataset.loaded) {
+        video.src = video.dataset.avatarSrc;
+        video.dataset.loaded = 'true';
+        video.load();
+      }
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || navigator.connection?.saveData) {
+        video.pause();
+        continue;
+      }
+      video.play().catch(() => {});
+    }
+  }, { rootMargin: '100px' })
+  : null;
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) document.querySelectorAll('video.remote-avatar-motion').forEach((video) => video.pause());
+  else document.querySelectorAll('video.remote-avatar-motion').forEach((video) => avatarMotionObserver?.observe(video));
+});
 
 function setRemoteAvatar(container, url) {
   const fallback = container.textContent;
@@ -765,6 +793,12 @@ function safeExternalUrl(value) {
   } catch { return null; }
 }
 
+function readableLinkPath(pathname) {
+  return String(pathname || '').split('/').filter(Boolean).map((part) => {
+    try { return decodeURIComponent(part); } catch { return part; }
+  }).join(' · ');
+}
+
 function originalCastUrl(profile, message) {
   const hash = postHash(message);
   if (!/^0x[\da-f]{40,64}$/i.test(hash)) return '';
@@ -970,14 +1004,25 @@ function renderCast(message) {
       } else if (mediaUrl) {
         const media = document.createElement('figure'); media.className = 'post-media image-media';
         const isGif = isGifEmbedUrl(mediaEmbed.url);
-        const imageLink = document.createElement('a'); imageLink.className = 'post-image-link'; imageLink.href = mediaUrl.href; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer nofollow'; imageLink.setAttribute('aria-label', `Open ${isGif ? 'GIF' : 'image'} attached by ${shownName} in a new tab`);
+        const imageFrame = document.createElement('div'); imageFrame.className = 'post-image-frame';
+        const imageExpand = document.createElement('button'); imageExpand.type = 'button'; imageExpand.className = 'post-image-expand'; imageExpand.setAttribute('aria-label', `Expand ${isGif ? 'GIF' : 'image'} attached by ${shownName}`); imageExpand.setAttribute('aria-expanded', 'false');
         const image = makeRemoteImage(mediaUrl.href, 'post-image'); image.alt = `${isGif ? 'Animated GIF' : 'Image'} attached by ${shownName}`;
+        imageExpand.append(image);
+        imageExpand.addEventListener('click', () => {
+          const expanded = imageFrame.classList.toggle('is-expanded');
+          imageExpand.setAttribute('aria-expanded', String(expanded));
+          imageExpand.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${isGif ? 'GIF' : 'image'} attached by ${shownName}`);
+        });
         const imageFallback = document.createElement('span'); imageFallback.className = 'media-fallback'; imageFallback.hidden = true;
         imageFallback.append(document.createTextNode(`${isGif ? 'GIF' : 'Image'} unavailable · `));
         const fallbackLink = document.createElement('a'); fallbackLink.href = mediaUrl.href; fallbackLink.target = '_blank'; fallbackLink.rel = 'noopener noreferrer nofollow'; fallbackLink.textContent = 'open original';
         imageFallback.append(fallbackLink);
         image.addEventListener('error', () => { image.hidden = true; imageFallback.hidden = false; });
-        imageLink.append(image); media.append(imageLink, imageFallback); content.append(media);
+        const mediaCaption = document.createElement('figcaption'); mediaCaption.className = 'post-media-caption';
+        const mediaKind = document.createElement('span'); mediaKind.textContent = isGif ? 'GIF' : 'IMAGE';
+        const mediaOpen = document.createElement('a'); mediaOpen.href = mediaUrl.href; mediaOpen.target = '_blank'; mediaOpen.rel = 'noopener noreferrer nofollow'; mediaOpen.textContent = 'Open original ↗';
+        mediaCaption.append(mediaKind, mediaOpen);
+        imageFrame.append(imageExpand); media.append(imageFrame, mediaCaption, imageFallback); content.append(media);
       }
     } else {
       const mediaNote = document.createElement('span'); mediaNote.className = 'media-hidden-note';
@@ -989,9 +1034,12 @@ function renderCast(message) {
   const previewUrl = safeExternalUrl(linkEmbed?.url || String(body.text || '').match(/https?:\/\/[^\s<>"'`]+/i)?.[0]);
   if (previewUrl) {
     const preview = document.createElement('a'); preview.className = 'post-link-preview'; preview.href = previewUrl.href; preview.target = '_blank'; preview.rel = 'noopener noreferrer nofollow';
+    const siteMark = document.createElement('span'); siteMark.className = 'link-preview-mark'; siteMark.setAttribute('aria-hidden', 'true'); siteMark.textContent = previewUrl.hostname.replace(/^www\./i, '').slice(0, 1).toUpperCase();
+    const site = document.createElement('span'); site.className = 'link-preview-copy';
     const domain = document.createElement('strong'); domain.textContent = previewUrl.hostname.replace(/^www\./i, '');
-    const path = document.createElement('span'); path.textContent = previewUrl.pathname === '/' ? 'Open linked page' : previewUrl.pathname;
-    preview.append(domain, path, document.createTextNode('↗')); content.append(preview);
+    const path = document.createElement('small'); path.textContent = readableLinkPath(previewUrl.pathname) || 'Open link';
+    const open = document.createElement('span'); open.className = 'link-preview-open'; open.setAttribute('aria-hidden', 'true'); open.textContent = '↗';
+    site.append(domain, path); preview.append(siteMark, site, open); content.append(preview);
   }
   const actions = document.createElement('div'); actions.className = 'post-actions';
   const like = document.createElement('button'); like.type = 'button'; like.className = 'post-action'; like.textContent = '♡'; like.setAttribute('aria-label', 'Like cast'); like.title = 'Like'; like.dataset.action = 'like';
@@ -1017,6 +1065,7 @@ function renderCast(message) {
   const moreSummary = document.createElement('summary'); moreSummary.textContent = '•••'; moreSummary.setAttribute('aria-label', 'More post actions');
   const menu = document.createElement('div'); menu.className = 'post-more-menu';
   const share = document.createElement('button'); share.type = 'button'; share.className = 'post-more-action'; share.dataset.shareCast = 'true'; share.dataset.fid = String(fid); share.dataset.hash = postHash(message); share.textContent = 'Copy conversation link'; menu.append(share);
+  const reactionDetails = document.createElement('button'); reactionDetails.type = 'button'; reactionDetails.className = 'post-more-action'; reactionDetails.dataset.reactionsCast = 'true'; reactionDetails.dataset.fid = String(fid); reactionDetails.dataset.hash = postHash(message); reactionDetails.textContent = 'Who liked or recast'; menu.append(reactionDetails);
   menu.append(menuAction(state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk', state.deskPins.includes(fid) ? 'unpin-person' : 'pin-person', fid));
   menu.append(menuAction(state.following.get(fid) ? 'Unfollow person' : 'Follow person', 'follow', fid, { hash: postHash(message) }));
   menu.append(flightLog);
@@ -1035,6 +1084,94 @@ function renderCast(message) {
   more.append(moreSummary, menu); actions.append(more);
   content.append(actions); card.append(avatar, content);
   return card;
+}
+
+function reactionMessages(response) {
+  return (Array.isArray(response?.messages) ? response.messages : Array.isArray(response?.items) ? response.items : [])
+    .filter((message) => Number(message?.data?.fid) > 0);
+}
+
+async function renderReactionGroup(panel, fid, hash, type, { append = false } = {}) {
+  const group = panel.querySelector(`[data-reaction-group="${type}"]`);
+  const list = group.querySelector('.reaction-people');
+  const status = group.querySelector('.reaction-empty');
+  const more = group.querySelector('[data-reaction-more]');
+  const pageToken = append ? more.dataset.pageToken : '';
+  more.disabled = true;
+  more.textContent = 'Loading…';
+  try {
+    const response = await nodeRequest('reactionsByCast', {
+      target_fid: fid, target_hash: hash, reaction_type: type, pageSize: 8, reverse: true, pageToken,
+    });
+    const messages = reactionMessages(response);
+    const fids = [...new Set(messages.map((message) => Number(message.data.fid)))];
+    await mapLimit(fids, 4, fetchProfile);
+    for (const reaction of messages) {
+      const reactorFid = Number(reaction.data.fid);
+      if (list.querySelector(`[data-reaction-fid="${reactorFid}"]`)) continue;
+      const profile = state.people.get(reactorFid) || { fid: reactorFid, name: `FID ${reactorFid}`, username: `fid-${reactorFid}` };
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'reaction-person'; row.dataset.openProfile = String(reactorFid); row.dataset.reactionFid = String(reactorFid);
+      const avatar = document.createElement('span'); avatar.className = 'reaction-avatar'; avatar.textContent = String(profile.name || profile.username || '?').slice(0, 1).toUpperCase();
+      if (profile.avatar && safeImageUrl(profile.avatar)) setRemoteAvatar(avatar, safeImageUrl(profile.avatar));
+      const identity = document.createElement('span'); identity.className = 'reaction-identity';
+      const name = document.createElement('strong'); name.textContent = localProfileName(profile);
+      const handle = document.createElement('small'); handle.textContent = `@${profile.username || `fid-${reactorFid}`}`;
+      identity.append(name, handle); row.append(avatar, identity); list.append(row);
+    }
+    status.hidden = messages.length > 0 || list.children.length > 0;
+    status.textContent = append ? 'No more reactions.' : `No ${type === 'Like' ? 'likes' : 'recasts'} yet.`;
+    more.dataset.pageToken = response?.nextPageToken || '';
+    more.hidden = !more.dataset.pageToken;
+    more.textContent = 'Show more';
+  } catch (error) {
+    status.hidden = false;
+    status.textContent = `Could not load ${type === 'Like' ? 'likes' : 'recasts'}. ${clientErrorText(error)}`;
+    more.hidden = true;
+  } finally { more.disabled = false; }
+}
+
+async function openReactionDetails(button) {
+  const card = button.closest('.post-card');
+  if (!card) return;
+  let panel = card.querySelector('.cast-reaction-panel');
+  if (panel) {
+    panel.hidden = !panel.hidden;
+    if (panel.hidden) return;
+    button.closest('.post-more')?.removeAttribute('open');
+    return;
+  }
+  panel = document.createElement('section'); panel.className = 'cast-reaction-panel'; panel.setAttribute('aria-label', 'Cast reactions');
+  const heading = document.createElement('div'); heading.className = 'reaction-panel-head';
+  const title = document.createElement('strong'); title.textContent = 'People who reacted';
+  const close = document.createElement('button'); close.type = 'button'; close.className = 'reaction-panel-close'; close.textContent = 'Close'; close.addEventListener('click', () => { panel.hidden = true; });
+  heading.append(title, close);
+  const groups = document.createElement('div'); groups.className = 'reaction-groups';
+  for (const type of ['Like', 'Recast']) {
+    const group = document.createElement('section'); group.className = 'reaction-group'; group.dataset.reactionGroup = type;
+    const label = document.createElement('h4'); label.textContent = type === 'Like' ? 'Likes' : 'Recasts';
+    const list = document.createElement('div'); list.className = 'reaction-people';
+    const empty = document.createElement('p'); empty.className = 'reaction-empty'; empty.textContent = 'Loading…'; empty.setAttribute('role', 'status');
+    const more = document.createElement('button'); more.type = 'button'; more.className = 'reaction-more'; more.textContent = 'Show more'; more.hidden = true; more.dataset.reactionMore = 'true';
+    more.addEventListener('click', () => renderReactionGroup(panel, Number(card.dataset.castFid), card.dataset.castHash, type, { append: true }));
+    group.append(label, list, empty, more); groups.append(group);
+  }
+  panel.append(heading, groups);
+  card.querySelector('.post-actions')?.after(panel);
+  button.closest('.post-more')?.removeAttribute('open');
+  button.disabled = true;
+  try {
+    await Promise.all(['Like', 'Recast'].map((type) => renderReactionGroup(panel, Number(card.dataset.castFid), card.dataset.castHash, type)));
+  } finally { button.disabled = false; }
+}
+
+function updateFeedFilterSummary() {
+  const summary = $('#feed-filter-summary');
+  if (!summary) return;
+  const activeCount = [
+    !!state.feedQuery.trim(), state.repliesOnly, state.mediaOnly, state.appsOnly, state.orbitOnly,
+    Number($('#source-fid')?.value) > 0,
+  ].filter(Boolean).length;
+  summary.textContent = activeCount ? `Filters · ${activeCount}` : 'Filters';
 }
 
 function renderSuggestedPeople() {
@@ -1392,6 +1529,7 @@ async function loadMoreFollowed() {
 }
 
 function renderFeed() {
+  updateFeedFilterSummary();
   const requestedSource = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
   const exclude = $('#source-mode').value === 'exclude';
   const sourceMessages = state.boardMode === 'flight-log' ? state.savedCasts.map(savedCastMessage) : state.casts;
@@ -3118,11 +3256,18 @@ async function refreshSourceFilter() {
   if (Number($('#source-fid').value) > 0) await loadSignerSources(state.casts);
   renderFeed();
 }
-$('#source-fid').addEventListener('input', refreshSourceFilter);
+$('#source-fid').addEventListener('change', refreshSourceFilter);
 $('#source-mode').addEventListener('change', refreshSourceFilter);
 $('#loaded-search')?.addEventListener('input', (event) => {
   state.feedQuery = event.currentTarget.value.slice(0, 100);
   renderFeed();
+});
+$('#clear-feed-filters')?.addEventListener('click', () => {
+  state.feedQuery = '';
+  state.repliesOnly = false; state.mediaOnly = false; state.appsOnly = false; state.orbitOnly = false;
+  $('#loaded-search').value = ''; $('#filter-replies').checked = false; $('#filter-media').checked = false;
+  $('#filter-apps').checked = false; $('#orbit-only').checked = false; $('#source-fid').value = ''; $('#source-mode').value = 'include';
+  saveFeedOptions(); renderFeed();
 });
 $('#group-repeats').checked = state.groupRepeats;
 $('#group-repeats').addEventListener('change', (event) => {
@@ -3639,6 +3784,8 @@ $('#composer').addEventListener('submit', async (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  const reactionButton = event.target.closest('[data-reactions-cast]');
+  if (reactionButton) { await openReactionDetails(reactionButton); return; }
   const savedCast = event.target.closest('[data-open-desk-cast]');
   if (savedCast) {
     navigate('feed');

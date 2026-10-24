@@ -12,6 +12,7 @@ const ROUTES = {
   castById: { path: '/v1/castById', method: 'GET', params: ['fid', 'hash'] },
   linkById: { path: '/v1/linkById', method: 'GET', params: ['fid', 'target_fid', 'link_type'] },
   reactionById: { path: '/v1/reactionById', method: 'GET', params: ['fid', 'target_fid', 'target_hash', 'reaction_type'] },
+  reactionsByCast: { path: '/v1/reactionsByCast', method: 'GET', params: ['target_fid', 'target_hash', 'reaction_type', 'pageSize', 'pageToken', 'reverse'] },
   submit: { path: '/v1/submitMessage', method: 'POST', params: [] },
 };
 
@@ -118,6 +119,7 @@ function localSnapchainAdapter(serverEnv) {
           if (routeName === 'replies' && (!target.searchParams.has('fid') || !target.searchParams.has('hash'))) return sendJson(res, 400, { error: 'parent fid and hash are required' });
           if (routeName === 'linkById' && !target.searchParams.has('target_fid')) return sendJson(res, 400, { error: 'target_fid is required' });
           if (routeName === 'reactionById' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return sendJson(res, 400, { error: 'reaction target and type are required' });
+          if (routeName === 'reactionsByCast' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return sendJson(res, 400, { error: 'reaction target and type are required' });
           if (requestUrl.searchParams.getAll('route').length !== 1) return sendJson(res, 400, { error: 'Exactly one Snapchain route is required' });
           const params = [...requestUrl.searchParams.keys()].filter((key) => key !== 'route');
           if (new Set(params).size !== params.length) return sendJson(res, 400, { error: 'Duplicate query parameters are not allowed' });

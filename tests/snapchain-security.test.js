@@ -74,6 +74,34 @@ test('proxy forwards standard Base64 Snapchain page cursors', async () => {
   assert.equal(forwarded.searchParams.get('pageToken'), token);
 });
 
+test('reaction details use the configured Snapchain node and forward bounded pages', async () => {
+  let forwarded;
+  globalThis.fetch = async (url) => {
+    forwarded = new URL(url);
+    return new Response(JSON.stringify({ messages: [], nextPageToken: 'next+/=' }), { status: 200 });
+  };
+  const result = await callApi(makeRequest({
+    url: `/api/snapchain?route=reactionsByCast&target_fid=37&target_hash=0x${'a'.repeat(40)}&reaction_type=Like&pageSize=8&reverse=true&pageToken=${encodeURIComponent('abc+/=')}`,
+  }));
+  assert.equal(result.statusCode, 200);
+  assert.equal(forwarded.pathname, '/v1/reactionsByCast');
+  assert.equal(forwarded.searchParams.get('target_fid'), '37');
+  assert.equal(forwarded.searchParams.get('reaction_type'), 'Like');
+  assert.equal(forwarded.searchParams.get('pageSize'), '8');
+  assert.equal(forwarded.searchParams.get('pageToken'), 'abc+/=');
+});
+
+test('reaction details reject malformed targets and pagination before contacting Snapchain', async () => {
+  globalThis.fetch = async () => { throw new Error('fetch should not run'); };
+  const missing = await callApi(makeRequest({ url: `/api/snapchain?route=reactionsByCast&target_fid=37&target_hash=0x${'a'.repeat(40)}` }));
+  assert.equal(missing.statusCode, 400);
+  const oversized = await callApi(makeRequest({ url: `/api/snapchain?route=reactionsByCast&target_fid=37&target_hash=0x${'a'.repeat(40)}&reaction_type=Like&pageSize=101` }));
+  assert.equal(oversized.statusCode, 400);
+  const localConfig = await (await import('node:fs/promises')).readFile(new URL('../vite.config.mjs', import.meta.url), 'utf8');
+  assert.match(localConfig, /reactionsByCast: \{ path: '\/v1\/reactionsByCast', method: 'GET'/);
+  assert.match(localConfig, /routeName === 'reactionsByCast' && \(!target\.searchParams\.has\('target_fid'\)/);
+});
+
 test('local Snapchain adapter accepts standard Base64 page cursors', async () => {
   const config = await (await import('node:fs/promises')).readFile(new URL('../vite.config.mjs', import.meta.url), 'utf8');
   assert.ok(config.includes("if (name === 'pageToken') return value.length <= 2048 && /^[A-Za-z0-9+/_=-]*$/.test(value);"));

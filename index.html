@@ -242,17 +242,23 @@
                   <button type="button" class="draft-discard" id="draft-discard" hidden>Discard this draft</button>
                 </form>
                 <details class="feed-filters" id="feed-filters" hidden>
-                  <summary class="feed-filter-summary">Filters</summary>
-                <div class="feed-filter-options">
+                  <summary class="feed-filter-summary" id="feed-filter-summary">Filters</summary>
+                  <div class="feed-filter-options">
+                    <div class="feed-filter-section"><div class="feed-filter-section-head"><strong>Posts</strong><button type="button" class="filter-reset" id="clear-feed-filters">Clear filters</button></div>
                     <label class="source-control loaded-search-control" for="loaded-search"><span>Find in loaded posts</span><input id="loaded-search" type="search" maxlength="100" placeholder="Words, person, or link" autocomplete="off" /></label>
                     <label class="feed-option-control"><input id="filter-replies" type="checkbox" /><span>Replies only</span></label>
                     <label class="feed-option-control"><input id="filter-media" type="checkbox" /><span>Media only</span></label>
                     <label class="feed-option-control" title="Mini Apps appear as URL embeds in cast data; regular website links may match too."><input id="filter-apps" type="checkbox" /><span>App &amp; link embeds</span></label>
-                    <label class="feed-option-control"><input id="compact-mode" type="checkbox" /><span>Compact view</span></label>
-                    <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" type="checkbox" checked /><span>Group repeats</span></label>
                     <label class="feed-option-control" id="orbit-only-control"><input id="orbit-only" type="checkbox" /><span>Pinned people only</span></label>
-                    <label class="source-control" for="source-fid"><span>Source FID</span><input id="source-fid" type="number" min="1" placeholder="Any" /></label>
-                    <label class="source-control" for="source-mode"><span>Show</span><select id="source-mode" class="source-mode"><option value="include">Only source</option><option value="exclude">Hide source</option></select></label>
+                    </div>
+                    <fieldset class="feed-filter-section client-source-section"><legend>Client source</legend><p>Filter by the app that signed posts. Enter that app’s FID.</p>
+                      <label class="source-control" for="source-fid"><span>App FID</span><input id="source-fid" type="number" min="1" placeholder="Any app" /></label>
+                      <label class="source-control" for="source-mode"><span>Match</span><select id="source-mode" class="source-mode"><option value="include">Only this app</option><option value="exclude">Hide this app</option></select></label>
+                    </fieldset>
+                    <div class="feed-filter-section display-filter-section"><strong>Display</strong>
+                      <label class="feed-option-control"><input id="compact-mode" type="checkbox" /><span>Compact view</span></label>
+                      <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" type="checkbox" checked /><span>Group repeats</span></label>
+                    </div>
                     <label class="source-control crew-name-control" for="crew-name"><span>Group name</span><input id="crew-name" type="text" maxlength="20" placeholder="My Group" /></label>
                     <label class="external-media-option" for="external-images"><input id="external-images" type="checkbox" /><span>Load post media<small>Profile photos load automatically · hosts can see your IP</small></span></label>
                     <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>

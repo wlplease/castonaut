@@ -45,7 +45,7 @@ test('profile lookups retry after transient or empty responses instead of memoiz
 test('public profile and post reads use a bounded short cache with an explicit fresh path', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const cache = await readFile(new URL('../src/read-cache.js', import.meta.url), 'utf8');
-  assert.match(source, /READ_CACHE_TTL = \{ info: 10_000, casts: 8_000, replies: 8_000, castById: 30_000, userData: 60_000, username: 60_000 \}/);
+  assert.match(source, /READ_CACHE_TTL = \{ info: 10_000, casts: 8_000, replies: 8_000, castById: 30_000, reactionsByCast: 20_000, userData: 60_000, username: 60_000 \}/);
   assert.match(source, /loadFeed\(fidValue = state\.fid, mode = state\.feedMode, \{ fresh = false \} = \{\}\)/);
   assert.match(source, /clearSnapchainReadCache\(\)/);
   assert.match(cache, /maxEntries = 32, maxBytes = 2_000_000/);
