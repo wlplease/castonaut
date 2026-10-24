@@ -188,11 +188,10 @@ img{max-width:100%}
 .flight-log-tab{border:1px solid var(--station-line)}
 .feed-option-control{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 9px;border:1px solid var(--station-line);border-radius:5px;background:var(--station-card);color:var(--station-ink);font-size:10px;cursor:pointer}
 .feed-option-control input{accent-color:var(--station-accent)}
-.source-mode,.crew-name-control input,.cover-tone-control select{min-height:30px;border:1px solid var(--station-line);border-radius:5px;background:var(--station-card);color:var(--station-ink);padding:0 8px;font:10px var(--mono)}
+.source-mode,.cover-tone-control select{min-height:30px;border:1px solid var(--station-line);border-radius:5px;background:var(--station-card);color:var(--station-ink);padding:0 8px;font:10px var(--mono)}
 .loaded-search-control{display:grid;grid-template-columns:minmax(120px,1fr) minmax(180px,2fr);gap:5px 12px;flex:1 1 100%;padding:10px 0;border-bottom:1px solid var(--station-line);color:var(--station-ink);font-size:10px;font-weight:650}
 .loaded-search-control input{grid-column:2;grid-row:1/3;width:100%;min-height:38px;border:1px solid var(--station-line);border-radius:6px;background:var(--station-card);color:var(--station-ink);padding:0 11px;font:11px var(--mono)}
 .loaded-search-control small{color:var(--station-copy-muted);font-size:9px;font-weight:400}
-.crew-name-control input{width:95px}
 .muted-manager{flex-basis:100%;display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding-top:9px;border-top:1px solid var(--station-line);color:var(--station-copy-muted);font-size:9px}
 .muted-manager[hidden]{display:none}.muted-manager>span{margin-right:3px}
 #muted-items{display:flex;flex-wrap:wrap;gap:5px}
@@ -1394,7 +1393,6 @@ html[data-theme="night-radio"] .post-more>summary,html[data-theme="mars-relay"] 
 html[data-theme="night-radio"] .board-switch,html[data-theme="mars-relay"] .board-switch,
 html[data-theme="night-radio"] .feed-option-control,html[data-theme="mars-relay"] .feed-option-control,
 html[data-theme="night-radio"] .source-mode,html[data-theme="mars-relay"] .source-mode,
-html[data-theme="night-radio"] .crew-name-control input,html[data-theme="mars-relay"] .crew-name-control input,
 html[data-theme="night-radio"] .cover-tone-control select,html[data-theme="mars-relay"] .cover-tone-control select,
 html[data-theme="night-radio"] .composer textarea,html[data-theme="mars-relay"] .composer textarea,
 html[data-theme="night-radio"] .fid-form input,html[data-theme="mars-relay"] .fid-form input,
@@ -3148,7 +3146,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   }
   .feed-toolbar > * { min-width: 0; }
   .feed-toolbar-actions { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 7px; width: 100%; min-width: 0; }
-  .board-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: 0; width: 100%; }
+  .board-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; width: 100%; }
   .board-tab { min-width: 0; min-height: 40px; padding: 7px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .feed-toolbar-actions > .board-switch { grid-column: 1 / -1; grid-row: 1; }
   .feed-toolbar-actions > .feed-extra-menu { grid-column: 1; grid-row: 2; justify-self: start; }
@@ -3351,7 +3349,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .feed-toolbar h2{font-size:22px;line-height:1.15}
   .feed-toolbar p{font-size:10px}
   .feed-toolbar-actions{display:grid;width:100%;min-width:0;grid-template-columns:minmax(0,1fr) 40px;gap:6px}
-  .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0;overflow:hidden}
+  .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;min-width:0;overflow:hidden}
   .feed-toolbar-actions>.board-switch .board-tab{min-width:0;min-height:42px;padding:6px 3px;font-size:10px;white-space:nowrap}
   .feed-toolbar-actions>.feed-extra-menu{grid-column:1;grid-row:2;justify-self:start}
   .feed-toolbar-actions>.feed-extra-menu>summary{min-height:40px}
@@ -3444,7 +3442,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 .feed-toolbar-actions>.feed-refresh-button{flex:0 0 36px;width:36px;height:36px}
 @media(max-width:760px){
   .feed-toolbar-actions{display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:center;gap:6px}
-  .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:hidden}
+  .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:hidden}
   .feed-toolbar-actions>.board-switch>.board-tab{min-width:0;padding-inline:5px;white-space:nowrap}
   .feed-toolbar-actions>.feed-view-controls{grid-column:1/-1;grid-row:2;display:grid;width:100%;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
   .feed-view-controls>.board-tab{min-width:0;padding-inline:3px;font-size:9px}
@@ -3659,7 +3657,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .feed-toolbar h2{flex:none;margin:0;font-size:21px;line-height:1.15}
   .feed-toolbar p{min-width:0;margin:0;text-align:right;font-size:9px;line-height:1.35}
   .feed-toolbar-actions{display:grid;grid-template-columns:minmax(0,1fr) 38px;gap:5px;width:100%;min-width:0}
-  .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0;overflow:hidden;padding:2px;border-radius:4px}
+  .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;min-width:0;overflow:hidden;padding:2px;border-radius:4px}
   .feed-toolbar-actions>.board-switch>.board-tab{display:flex;justify-content:center;min-width:0;min-height:39px;padding:4px 2px;gap:3px;font-size:9px;white-space:nowrap}
   .feed-toolbar-actions>.feed-view-controls{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;width:100%;min-width:0;padding:3px;border-radius:4px}
   .feed-view-controls>.board-tab{min-width:0;min-height:36px;padding:4px 2px;font-size:9px;white-space:nowrap}
@@ -3772,7 +3770,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .feed-toolbar h2{flex:0 0 auto;margin:0;font-size:23px;line-height:1.15}
   .feed-toolbar p{min-width:0;margin:0;text-align:right;font-size:10px;line-height:1.35}
   .feed-toolbar-actions{display:grid;grid-template-columns:minmax(0,1fr) 38px;gap:6px;width:100%;min-width:0}
-  .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;overflow:hidden}
+  .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;overflow:hidden}
   .feed-toolbar-actions>.board-switch>.board-tab{display:flex;justify-content:center;min-width:0;min-height:40px;padding-inline:4px;font-size:10px;white-space:nowrap}
   .feed-toolbar-actions>.feed-view-controls{grid-column:1;grid-row:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;width:100%;min-width:0}
   .feed-view-controls>.board-tab{min-width:0;min-height:36px;padding-inline:3px;font-size:10px;white-space:nowrap}
@@ -3843,7 +3841,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .app-frame{padding-bottom:calc(68px + env(safe-area-inset-bottom))}
   html{scroll-padding-bottom:calc(80px + env(safe-area-inset-bottom))}
   .sidebar{height:calc(58px + env(safe-area-inset-bottom));padding:4px max(8px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px,env(safe-area-inset-left))}
-  .sidebar .nav-list{display:grid;width:100%;height:50px;max-height:50px;grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:48px;align-content:center;gap:2px 4px;margin:0;padding:0;overflow:visible;touch-action:auto;scroll-snap-type:none}
+  .sidebar .nav-list{display:grid;width:100%;height:50px;max-height:50px;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:48px;align-content:center;gap:2px 4px;margin:0;padding:0;overflow:visible;touch-action:auto;scroll-snap-type:none}
   .sidebar .nav-list>.nav-item[data-view="desk"],
   .sidebar .nav-list>.nav-item[data-view="search"],
   .sidebar .nav-list>.nav-item[data-view="profile"]{display:none}
@@ -3985,7 +3983,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .feed-window>.feed-toolbar h2{min-width:0;margin:0;font-size:23px;line-height:1.15;overflow-wrap:anywhere}
   .feed-window>.feed-toolbar #feed-caption{display:block;min-width:0;max-width:none;margin:0;text-align:left;font-size:10px;line-height:1.4;white-space:normal;overflow-wrap:anywhere;color:var(--station-copy-muted)}
   .feed-window>.feed-toolbar .feed-toolbar-actions{display:grid;grid-template-columns:minmax(0,1fr) 36px;align-items:center;gap:5px;width:100%;min-width:0}
-  .feed-window>.feed-toolbar .board-switch{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;width:100%;min-width:0;overflow:hidden;padding:2px}
+  .feed-window>.feed-toolbar .board-switch{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;width:100%;min-width:0;overflow:hidden;padding:2px}
   .feed-window>.feed-toolbar .board-switch>.board-tab{display:flex;justify-content:center;min-width:0;min-height:36px;padding:4px 5px;gap:4px;font-size:10px;white-space:nowrap}
   .feed-window>.feed-toolbar .feed-view-controls{grid-column:1;grid-row:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;width:100%;min-width:0;padding:2px}
   .feed-window>.feed-toolbar .feed-view-controls>.board-tab{min-width:0;min-height:32px;padding:3px 4px;font-size:9px;white-space:nowrap}
@@ -3993,6 +3991,27 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .feed-window>.feed-toolbar .feed-count{display:none}
   .feed-window>.feed-toolbar .feed-refresh-button{grid-column:2;grid-row:2;width:36px;height:36px;min-height:36px;justify-self:end}
 }
+
+/* Keep destinations and the single sort switch on one compact rail. */
+@container feed-window (min-width:600px) and (max-width:820px){
+  .feed-window>.feed-toolbar .feed-toolbar-actions{display:flex;flex-wrap:nowrap;align-items:center;justify-content:stretch;gap:6px}
+  .feed-window>.feed-toolbar .board-switch{display:flex;flex:1 1 0;grid-column:auto;grid-row:auto;gap:2px;width:auto;padding:2px}
+  .feed-window>.feed-toolbar .board-switch>.board-tab{flex:1 1 0;min-width:0;min-height:34px;padding:3px 4px;gap:3px;font-size:9px}
+  .feed-window>.feed-toolbar .feed-view-controls{display:flex;flex:0 0 auto;grid-column:auto;grid-row:auto;gap:1px;width:auto;padding:2px}
+  .feed-window>.feed-toolbar .feed-view-controls>.board-tab{flex:0 0 86px;min-width:0;min-height:30px;padding:3px 6px;font-size:9px}
+  .feed-window>.feed-toolbar .focus-topic-filters{flex:0 0 auto;order:4;grid-column:auto;grid-row:auto;min-width:0}
+  .feed-window>.feed-toolbar .feed-count{display:none}
+  .feed-window>.feed-toolbar .feed-refresh-button{flex:0 0 32px;width:32px;height:32px;min-height:32px;justify-self:auto}
+}
+
+@media(max-width:620px){
+  .feed-toolbar-actions>.feed-view-controls{grid-template-columns:minmax(0,1fr);width:auto}
+  .feed-view-controls>.board-tab{min-height:32px;padding-inline:8px;font-size:9px}
+}
+
+/* Feed shortcuts stay in the phone dock; desktop already has the feed switcher. */
+.nav-mobile-feed-destination{display:none!important}
+@media(max-width:620px){.nav-mobile-feed-destination{display:flex!important}}
 
 /* Narrow-screen finish: keep status, shortcuts, and post controls within 320px. */
 @media(max-width:620px){

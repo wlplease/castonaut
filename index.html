@@ -47,16 +47,14 @@
           <span><strong>castonaut</strong><small>FARCASTER · CLIENT</small></span>
         </a>
         <nav class="nav-list" aria-label="Castonaut destinations">
-          <p class="rail-label nav-section-label" aria-hidden="true">TIMELINES</p>
-          <a class="nav-item nav-destination" href="#feed" data-feed-destination="following" aria-label="Following" title="Recent posts from people you follow"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span><small>Recent posts from your follows</small></a>
-          <a class="nav-item nav-destination" href="#feed" data-feed-destination="friends" aria-label="Top people" title="A short list you choose on this device"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span><small>Your handpicked circle</small></a>
-          <a class="nav-item nav-destination" href="#feed" data-feed-destination="crew" aria-label="Focus list" title="A fixed list of people, narrowed by Desk topics"><span class="nav-symbol" aria-hidden="true">▤</span><span>Focus list</span><small>People and topics you chose</small></a>
-          <a class="nav-item nav-destination" href="#feed" data-feed-destination="discover" aria-label="Discover" title="Find people through your public follow graph"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span><small>Find people through your graph</small></a>
           <p class="rail-label nav-section-label" aria-hidden="true">PERSONAL</p>
           <a class="nav-item" href="#my-desk" data-view="desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
           <a class="nav-item" href="#people-search" data-view="search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span><kbd id="search-shortcut-hint" aria-hidden="true">⌘K</kbd></a>
           <a class="nav-item" href="#profile" data-view="profile" aria-label="Your profile" title="Your profile and local appearance"><span class="nav-symbol" aria-hidden="true">◉</span><span>Profile</span></a>
-          <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><a class="nav-more-link nav-more-mobile" href="#my-desk" data-view="desk"><span>Desk</span><small>Your saved people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#people-search" data-view="search"><span>Search</span><small>Find people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#profile" data-view="profile"><span>Profile</span><small>Your profile and settings</small></a><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>How Castonaut works</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Community notes</small></a><a class="nav-more-link" href="#about" data-view="node"><span>Node</span><small>Connection and setup</small></a><a class="nav-more-link nav-more-mobile" href="/privacy.html"><span>Privacy</span></a><a class="nav-more-link nav-more-mobile" href="/terms.html"><span>Terms</span></a><a class="nav-more-link nav-more-mobile" href="/tutorial.html#security"><span>Security</span></a></div></details>
+          <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="following" aria-label="Following"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span></a>
+          <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="friends" aria-label="Top people"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span></a>
+          <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="discover" aria-label="Discover"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span></a>
+          <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><a class="nav-more-link nav-more-mobile" href="#my-desk" data-view="desk"><span>Desk</span><small>Your saved people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#people-search" data-view="search"><span>Search</span><small>Find people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#profile" data-view="profile"><span>Profile</span><small>Your profile and settings</small></a><a class="nav-more-link" href="#feed" data-saved-feed><span>Saved posts</span><small>Posts saved on this device</small></a><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>How Castonaut works</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Community notes</small></a><a class="nav-more-link" href="#about" data-view="node"><span>Node</span><small>Connection and setup</small></a><a class="nav-more-link nav-more-mobile" href="/privacy.html"><span>Privacy</span></a><a class="nav-more-link nav-more-mobile" href="/terms.html"><span>Terms</span></a><a class="nav-more-link nav-more-mobile" href="/tutorial.html#security"><span>Security</span></a></div></details>
         </nav>
       </aside>
 
@@ -254,9 +252,8 @@
                 <div class="feed-toolbar">
                   <div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
                   <div class="feed-toolbar-actions">
-                    <div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Top people <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Focus list <span id="crew-count">0</span></button></div>
-                    <div class="focus-topic-filters" id="focus-topic-filters" role="group" aria-label="Filter focus list by saved topic" hidden></div>
-                    <div class="feed-view-controls" role="group" aria-label="Feed view and tools"><button type="button" class="board-tab is-active" id="show-recent" aria-pressed="true">Recent</button><button type="button" class="board-tab" id="show-popular" aria-pressed="false">Popular</button><button type="button" class="board-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel">Discover</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button></div>
+                    <div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Top people <span id="friend-count">0</span></button></div>
+                    <div class="feed-view-controls" role="group" aria-label="Feed sorting"><button type="button" class="board-tab" id="show-popular" aria-pressed="false" aria-label="Show popular posts" title="Switch between newest and popular posts">Popular</button></div>
                     <span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button>
                   </div>
                 </div>
@@ -341,9 +338,8 @@
                       <label class="feed-option-control"><input id="compact-mode" type="checkbox" /><span>Compact view</span></label>
                       <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" type="checkbox" checked /><span>Group repeats</span></label>
                     </div>
-                    <label class="source-control crew-name-control" for="crew-name"><span>Focus list name</span><input id="crew-name" type="text" maxlength="20" placeholder="Focus list" /></label>
                     <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>
-                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Top people <kbd>3</kbd> Focus list <kbd>4</kbd> Discover <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
+                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Top people <kbd>3</kbd> Discover <kbd>4</kbd> Saved <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
                   </div>
                 </details>
                 <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">
@@ -360,7 +356,6 @@
                   <div class="side-card-head"><span class="overline">YOUR ACCOUNT</span><span class="identity-mark">✳</span></div>
                     <div id="identity-empty"><h3>Account not connected</h3><p>Sign in to follow and post.</p></div>
                   <div id="identity-connected" hidden><div class="connected-profile"><div class="profile-avatar" id="profile-avatar">?</div><div><strong id="profile-name">Connected</strong><small id="profile-handle">FID —</small></div></div><button class="button button-outline" id="manage-key">Forget this browser</button></div>
-                  <div class="security-line"><span>⌑</span><span>Limited access. Remove it in your Farcaster account settings.</span></div>
                 </section>
                 <details class="side-card status-card" id="status-card">
                   <summary class="connection-summary"><span>Connection details</span><span id="status-live">● ON REQUEST</span></summary>
@@ -385,7 +380,7 @@
               <div class="node-journey-steps"><article><span>01 / CHECK</span><h3>Readiness</h3><p>Version · shards · delay</p></article><article><span>02 / PREPARE</span><h3>Costs</h3><p>Compute · disk · cleanup</p></article><article><span>03 / CONNECT</span><h3>Your route</h3><p>Local requests show your IP.</p></article></div>
               <div class="node-journey-actions"><button type="button" class="button button-outline" id="node-journey-check">Check node</button><a class="button button-orange" href="/tutorial.html#quickstart">Open quickstart ↗</a></div>
             </section>
-            <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Following, a Top people shortlist, and a fixed Focus list you can narrow by topic.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
+            <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Follow everyone you care about, then keep your closest people within reach.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
             <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Your space stays yours.</h2><p>Desk, notes, and saves stay here. Remote images can reveal your IP. Analytics are optional.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share visit statistics</strong><small>Optional page views. Your choice stays on this device; URL details are removed.</small></span></label><a class="legal-inline-link" href="/privacy.html">Privacy details</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
           </section>
         </main>
@@ -402,7 +397,6 @@
         <div class="command-personal-items" id="command-personal-items" aria-label="Your Desk shortcuts"></div>
         <button type="button" class="command-item" data-command-feed-destination="following"><span class="command-icon">⌂</span><span><strong>Following</strong><small>Recent posts from people you follow</small></span></button>
         <button type="button" class="command-item" data-command-feed-destination="friends"><span class="command-icon">✳</span><span><strong>Top people</strong><small>Your handpicked circle</small></span></button>
-        <button type="button" class="command-item" data-command-feed-destination="crew"><span class="command-icon">▤</span><span><strong>Focus list</strong><small>People and topics you choose</small></span></button>
         <button type="button" class="command-item" data-command-feed-destination="discover"><span class="command-icon">✧</span><span><strong>Discover</strong><small>Find people through your follow graph</small></span></button>
         <button type="button" class="command-item" data-command-view="desk"><span class="command-icon">⌖</span><span><strong>Desk</strong><small>Pinned people and saved posts</small></span></button>
         <button type="button" class="command-item" data-command-desk-stack="people"><span class="command-icon">◎</span><span><strong>Desk · People</strong><small>Your pinned people, saved on this device</small></span></button>
@@ -415,6 +409,7 @@
         <button type="button" class="command-item" data-command-action="refresh"><span class="command-icon">↻</span><span><strong>Refresh feed</strong><small>Check for newer posts</small></span></button>
         <button type="button" class="command-item" data-command-action="appearance"><span class="command-icon">◐</span><span><strong>Appearance</strong><small>Choose light or dark</small></span></button>
         <button type="button" class="command-item" data-command-action="account"><span class="command-icon">◉</span><span><strong>Account</strong><small>Sign in and key settings</small></span></button>
+        <button type="button" class="command-item" data-command-action="saved"><span class="command-icon">▣</span><span><strong>Saved posts</strong><small>Posts saved on this device</small></span></button>
         <p class="command-empty" id="command-empty" hidden>No matching destination.</p>
       </nav>
       <p class="command-help">Jump to a page, person, saved cast, or topic · Enter to open</p>

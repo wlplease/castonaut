@@ -116,7 +116,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, DESK_SORT_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Focus list', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 function loadDeskSortPreferences() {
   let stored = {};
   try { stored = JSON.parse(localStorage.getItem(DESK_SORT_STORAGE) || '{}'); } catch { /* Use the recent-first defaults. */ }
@@ -197,11 +197,8 @@ function readLocalFids(key) {
   } catch { return []; }
 }
 state.friendFids = readLocalFids(FRIENDS_STORAGE);
-state.crewFids = readLocalFids(CREW_STORAGE);
 state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
 try {
-  state.crewName = (localStorage.getItem(CREW_NAME_STORAGE) || 'Focus list').trim().slice(0, 20) || 'Focus list';
-  if (state.crewName === 'My Group') { state.crewName = 'Focus list'; localStorage.setItem(CREW_NAME_STORAGE, state.crewName); }
   state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]').filter((topic) => typeof topic === 'string').slice(0, 80);
   state.profilePins = JSON.parse(localStorage.getItem(PROFILE_PINS_STORAGE) || '{}');
   state.profileCovers = JSON.parse(localStorage.getItem(PROFILE_COVERS_STORAGE) || '{}');
@@ -740,8 +737,8 @@ async function importLocalBackup(file) {
       throw error;
     }
     if (state.fid) { loadFlightLog(state.fid); loadCapsules(state.fid); }
-    state.deskPins = readLocalFids(DESK_STORAGE); state.friendFids = readLocalFids(FRIENDS_STORAGE); state.crewFids = readLocalFids(CREW_STORAGE); state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
-    try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.deskSort = loadDeskSortPreferences(); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); state.crewName = localStorage.getItem(CREW_NAME_STORAGE) || 'Focus list'; const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
+    state.deskPins = readLocalFids(DESK_STORAGE); state.friendFids = readLocalFids(FRIENDS_STORAGE); state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
+    try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.deskSort = loadDeskSortPreferences(); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
     if ($('#desk-notepad-text')) $('#desk-notepad-text').value = localStorage.getItem(DESK_NOTEPAD_STORAGE) || '';
     updateDeskNotepadControls();
     renderDesk(); renderDeskShortcuts(); renderFeed(); renderFlightLogCount(); setBackupStatus(`Restored ${entries.length} items/settings${backup.accountFid ? ` for FID ${backup.accountFid}` : ''}.`); setNotice('Your Castonaut backup is restored on this device.', 'success');
@@ -855,6 +852,7 @@ function renderEmpty(title, copy, action = null) {
       else if (item.type === 'profile') button.addEventListener('click', () => loadFeed(state.feedTargetFid || state.fid, 'profile', { fresh: true }));
       else if (item.type === 'search') button.addEventListener('click', () => { navigate('search'); requestAnimationFrame(() => $('#people-query').focus()); });
       else if (item.type === 'clear-source') button.addEventListener('click', () => { $('#source-fid').value = ''; $('#source-mode').value = 'include'; renderFeed(); });
+      else if (item.type === 'clear-feed-filters') button.addEventListener('click', clearFeedFilters);
       else if (item.type === 'feed') button.addEventListener('click', () => loadFeed(state.fid, item.mode));
       else if (item.type === 'discover') button.addEventListener('click', toggleSuggestedPeople);
       else if (item.type === 'more-following') button.addEventListener('click', async () => {
@@ -921,44 +919,34 @@ function updateFeedTabs() {
   const feedWindow = $('#feed-window');
   if (profileLayout) profileLayout.dataset.profileView = String(profileView);
   if (feedWindow) feedWindow.dataset.profileView = String(profileView);
-  const modes = ['following', 'friends', 'crew'];
+  const modes = ['following', 'friends'];
   for (const mode of modes) {
     const button = document.querySelector(`[data-feed-tab="${mode}"]`);
+    if (!button) continue;
     button.classList.toggle('is-active', state.boardMode === 'signals' && state.feedMode === mode);
     button.setAttribute('aria-pressed', String(state.boardMode === 'signals' && state.feedMode === mode));
   }
   $('#friend-count').textContent = String(state.friendFids.length);
   $('#friend-count').hidden = state.friendFids.length === 0;
-  $('#crew-count').textContent = String(state.crewFids.length);
-  $('#crew-count').hidden = state.crewFids.length === 0;
-  $('#show-crew').firstChild.textContent = `${state.crewName} `;
   const peopleTabs = $('.board-switch');
   if (peopleTabs) peopleTabs.hidden = state.feedMode === 'profile' || state.boardMode !== 'signals';
   const feedTools = $('.feed-view-controls');
-  if (feedTools) feedTools.hidden = state.feedMode === 'profile';
-  renderFocusTopicFilters();
-  const recentSort = $('#show-recent');
+  if (feedTools) feedTools.hidden = state.feedMode === 'profile' || state.boardMode !== 'signals';
   const popularSort = $('#show-popular');
-  if (recentSort) {
-    recentSort.classList.toggle('is-active', state.feedSort === 'recent');
-    recentSort.setAttribute('aria-pressed', String(state.feedSort === 'recent'));
-    recentSort.hidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
-  }
   if (popularSort) {
     popularSort.classList.toggle('is-active', state.feedSort === 'popular');
     popularSort.setAttribute('aria-pressed', String(state.feedSort === 'popular'));
     popularSort.hidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
     popularSort.disabled = false;
     popularSort.textContent = 'Popular';
+    popularSort.setAttribute('aria-label', state.feedSort === 'popular' ? 'Show newest posts' : 'Show popular posts');
+    popularSort.title = state.feedSort === 'popular' ? 'Switch to newest posts' : 'Switch to popular posts';
   }
   const discover = $('#show-suggested');
   if (discover) {
     discover.hidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
     if (discover.hidden) { $('#suggested-panel').hidden = true; discover.setAttribute('aria-expanded', 'false'); }
   }
-  $('#crew-name').value = state.crewName;
-  $('#show-flight-log').classList.toggle('is-active', state.boardMode === 'flight-log');
-  $('#show-flight-log').setAttribute('aria-pressed', String(state.boardMode === 'flight-log'));
   updateFeedDestinationNav();
   renderFeedStatusbar();
 }
@@ -967,9 +955,6 @@ function updateFeedDestinationNav() {
   const discoveryOpen = currentArea === 'feed' && state.boardMode === 'signals' && !$('#suggested-panel')?.hidden;
   const feedWindow = $('#feed-window');
   if (feedWindow) feedWindow.dataset.discoverOpen = String(discoveryOpen);
-  const moreHasActiveDestination = currentArea === 'feed' && state.boardMode === 'signals'
-    && (discoveryOpen || ['friends', 'crew'].includes(state.feedMode));
-  document.querySelector('.nav-more')?.toggleAttribute('data-active', moreHasActiveDestination);
   document.querySelectorAll('[data-feed-destination]').forEach((link) => {
     const destination = link.dataset.feedDestination;
     const active = currentArea === 'feed' && state.boardMode === 'signals'
@@ -1003,7 +988,7 @@ function renderFeedStatusbar() {
 
   const activity = $('#feed-status-activity');
   setText(activity, state.feedMoreBusy ? 'Checking more followed accounts…'
-    : state.feedBusy ? `Loading ${state.feedMode === 'friends' ? 'Top people' : state.feedMode === 'crew' ? state.crewName : state.feedMode === 'profile' ? 'profile posts' : 'Following'}…`
+    : state.feedBusy ? `Loading ${state.feedMode === 'friends' ? 'Top people' : state.feedMode === 'profile' ? 'profile posts' : 'Following'}…`
       : state.feedFailedSources && !state.casts.length ? `Could not check ${state.feedFailedSources} followed ${state.feedFailedSources === 1 ? 'account' : 'accounts'}`
       : !state.nodeInfo && nodeKind === 'bad' ? 'Waiting for the node'
         : state.casts.length ? `${state.casts.length} recent ${state.casts.length === 1 ? 'post' : 'posts'} loaded`
@@ -1015,27 +1000,11 @@ function feedWindowTitle() {
   if (state.boardMode === 'flight-log') return 'Saved';
   if (state.feedMode === 'profile') return 'Posts';
   if (state.feedMode === 'friends') return 'Top people';
-  if (state.feedMode === 'crew') return state.crewName;
   return 'Following';
-}
-
-function renderFocusTopicFilters() {
-  const container = $('#focus-topic-filters');
-  if (!container) return;
-  container.replaceChildren();
-  container.hidden = state.feedMode !== 'crew' || state.deskTopics.length === 0;
-  if (container.hidden) return;
-  const label = document.createElement('span'); label.className = 'focus-topic-label'; label.textContent = 'TOPICS'; container.append(label);
-  const all = document.createElement('button'); all.type = 'button'; all.className = `focus-topic-button${state.activeDeskTopic ? '' : ' is-active'}`; all.dataset.focusTopic = ''; all.textContent = 'All'; all.setAttribute('aria-pressed', String(!state.activeDeskTopic)); container.append(all);
-  for (const topic of state.deskTopics) {
-    const button = document.createElement('button'); button.type = 'button'; button.className = `focus-topic-button${state.activeDeskTopic === topic ? ' is-active' : ''}`;
-    button.dataset.focusTopic = topic; button.textContent = topic.replace(/^site:/, ''); button.setAttribute('aria-pressed', String(state.activeDeskTopic === topic)); container.append(button);
-  }
 }
 
 function feedDescription(mode = state.feedMode) {
   if (mode === 'friends') return `Your handpicked shortlist · ${state.feedSort === 'popular' ? 'popular among loaded posts' : 'newest first'} · last 30 days.`;
-  if (mode === 'crew') return `Your fixed ${state.crewName} list · narrow it with a saved Desk topic.`;
   if (mode === 'profile') return 'Recent posts from this profile.';
   return state.feedSort === 'popular' ? 'Most liked and recast among loaded posts from your follows · last 30 days.' : 'Recent posts from people you follow · newest first.';
 }
@@ -1073,10 +1042,10 @@ async function selectFeedSort(sort) {
     }
   }
   state.feedSort = sort;
-  $('#show-recent')?.classList.toggle('is-active', sort === 'recent');
   $('#show-popular')?.classList.toggle('is-active', sort === 'popular');
-  $('#show-recent')?.setAttribute('aria-pressed', String(sort === 'recent'));
   $('#show-popular')?.setAttribute('aria-pressed', String(sort === 'popular'));
+  $('#show-popular')?.setAttribute('aria-label', sort === 'popular' ? 'Show newest posts' : 'Show popular posts');
+  $('#show-popular')?.setAttribute('title', sort === 'popular' ? 'Switch to newest posts' : 'Switch to popular posts');
   $('#feed-caption').textContent = sort === 'popular' ? 'Most liked and recast among loaded posts · last 30 days.' : feedDescription();
   renderFeed();
 }
@@ -1342,7 +1311,6 @@ function renderCast(message, { priority = false } = {}) {
   const reactionDetails = document.createElement('button'); reactionDetails.type = 'button'; reactionDetails.className = 'post-more-action'; reactionDetails.dataset.reactionsCast = 'true'; reactionDetails.dataset.fid = String(fid); reactionDetails.dataset.hash = postHash(message); reactionDetails.textContent = 'Who liked or recast'; secondaryList.append(reactionDetails);
   secondaryList.append(flightLog);
   secondaryList.append(menuAction(state.friendFids.includes(fid) ? 'Remove from Top people' : 'Add to Top people', 'toggle-friend', fid));
-  secondaryList.append(menuAction(state.crewFids.includes(fid) ? `Remove from ${state.crewName}` : `Add to ${state.crewName}`, 'toggle-crew', fid));
   secondaryList.append(menuAction(state.mutedAuthors.includes(fid) ? 'Unhide author' : 'Hide author', 'toggle-author-mute', fid));
   const topics = topicsForCast(message);
   const deskTopic = topics.find((topic) => !state.deskTopics.includes(topic));
@@ -1628,7 +1596,8 @@ function renderSuggestedPeople() {
     for (const list of lists) { const empty = document.createElement('p'); empty.className = 'suggested-empty'; empty.textContent = 'Sign in to get recommendations from your follows.'; list.replaceChildren(empty); }
     return;
   }
-  if (!state.suggestedPeople.length) {
+  const visibleSuggestions = state.suggestedPeople.filter((person) => !state.following.get(Number(person.fid)));
+  if (!visibleSuggestions.length) {
     const empty = document.createElement('p'); empty.className = 'suggested-empty';
     empty.textContent = state.suggestionsError
       ? 'Could not reach your node. Try refreshing Discover.'
@@ -1639,7 +1608,7 @@ function renderSuggestedPeople() {
     return;
   }
   const fragment = document.createDocumentFragment();
-  for (const suggestion of state.suggestedPeople.slice(0, 5)) {
+  for (const suggestion of visibleSuggestions.slice(0, 5)) {
     const profile = state.people.get(suggestion.fid) || { fid: suggestion.fid, name: `Farcaster ${suggestion.fid}`, username: `fid-${suggestion.fid}` };
     const row = document.createElement('article'); row.className = 'suggested-person';
     const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'suggested-avatar profile-open-button'; avatar.dataset.openProfile = String(suggestion.fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
@@ -1674,8 +1643,29 @@ async function loadSuggestedPeople() {
       return { sourceFid, messages: unwrapMessages(response) };
     });
     if (sources.length && !groups.some(Boolean)) throw new Error('No follow graphs responded.');
-    const alreadyKnown = new Set([...state.following.keys(), ...state.friendFids, ...state.crewFids, ...state.mutedAuthors]);
-    state.suggestedPeople = rankFollowRecommendations(groups.filter(Boolean), { ownFid: state.fid, followingFids: alreadyKnown, limit: 5 });
+    const alreadyKnown = new Set([...state.following.keys(), ...state.friendFids, ...state.mutedAuthors]);
+    const ranked = rankFollowRecommendations(groups.filter(Boolean), { ownFid: state.fid, followingFids: alreadyKnown, limit: 5 });
+    // The feed may only have loaded the first page of follows. Confirm each
+    // suggestion against our node so accounts from later pages are excluded too.
+    let verificationFailed = false;
+    const checked = await mapLimit(ranked, 3, async (person) => {
+      try {
+        await nodeRequest('linkById', { fid: state.fid, target_fid: person.fid, link_type: 'follow' }, { fresh: true });
+        state.following.set(Number(person.fid), true);
+        return null;
+      } catch (error) {
+        if (isNotFound(error)) {
+          state.following.set(Number(person.fid), false);
+          return person;
+        }
+        // When relationship state is unavailable, don't guess and recommend
+        // someone who may already be followed.
+        verificationFailed = true;
+        return null;
+      }
+    });
+    if (ranked.length && !checked.some(Boolean) && verificationFailed) throw new Error('Could not verify follow state.');
+    state.suggestedPeople = checked.filter(Boolean);
     await mapLimit(state.suggestedPeople.map((person) => person.fid), 3, fetchProfile);
     state.suggestionsLoadedFor = Number(state.fid);
   } catch {
@@ -1738,7 +1728,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     setNotice(error.message, 'error');
     return;
   }
-  state.feedMode = ['profile', 'friends', 'crew'].includes(mode) ? mode : 'following';
+  state.feedMode = ['profile', 'friends'].includes(mode) ? mode : 'following';
   if (previousFeed.mode !== state.feedMode || state.feedMode === 'profile') state.feedSort = 'recent';
   if (state.feedMode === 'profile' && (previousFeed.mode !== 'profile' || Number(previousFeed.targetFid) !== Number(fid))) state.profileTab = 'posts';
   state.feedTargetFid = state.feedMode === 'profile' ? fid : Number(state.fid);
@@ -1761,7 +1751,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   $('#feed-count').hidden = state.feedMode === 'profile';
   if (state.feedMode === 'profile' && fid !== Number(state.fid)) refreshFollowState(fid);
   updateFeedTabs();
-  $('#page-label').textContent = state.feedMode === 'profile' ? 'PROFILE' : state.feedMode === 'crew' ? state.crewName.toUpperCase() : state.feedMode.toUpperCase();
+  $('#page-label').textContent = state.feedMode === 'profile' ? 'PROFILE' : state.feedMode.toUpperCase();
   $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log' || (state.feedMode === 'profile' && !state.parent);
   const requestId = ++state.feedRequest;
   state.casts = [];
@@ -1769,9 +1759,10 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   renderProfileSummary();
   state.feedBusy = true;
   renderFeedStatusbar();
-  $('#show-suggested').disabled = true;
+  const discoverButton = $('#show-suggested');
+  if (discoverButton) discoverButton.disabled = true;
   const list = $('#feed-list'); list.setAttribute('aria-busy', 'true');
-  const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Top people' : state.feedMode === 'crew' ? state.crewName : 'Following';
+  const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Top people' : 'Following';
   if (state.boardMode === 'signals') {
     $('#feed-title').textContent = feedWindowTitle();
     $('#feed-caption').textContent = state.feedMode === 'profile' ? 'Last 30 days · newest first.' : feedDescription(state.feedMode);
@@ -1792,8 +1783,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     }
     const uniqueFids = state.feedMode === 'profile' ? [fid]
       : state.feedMode === 'friends' ? [...state.friendFids]
-        : state.feedMode === 'crew' ? [...state.crewFids]
-          : [...new Set(followFids)];
+        : [...new Set(followFids)];
     const limitedFids = [...new Set(uniqueFids)].filter((target) => Number.isSafeInteger(target) && target > 0);
     state.feedSources = state.feedMode === 'following' ? limitedFids : [];
     state.feedSourceOffset = 0;
@@ -1805,7 +1795,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
       $('#feed-title').textContent = feedWindowTitle();
       $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · last 30 days` : feedDescription();
     }
-    if (!limitedFids.length && ['friends', 'crew'].includes(state.feedMode)) {
+    if (!limitedFids.length && state.feedMode === 'friends') {
       state.casts = [];
       renderFeed();
       $('#feed-filters').hidden = false;
@@ -1908,7 +1898,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   } finally {
     state.feedBusy = false;
     renderFeedStatusbar();
-    $('#show-suggested').disabled = false;
+    if (discoverButton) discoverButton.disabled = false;
     list.setAttribute('aria-busy', 'false');
     if (state.feedPending) {
       const [pendingFid, pendingMode] = state.feedPending;
@@ -2131,6 +2121,11 @@ function renderFeed() {
       renderEmpty('Your first group is quiet.', 'Check the next people you follow. Recent posts will be mixed together by time.', { type: 'more-following', label: `Check the next ${Math.min(6, state.feedSources.length - state.feedSourceOffset)} people` });
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedFollowNextPageToken) {
       renderEmpty('Your Following list continues.', 'No recent posts on this page. Check more followed accounts to keep the timeline moving.', { type: 'more-following', label: 'Check more followed accounts' });
+    } else if (state.feedMode === 'following' && state.casts.length && (
+      state.orbitOnly || state.repliesOnly || state.mediaOnly || state.appsOnly ||
+      state.activeDeskTopic || query || sourceFilter
+    )) {
+      renderEmpty('Filters hid your Following posts.', `${state.casts.length} recent posts loaded. Clear the active filters to see the full timeline.`, { type: 'clear-feed-filters', label: 'Show all Following posts' });
     } else if (query) {
       renderEmpty('No loaded posts match.', 'Load more posts or clear your search.');
     } else if (state.casts.length && sourceFilter) {
@@ -2145,10 +2140,6 @@ function renderFeed() {
       renderEmpty('Your Top people list is empty.', 'Add people from a post menu or find someone to start your shortlist.', [
         { type: 'discover', label: 'Discover people' }, { type: 'search', label: 'Search people' },
       ]);
-    } else if (state.feedMode === 'crew' && !state.crewFids.length) {
-      renderEmpty('Your Focus list is ready.', 'Add people from a post menu, or search for people to follow.', [
-        { type: 'search', label: 'Search people' }, { type: 'feed', mode: 'following', label: 'Back to Following' },
-      ]);
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedSources.length) {
       const checked = Math.max(state.feedSourceOffset, Math.min(state.feedSources.length, state.feedFollowTotal || state.feedSources.length));
       renderEmpty('No recent posts from people you follow.', `Checked ${checked} followed accounts. Try Discover, browse your Top people, or search for an account.`, [
@@ -2160,10 +2151,6 @@ function renderFeed() {
       ]);
     } else if (state.feedMode === 'friends' && !state.casts.length) {
       renderEmpty('No recent posts from your Top people.', 'Add a few more people or look through your Following timeline.', [
-        { type: 'feed', mode: 'following', label: 'Following' }, { type: 'search', label: 'Search people' },
-      ]);
-    } else if (state.feedMode === 'crew' && !state.casts.length) {
-      renderEmpty(`No recent posts in ${state.crewName}.`, 'Add people to this list, clear its topic filter, or switch to Following.', [
         { type: 'feed', mode: 'following', label: 'Following' }, { type: 'search', label: 'Search people' },
       ]);
     } else if (state.orbitOnly && !state.deskPins.length) {
@@ -2226,7 +2213,6 @@ function relationshipForCast(fid) {
   if (Number(state.fid) === Number(fid)) return 'You';
   if (state.friendFids.includes(Number(fid))) return 'Top person';
   if (state.following.get(Number(fid))) return 'Following';
-  if (state.feedMode === 'crew' && state.crewFids.includes(Number(fid))) return state.crewName;
   return '';
 }
 
@@ -2234,7 +2220,7 @@ function relationshipTitle(label) {
   if (label === 'Top person') return 'You added this person to Top people on this device.';
   if (label === 'Following') return 'You follow this person on Farcaster.';
   if (label === 'You') return 'This is your account.';
-  return `In your ${state.crewName} list on this device.`;
+  return 'This profile is in your feed.';
 }
 
 function updateFollowButton(button, fid) {
@@ -2900,7 +2886,7 @@ function sealTimeCapsule() {
   const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
   const capsule = createTimeCapsule(state.visibleCasts, {
     date: localDate,
-    feed: state.feedMode === 'crew' ? state.crewName : state.feedMode,
+    feed: state.feedMode,
     savedAt: Date.now(),
     hashFor: postHash,
     usernameFor: (fid) => state.people.get(fid)?.username,
@@ -4179,15 +4165,13 @@ stationAudio.addEventListener('pause', () => {
   }
 });
 document.querySelectorAll('[data-feed-tab]').forEach((button) => button.addEventListener('click', () => setFeedTab(button.dataset.feedTab)));
-$('#focus-topic-filters')?.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-focus-topic]');
-  if (!button) return;
-  state.activeDeskTopic = button.dataset.focusTopic || '';
-  renderFocusTopicFilters(); renderDeskShortcuts(); renderFeed();
+document.querySelector('[data-saved-feed]')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  navigate('feed');
+  setBoardMode('flight-log');
+  document.querySelector('.nav-more')?.removeAttribute('open');
 });
-$('#show-flight-log').addEventListener('click', () => setBoardMode('flight-log'));
-$('#show-recent')?.addEventListener('click', () => selectFeedSort('recent'));
-$('#show-popular')?.addEventListener('click', () => selectFeedSort('popular'));
+$('#show-popular')?.addEventListener('click', () => selectFeedSort(state.feedSort === 'popular' ? 'recent' : 'popular'));
 $('#refresh-node').addEventListener('click', checkNode);
 $('#refresh-node-large')?.addEventListener('click', checkNode);
 $('#node-journey-check')?.addEventListener('click', async (event) => {
@@ -4215,11 +4199,8 @@ document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener
     loadFeed(state.fid, 'following');
   }
 }));
-document.querySelectorAll('[data-feed-destination]').forEach((link) => link.addEventListener('click', async (event) => {
-  event.preventDefault();
-  document.querySelectorAll('.nav-more[open]').forEach((menu) => { menu.open = false; });
+async function openFeedDestination(destination) {
   navigate('feed');
-  const destination = link.dataset.feedDestination;
   if (destination === 'discover') {
     if (state.boardMode !== 'signals') setBoardMode('signals');
     if (state.feedMode === 'profile') await loadFeed(state.fid, 'following');
@@ -4227,6 +4208,10 @@ document.querySelectorAll('[data-feed-destination]').forEach((link) => link.addE
     return;
   }
   setFeedTab(destination);
+}
+document.querySelectorAll('[data-feed-destination]').forEach((link) => link.addEventListener('click', (event) => {
+  event.preventDefault();
+  void openFeedDestination(link.dataset.feedDestination);
 }));
 $('#desk-signin')?.addEventListener('click', openConnectDialog);
 document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventListener('click', (event) => {
@@ -4299,13 +4284,15 @@ $('#loaded-search')?.addEventListener('input', (event) => {
   state.feedQuery = event.currentTarget.value.slice(0, 100);
   renderFeed();
 });
-$('#clear-feed-filters')?.addEventListener('click', () => {
+function clearFeedFilters() {
   state.feedQuery = '';
+  state.activeDeskTopic = '';
   state.repliesOnly = false; state.mediaOnly = false; state.appsOnly = false; state.orbitOnly = false;
   $('#loaded-search').value = ''; $('#filter-replies').checked = false; $('#filter-media').checked = false;
   $('#filter-apps').checked = false; $('#orbit-only').checked = false; $('#source-fid').value = ''; $('#source-mode').value = 'include';
-  saveFeedOptions(); renderFeed();
-});
+  saveFeedOptions(); renderDeskShortcuts(); renderFeed();
+}
+$('#clear-feed-filters')?.addEventListener('click', clearFeedFilters);
 $('#group-repeats').checked = state.groupRepeats;
 $('#group-repeats').addEventListener('change', (event) => {
   state.groupRepeats = event.currentTarget.checked;
@@ -4342,13 +4329,6 @@ $('#quick-controls-more')?.addEventListener('click', () => {
   filters.hidden = false; filters.open = true;
   filters.scrollIntoView({ behavior: 'smooth', block: 'center' });
   filters.querySelector('summary')?.focus({ preventScroll: true });
-});
-$('#crew-name').value = state.crewName;
-$('#crew-name').addEventListener('change', (event) => {
-  state.crewName = event.currentTarget.value.trim().slice(0, 20) || 'Focus list';
-  try { localStorage.setItem(CREW_NAME_STORAGE, state.crewName); } catch { setNotice('This browser could not save the group name.', 'error'); }
-  updateFeedTabs();
-  if (state.feedMode === 'crew') { $('#feed-title').textContent = state.crewName; renderFeed(); }
 });
 document.addEventListener('change', (event) => {
   const coverSelect = event.target.closest('[data-cover-fid]');
@@ -4482,7 +4462,8 @@ $('#command-items').addEventListener('click', (event) => {
   if (item.dataset.commandAction === 'refresh') { navigate('feed'); $('#feed-refresh').click(); return; }
   if (item.dataset.commandAction === 'appearance') { $('#theme-select').focus({ preventScroll: true }); return; }
   if (item.dataset.commandAction === 'account') { $('#open-account').click(); return; }
-  if (item.dataset.commandFeedDestination) { document.querySelector(`[data-feed-destination="${item.dataset.commandFeedDestination}"]`)?.click(); return; }
+  if (item.dataset.commandAction === 'saved') { navigate('feed'); setBoardMode('flight-log'); return; }
+  if (item.dataset.commandFeedDestination) { void openFeedDestination(item.dataset.commandFeedDestination); return; }
   document.querySelector(`[data-view="${item.dataset.commandView}"]`)?.click();
 });
 commandPalette.addEventListener('click', (event) => { if (event.target === commandPalette) commandPalette.close(); });
@@ -4504,16 +4485,17 @@ document.addEventListener('keydown', (event) => {
     if (!options.hidden) { options.open = true; options.querySelector('summary').focus(); }
     return;
   }
-  if (['1', '2', '3'].includes(key) && state.signerReady) {
+  if (['1', '2'].includes(key) && state.signerReady) {
     event.preventDefault();
-    setFeedTab(({ '1': 'following', '2': 'friends', '3': 'crew' })[key]);
+    setFeedTab(({ '1': 'following', '2': 'friends' })[key]);
     return;
   }
-  if (key === '4') {
+  if (key === '3') {
     event.preventDefault();
-    document.querySelector('[data-feed-destination="discover"]')?.click();
+    void openFeedDestination('discover');
     return;
   }
+  if (key === '4') { event.preventDefault(); navigate('feed'); setBoardMode('flight-log'); return; }
   if (key === 'c' && state.signerReady && state.boardMode !== 'flight-log') {
     event.preventDefault();
     $('#composer-text').focus();
@@ -5003,11 +4985,6 @@ document.addEventListener('click', async (event) => {
       else renderFeed();
       if (state.feedMode === 'profile' && Number(state.feedTargetFid) === targetFid) renderProfileSummary();
       setNotice(state.friendFids.includes(targetFid) ? 'Added to Top people on this device.' : 'Removed from Top people.', 'success'); return;
-    }
-    if (button.dataset.action === 'toggle-crew') {
-      const next = state.crewFids.includes(targetFid) ? state.crewFids.filter((fid) => fid !== targetFid) : [...state.crewFids, targetFid];
-      const saved = writeFidList(CREW_STORAGE, next); if (saved) state.crewFids = saved;
-      updateFeedTabs(); renderFeed(); setNotice(state.crewFids.includes(targetFid) ? `Added to ${state.crewName} on this device.` : `Removed from ${state.crewName}.`, 'success'); return;
     }
     if (button.dataset.action === 'toggle-author-mute') {
       const next = state.mutedAuthors.includes(targetFid) ? state.mutedAuthors.filter((fid) => fid !== targetFid) : [...state.mutedAuthors, targetFid];
