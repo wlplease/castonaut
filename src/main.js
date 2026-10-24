@@ -1608,7 +1608,6 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
       }
       const [response] = await Promise.all([
         nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh }),
-        fetchProfile(target, { fresh }),
       ]);
       return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '', seenPageTokens: new Set() };
     });
@@ -1638,9 +1637,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
       Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid),
     ]).filter((value) => value > 0))];
     const missingProfiles = profileFids.filter((target) => !state.people.has(target));
-    await mapLimit(missingProfiles, 8, fetchProfile);
     const missingPins = state.deskPins.filter((target) => !state.people.has(target));
-    await mapLimit(missingPins, 6, fetchProfile);
     renderDesk();
     renderFeed();
     $('#feed-filters').hidden = state.boardMode === 'flight-log' || !state.casts.length;
@@ -1649,6 +1646,17 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     renderFeedMore();
     updateFollowingCoverage();
     restoreFeedScroll();
+    // Show posts as soon as the cast requests finish. Hydrate names and avatars
+    // afterward so slower profile lookups do not hold the whole feed hostage.
+    void (async () => {
+      await Promise.all([
+        mapLimit(missingProfiles, 8, fetchProfile),
+        mapLimit(missingPins, 6, fetchProfile),
+      ]);
+      if (requestId !== state.feedRequest) return;
+      renderDesk();
+      renderFeed();
+    })();
     return true;
   } catch (error) {
     if (requestId !== state.feedRequest) return false;
