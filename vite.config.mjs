@@ -137,8 +137,11 @@ function localSnapchainAdapter(serverEnv) {
           let result;
           try { result = raw ? JSON.parse(raw) : {}; } catch { return sendJson(res, 502, { error: 'Snapchain returned an unreadable response' }); }
           if (upstream.status >= 400) {
-            const status = upstream.status >= 500 ? 502 : upstream.status;
             const reason = safeRejectionReason(result);
+            if (routeName === 'castById' && upstream.status === 400 && /^failed to get cast(?:$|[:\s])/i.test(reason)) return sendJson(res, 404, { error: 'Cast not found' });
+            if (routeName === 'linkById' && upstream.status === 400 && /^failed to get link(?:$|[:\s])/i.test(reason)) return sendJson(res, 404, { error: 'Link not found' });
+            if (routeName === 'reactionById' && upstream.status === 400 && /^failed to get reaction(?:$|[:\s])/i.test(reason)) return sendJson(res, 404, { error: 'Reaction not found' });
+            const status = upstream.status >= 500 ? 502 : upstream.status;
             return sendJson(res, status, { error: upstream.status >= 500 ? 'Snapchain is temporarily unavailable.' : `Snapchain rejected the request (${upstream.status}).${reason ? ` ${reason}` : ' Check the account or message and try again.'}` });
           }
           return sendJson(res, 200, result);

@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
 
 test('search gives profile lookup examples and accurately scopes post search', () => {
   assert.match(html, /id="people-search"[\s\S]*?placeholder="Search @username or paste a profile link"/);
@@ -15,6 +16,8 @@ test('search gives profile lookup examples and accurately scopes post search', (
 test('Search offers curated Network School and Farcaster profiles plus broader builders', () => {
   assert.match(html, /aria-label="People to follow"/);
   assert.match(html, /Network School · Farcaster/);
+  assert.match(html, /directory-network-title[\s\S]*?directory-builders-title/);
+  assert.match(styles, /\.directory-groups\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,1fr\)/);
   assert.match(html, /data-profile-example="balajis\.eth"/);
   assert.match(html, /data-profile-example="farcaster"/);
   assert.match(html, /data-profile-example="quazia"[\s\S]*?@quazia/);

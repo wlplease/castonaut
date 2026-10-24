@@ -83,7 +83,7 @@ html[data-theme="night-radio"] .site-nav a:hover { background: #211b2c; }
 html[data-theme="night-radio"] .site-footer nav a { color: #c4bdce; }
 html[data-theme="night-radio"] .site-brand strong { color: #eeeaf4; }
 
-/* Shared site chrome follows the Classic Mac platinum treatment. */
+/* Shared site chrome follows Castonaut's original Spacebar palette. */
 html[data-theme="atlas"] {
   --shell-ink:#272631;
   --shell-muted:#625f69;
@@ -103,6 +103,26 @@ html[data-theme="atlas"] .site-nav a[aria-current="page"] { border-color:#aaa9a5
 html[data-theme="atlas"] .site-footer { border-color:#aaa9a5; }
 html[data-theme="atlas"] .site-footer nav a { color:#55535e; }
 html[data-theme="atlas"] .site-brand img { border-radius:4px; box-shadow:inset 1px 1px #fff, 1px 2px 0 #0002; }
+
+html[data-theme="soft-reset"] {
+  --shell-ink:#332e40;
+  --shell-muted:#686273;
+  --shell-line:#aaa3b5;
+  --shell-paper:#d8d2de;
+  --shell-accent:#61517f;
+  --shell-accent-soft:#e3ddea;
+}
+html[data-theme="soft-reset"] .site-header {
+  background-color:#d8d2de;
+  background-image:repeating-linear-gradient(0deg,#ffffff42 0 1px,#d8d2de 1px 2px);
+  box-shadow:0 2px 0 #fff8;
+}
+html[data-theme="soft-reset"] .site-nav a { color:#484252; border-radius:4px; }
+html[data-theme="soft-reset"] .site-nav a:hover,
+html[data-theme="soft-reset"] .site-nav a[aria-current="page"] { border-color:#aaa3b5; background:#e3ddea; color:#403454; }
+html[data-theme="soft-reset"] .site-footer { border-color:#aaa3b5; }
+html[data-theme="soft-reset"] .site-footer nav a { color:#514b5d; }
+html[data-theme="soft-reset"] .site-brand img { border-radius:5px; box-shadow:inset 1px 1px #fff, 1px 2px 0 #0002; }
 
 @media (max-width: 820px) {
   .site-header { grid-template-columns: minmax(150px, 1fr) auto; gap: 8px 12px; min-height: 70px; padding-block: 8px; }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ReadCache } from '../src/read-cache.js';
+import { DeviceReadCache, ReadCache } from '../src/read-cache.js';
 
 test('read cache expires values and refreshes least-recently-used entries', () => {
   let now = 100;
@@ -25,4 +25,11 @@ test('read cache enforces memory bounds and can be cleared for a fresh read', ()
   cache.clear();
   assert.equal(cache.entries.size, 0);
   assert.equal(cache.bytes, 0);
+});
+
+test('device read cache quietly falls back when IndexedDB is unavailable', async () => {
+  const cache = new DeviceReadCache({ indexedDB: null });
+  assert.equal(await cache.get('public-feed'), undefined);
+  assert.equal(await cache.set('public-feed', { messages: [] }, 1000), false);
+  assert.equal(await cache.clear(), false);
 });

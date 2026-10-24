@@ -39,10 +39,12 @@ test('replying from a profile opens the addressed reply composer and retains the
   assert.match(source, /if \(parent\) body\.parentCastId = \{ fid: Number\(parent\.fid\), hash:/);
 });
 
-test('profile photos load automatically with the IP privacy tradeoff disclosed', async () => {
+test('profile photos load automatically and post media privacy controls are disclosed in Profile', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(source, /const avatarUrl = safeImageUrl\(profile\.avatar\)/);
   assert.doesNotMatch(source, /Show profile photo|data-enable-remote-media/);
-  assert.match(html, /Profile photos load automatically · hosts can see your IP/);
+  assert.match(source, /Load GIFs and post images/);
+  assert.match(source, /Media hosts can see your IP address/);
+  assert.doesNotMatch(html, /id="media-toggle"|id="external-images"/);
 });

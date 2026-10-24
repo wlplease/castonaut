@@ -14,7 +14,10 @@ import { profileRecentStartTimestamp } from './profile-feed.js';
 import { isNotFound } from './snapchain-errors.js';
 import { normalizeProfileSearch } from './profile-search.js';
 import { isVideoAvatarUrl } from './avatar-media.js';
-import { ReadCache } from './read-cache.js';
+import { DeviceReadCache, ReadCache } from './read-cache.js';
+import { summarizeProfileActivity } from './profile-analytics.js';
+import { recentOrbitCasts, summarizeOrbitActivity } from './desk-orbit.js';
+import { orbitAtlasLayout } from './orbit-atlas.js';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
 let analyticsEnabled = false;
@@ -51,10 +54,27 @@ try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) === 'yes') enableAnaly
 
 const $ = (selector) => document.querySelector(selector);
 const snapchainReadCache = new ReadCache({ maxEntries: 36, maxBytes: 2_000_000 });
+const deviceReadCache = new DeviceReadCache({ maxEntries: 32, maxEntryBytes: 1_000_000 });
 const snapchainReadRequests = new Map();
-const READ_CACHE_TTL = { info: 10_000, casts: 8_000, replies: 8_000, castById: 30_000, reactionsByCast: 20_000, userData: 60_000, username: 60_000 };
+const engagementCountCache = new Map();
+const engagementCountRequests = new Map();
+const engagementObserver = typeof IntersectionObserver === 'function'
+  ? new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      engagementObserver.unobserve(entry.target);
+      void loadCastEngagement(entry.target);
+    }
+  }, { rootMargin: '180px 0px' })
+  : null;
+const READ_CACHE_TTL = { info: 10_000, casts: 8_000, replies: 8_000, links: 30_000, castById: 30_000, reactionsByCast: 20_000, userData: 60_000, username: 60_000 };
+const DEVICE_READ_CACHE_TTL = { casts: 120_000, replies: 60_000, links: 900_000, castById: 120_000, reactionsByCast: 30_000, userData: 900_000, username: 21_600_000 };
 let snapchainReadCacheVersion = 0;
-function clearSnapchainReadCache() { snapchainReadCacheVersion += 1; snapchainReadCache.clear(); }
+function clearSnapchainReadCache({ clearDevice = false } = {}) {
+  snapchainReadCacheVersion += 1;
+  snapchainReadCache.clear();
+  if (clearDevice) void deviceReadCache.clear();
+}
 function isAddress(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value); }
 const FARCASTER_EPOCH_MS = Date.UTC(2021, 0, 1);
 const KEY_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -85,7 +105,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -121,7 +141,7 @@ function setStationTone() {
   document.documentElement.dataset.stationTone = hour < 10 ? 'morning' : hour < 16 ? 'day' : hour < 20 ? 'evening' : 'night';
 }
 function setTheme(theme) {
-  const validThemes = ['atlas', 'night-radio'];
+  const validThemes = ['atlas', 'soft-reset', 'night-radio'];
   const selected = validThemes.includes(theme) ? theme : 'atlas';
   document.documentElement.dataset.theme = selected;
   const picker = document.querySelector('#theme-select');
@@ -144,7 +164,10 @@ try {
   const storedNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}');
   if (storedNotes && typeof storedNotes === 'object' && !Array.isArray(storedNotes)) state.profileNotes = storedNotes;
 } catch { /* Local profile touches are optional. */ }
-try { state.remoteMediaEnabled = localStorage.getItem(REMOTE_MEDIA_STORAGE) === 'true'; } catch { /* Remote media stays off when browser storage is unavailable. */ }
+try {
+  const savedMediaPreference = localStorage.getItem(REMOTE_MEDIA_STORAGE);
+  state.remoteMediaEnabled = savedMediaPreference === null || savedMediaPreference === 'true';
+} catch { state.remoteMediaEnabled = true; /* New sessions show post media unless the user opts out. */ }
 try { state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; } catch { /* Repeated links are grouped by default. */ }
 function readLocalFids(key) {
   try {
@@ -324,6 +347,8 @@ async function nodeRequest(route, params = {}, options = {}) {
   const { timeoutMs = 18_000, fresh = false, ...fetchOptions } = options;
   const method = String(fetchOptions.method || 'GET').toUpperCase();
   const cacheKey = method === 'GET' && READ_CACHE_TTL[route] ? url.href : '';
+  const deviceTtl = method === 'GET' ? DEVICE_READ_CACHE_TTL[route] || 0 : 0;
+  if (fresh) url.searchParams.set('_fresh', '1');
   const cacheVersion = snapchainReadCacheVersion;
   if (cacheKey && !fresh) {
     const cached = snapchainReadCache.get(cacheKey);
@@ -332,21 +357,30 @@ async function nodeRequest(route, params = {}, options = {}) {
     if (pending) return pending;
   }
   const request = (async () => {
+  if (cacheKey && deviceTtl && !fresh) {
+    const stored = await deviceReadCache.get(cacheKey);
+    if (stored !== undefined && cacheVersion === snapchainReadCacheVersion) {
+      snapchainReadCache.set(cacheKey, stored, READ_CACHE_TTL[route]);
+      return stored;
+    }
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const signal = fetchOptions.signal
     ? AbortSignal.any([fetchOptions.signal, controller.signal])
     : controller.signal;
   try {
-    const response = await fetch(url, { ...fetchOptions, signal, headers: { accept: 'application/json', ...(fetchOptions.headers || {}) } });
+    const response = await fetch(url, { ...fetchOptions, cache: fresh ? 'no-store' : fetchOptions.cache, signal, headers: { accept: 'application/json', ...(fetchOptions.headers || {}) } });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(body.error || body.details || `Node request failed (${response.status})`);
       error.status = response.status;
       throw error;
     }
-    if (cacheKey && cacheVersion === snapchainReadCacheVersion) snapchainReadCache.set(cacheKey, body, READ_CACHE_TTL[route]);
-    else if (method !== 'GET') clearSnapchainReadCache();
+    if (cacheKey && cacheVersion === snapchainReadCacheVersion) {
+      snapchainReadCache.set(cacheKey, body, READ_CACHE_TTL[route]);
+      if (deviceTtl) void deviceReadCache.set(cacheKey, body, deviceTtl);
+    } else if (method !== 'GET') clearSnapchainReadCache({ clearDevice: true });
     return body;
   } catch (error) {
     if (controller.signal.aborted && !fetchOptions.signal?.aborted) {
@@ -363,9 +397,9 @@ async function nodeRequest(route, params = {}, options = {}) {
   finally { if (snapchainReadRequests.get(cacheKey) === request) snapchainReadRequests.delete(cacheKey); }
 }
 
-async function fetchFollowGraph(fid, limits = {}) {
+async function fetchFollowGraph(fid, limits = {}, { fresh = false } = {}) {
   return loadFollowGraph(
-    (params) => nodeRequest('links', { fid: Number(fid), link_type: 'follow', ...params }),
+    (params) => nodeRequest('links', { fid: Number(fid), link_type: 'follow', ...params }, { fresh }),
     { ownFid: Number(fid), maxPages: 20, maxFollows: 2000, ...limits },
   );
 }
@@ -403,19 +437,20 @@ function safeImageUrl(value) {
   } catch { return ''; }
 }
 
-function makeRemoteImage(url, className = '') {
+function makeRemoteImage(url, className = '', { priority = false } = {}) {
   const image = document.createElement('img');
   image.className = ['remote-image', className].filter(Boolean).join(' ');
   image.src = url;
   image.alt = '';
-  image.loading = 'lazy';
+  image.loading = priority ? 'eager' : 'lazy';
   image.decoding = 'async';
   image.referrerPolicy = 'no-referrer';
+  if (priority) image.fetchPriority = 'high';
   return image;
 }
 
-function makeRemoteAvatar(url, className = '') {
-  if (!isVideoAvatarUrl(url)) return makeRemoteImage(url, className);
+function makeRemoteAvatar(url, className = '', { priority = false } = {}) {
+  if (!isVideoAvatarUrl(url)) return makeRemoteImage(url, className, { priority });
   const video = document.createElement('video');
   video.className = ['remote-image', 'remote-avatar-motion', className].filter(Boolean).join(' ');
   video.dataset.avatarSrc = url;
@@ -458,14 +493,19 @@ document.addEventListener('visibilitychange', () => {
   else document.querySelectorAll('video.remote-avatar-motion').forEach((video) => avatarMotionObserver?.observe(video));
 });
 
-function setRemoteAvatar(container, url) {
+function setRemoteAvatar(container, url, options = {}) {
   const fallback = container.textContent;
-  const media = makeRemoteAvatar(url);
+  const media = makeRemoteAvatar(url, '', options);
+  container.classList.add('avatar-loading');
+  const clearLoading = () => container.classList.remove('avatar-loading');
+  media.addEventListener(isVideoAvatarUrl(url) ? 'loadeddata' : 'load', clearLoading, { once: true });
   media.addEventListener('error', () => {
+    clearLoading();
     media.remove();
     if (!container.querySelector('img, video')) container.textContent = fallback;
   }, { once: true });
   container.replaceChildren(media);
+  if (media.tagName === 'IMG' && media.complete && media.naturalWidth > 0) clearLoading();
 }
 
 function unwrapMessages(response) {
@@ -624,7 +664,7 @@ function validateLocalBackup(value) {
     let parsed;
     if ([THEME_STORAGE, VOICE_STORAGE, CREW_NAME_STORAGE].includes(key)) parsed = raw;
     else try { parsed = JSON.parse(raw); } catch { throw new Error(`The backup has invalid data for ${key.replace(/^castonaut\./, '')}.`); }
-    if (key === THEME_STORAGE && !['atlas', 'night-radio'].includes(raw)) throw new Error('The backup has an unsupported theme setting.');
+    if (key === THEME_STORAGE && !['atlas', 'soft-reset', 'night-radio'].includes(raw)) throw new Error('The backup has an unsupported theme setting.');
     if (key.startsWith(`${TIME_CAPSULES_STORAGE}:`)) {
       if (!Array.isArray(parsed) || parsed.length > 14 || parseTimeCapsules(raw).length !== parsed.length) throw new Error('The backup contains an invalid Time Capsule archive.');
     }
@@ -638,7 +678,7 @@ function validateLocalBackup(value) {
     else if ([REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE].includes(key) && !['true', 'false'].includes(raw)) throw new Error('The backup contains an invalid on/off preference.');
     else if (key === VOICE_STORAGE && !STATION_VOICES.some((voice) => voice.id === raw)) throw new Error('The backup contains an unsupported station voice.');
     else if (key === CREW_NAME_STORAGE && raw.length > 20) throw new Error('The backup contains an invalid crew name.');
-    else if (key === PROFILE_COVERS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((cover) => !['atlas', 'dawn', 'orbit', 'dusk', 'platinum'].includes(cover)))) throw new Error('The backup contains an invalid profile appearance.');
+    else if (key === PROFILE_COVERS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((cover) => !['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite'].includes(cover)))) throw new Error('The backup contains an invalid profile appearance.');
     else if (key === PROFILE_PINS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.entries(parsed).some(([fid, hash]) => !/^\d+$/.test(fid) || Number(fid) < 1 || !/^0x[\da-f]{40,64}$/i.test(String(hash))))) throw new Error('The backup contains invalid pinned posts.');
     else if (key === MUTED_TOPICS_STORAGE && (!Array.isArray(parsed) || parsed.length > 80 || parsed.some((topic) => typeof topic !== 'string' || topic.length > 260))) throw new Error('The backup contains invalid muted topics.');
     else if (key === FEED_OPTIONS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((setting) => typeof setting !== 'boolean'))) throw new Error('The backup contains invalid feed preferences.');
@@ -691,6 +731,8 @@ async function checkNode() {
   const small = $('#refresh-node'); if (small) small.disabled = true;
   const large = $('#refresh-node-large');
   if (large) large.disabled = true;
+  small?.setAttribute('aria-busy', 'true');
+  large?.setAttribute('aria-busy', 'true');
   setNodeState('', 'Checking the app connection…', 'Checking the service that powers your feed.');
   try {
     const info = await nodeRequest('info');
@@ -739,12 +781,25 @@ async function checkNode() {
   } finally {
     if (small) small.disabled = false;
     if (large) large.disabled = false;
+    small?.removeAttribute('aria-busy');
+    large?.removeAttribute('aria-busy');
     nodeCheckInFlight = false;
+    renderDesk();
   }
 }
 
 function renderEmpty(title, copy, action = null) {
-  const box = document.createElement('div'); box.className = 'empty-message';
+  const isLoading = /(?:\.\.\.|…|tuning in|loading|searching|checking)/i.test(title);
+  const box = document.createElement('div'); box.className = `empty-message${isLoading ? ' is-loading' : ''}`;
+  box.setAttribute('role', 'status');
+  box.setAttribute('aria-live', 'polite');
+  box.setAttribute('aria-busy', String(isLoading));
+  if (isLoading) {
+    const indicator = document.createElement('span');
+    indicator.className = 'loading-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    box.append(indicator);
+  }
   const strong = document.createElement('strong'); strong.textContent = title;
   const p = document.createElement('p'); p.textContent = copy;
   box.append(strong, p);
@@ -897,7 +952,7 @@ function saveFeedOptions() {
 }
 
 function setProfileCover(fid, cover) {
-  if (!['atlas', 'dawn', 'orbit', 'dusk', 'platinum'].includes(cover)) return;
+  if (!['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite'].includes(cover)) return;
   if (cover === 'atlas') delete state.profileCovers[fid];
   else state.profileCovers[fid] = cover;
   try { localStorage.setItem(PROFILE_COVERS_STORAGE, JSON.stringify(state.profileCovers)); }
@@ -914,7 +969,7 @@ function menuAction(label, action, fid, extra = {}) {
   return button;
 }
 
-function renderCast(message) {
+function renderCast(message, { priority = false } = {}) {
   if (message?.data?.fid && postHash(message)) {
     state.messages.set(`${Number(message.data.fid)}:${postHash(message)}`, message);
     if (state.messages.size > 500) state.messages.delete(state.messages.keys().next().value);
@@ -929,7 +984,7 @@ function renderCast(message) {
   const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'post-avatar'; avatar.dataset.openProfile = String(fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s recent posts`);
   avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
   const avatarUrl = safeImageUrl(profile.avatar);
-  if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
+  if (avatarUrl) setRemoteAvatar(avatar, avatarUrl, { priority });
   const content = document.createElement('div');
   const head = document.createElement('div'); head.className = 'post-head';
   const shownName = localProfileName(profile);
@@ -1005,8 +1060,9 @@ function renderCast(message) {
         const media = document.createElement('figure'); media.className = 'post-media image-media';
         const isGif = isGifEmbedUrl(mediaEmbed.url);
         const imageFrame = document.createElement('div'); imageFrame.className = 'post-image-frame';
+        imageFrame.setAttribute('aria-busy', 'true');
         const imageExpand = document.createElement('button'); imageExpand.type = 'button'; imageExpand.className = 'post-image-expand'; imageExpand.setAttribute('aria-label', `Expand ${isGif ? 'GIF' : 'image'} attached by ${shownName}`); imageExpand.setAttribute('aria-expanded', 'false');
-        const image = makeRemoteImage(mediaUrl.href, 'post-image'); image.alt = `${isGif ? 'Animated GIF' : 'Image'} attached by ${shownName}`;
+        const image = makeRemoteImage(mediaUrl.href, 'post-image', { priority }); image.alt = `${isGif ? 'Animated GIF' : 'Image'} attached by ${shownName}`;
         imageExpand.append(image);
         imageExpand.addEventListener('click', () => {
           const expanded = imageFrame.classList.toggle('is-expanded');
@@ -1017,7 +1073,10 @@ function renderCast(message) {
         imageFallback.append(document.createTextNode(`${isGif ? 'GIF' : 'Image'} unavailable · `));
         const fallbackLink = document.createElement('a'); fallbackLink.href = mediaUrl.href; fallbackLink.target = '_blank'; fallbackLink.rel = 'noopener noreferrer nofollow'; fallbackLink.textContent = 'open original';
         imageFallback.append(fallbackLink);
-        image.addEventListener('error', () => { image.hidden = true; imageFallback.hidden = false; });
+        image.addEventListener('load', () => { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); }, { once: true });
+        image.addEventListener('error', () => { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); image.hidden = true; imageFallback.hidden = false; }, { once: true });
+        imageFrame.classList.add('is-loading');
+        if (image.complete && image.naturalWidth > 0) { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); }
         const mediaCaption = document.createElement('figcaption'); mediaCaption.className = 'post-media-caption';
         const mediaKind = document.createElement('span'); mediaKind.textContent = isGif ? 'GIF' : 'IMAGE';
         const mediaOpen = document.createElement('a'); mediaOpen.href = mediaUrl.href; mediaOpen.target = '_blank'; mediaOpen.rel = 'noopener noreferrer nofollow'; mediaOpen.textContent = 'Open original ↗';
@@ -1042,11 +1101,20 @@ function renderCast(message) {
     site.append(domain, path); preview.append(siteMark, site, open); content.append(preview);
   }
   const actions = document.createElement('div'); actions.className = 'post-actions';
-  const like = document.createElement('button'); like.type = 'button'; like.className = 'post-action'; like.textContent = '♡'; like.setAttribute('aria-label', 'Like cast'); like.title = 'Like'; like.dataset.action = 'like';
+  const like = document.createElement('button'); like.type = 'button'; like.className = 'post-action'; like.dataset.action = 'like';
+  const likeGlyph = document.createElement('span'); likeGlyph.className = 'post-action-glyph'; likeGlyph.textContent = '♡';
+  const likeCount = document.createElement('span'); likeCount.className = 'post-action-count'; likeCount.dataset.engagementCount = 'Like'; likeCount.textContent = '…';
+  like.append(likeGlyph, likeCount); like.setAttribute('aria-label', 'Like cast'); like.title = 'Like';
   like.setAttribute('aria-pressed', 'false');
-  const recast = document.createElement('button'); recast.type = 'button'; recast.className = 'post-action'; recast.textContent = '⟳'; recast.setAttribute('aria-label', 'Recast'); recast.title = 'Recast'; recast.dataset.action = 'recast';
+  const recast = document.createElement('button'); recast.type = 'button'; recast.className = 'post-action'; recast.dataset.action = 'recast';
+  const recastGlyph = document.createElement('span'); recastGlyph.className = 'post-action-glyph'; recastGlyph.textContent = '⟳';
+  const recastCount = document.createElement('span'); recastCount.className = 'post-action-count'; recastCount.dataset.engagementCount = 'Recast'; recastCount.textContent = '…';
+  recast.append(recastGlyph, recastCount); recast.setAttribute('aria-label', 'Recast'); recast.title = 'Recast';
   recast.setAttribute('aria-pressed', 'false');
-  const reply = document.createElement('button'); reply.type = 'button'; reply.className = 'post-action'; reply.textContent = '↩'; reply.setAttribute('aria-label', 'Reply'); reply.title = 'Reply'; reply.dataset.action = 'reply';
+  const reply = document.createElement('button'); reply.type = 'button'; reply.className = 'post-action'; reply.dataset.action = 'reply';
+  const replyGlyph = document.createElement('span'); replyGlyph.className = 'post-action-glyph'; replyGlyph.textContent = '↩';
+  const replyCount = document.createElement('span'); replyCount.className = 'post-action-count'; replyCount.dataset.engagementCount = 'Reply'; replyCount.textContent = '…';
+  reply.append(replyGlyph, replyCount); reply.setAttribute('aria-label', 'Reply'); reply.title = 'Reply';
   const conversation = document.createElement('button'); conversation.type = 'button'; conversation.className = 'post-action conversation-action'; conversation.textContent = '◌'; conversation.setAttribute('aria-label', 'Open conversation'); conversation.title = 'Conversation'; conversation.dataset.openConversation = 'true'; conversation.dataset.fid = String(fid); conversation.dataset.hash = postHash(message);
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'post-action'; follow.textContent = state.following.get(fid) ? '✓' : '＋'; follow.setAttribute('aria-label', state.following.get(fid) ? 'Unfollow' : 'Follow'); follow.title = state.following.get(fid) ? 'Unfollow' : 'Follow'; follow.dataset.action = 'follow'; follow.setAttribute('aria-pressed', String(!!state.following.get(fid)));
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'post-action pin-action'; pin.textContent = '⌖'; pin.setAttribute('aria-label', state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk'); pin.title = pin.getAttribute('aria-label'); pin.dataset.action = 'pin-person';
@@ -1089,6 +1157,83 @@ function renderCast(message) {
 function reactionMessages(response) {
   return (Array.isArray(response?.messages) ? response.messages : Array.isArray(response?.items) ? response.items : [])
     .filter((message) => Number(message?.data?.fid) > 0);
+}
+
+function engagementKey(fid, hash, type) { return `${Number(fid)}:${String(hash).toLowerCase()}:${type}`; }
+
+function displayEngagementCount({ count, more }) {
+  const formatted = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(count);
+  return more ? `${formatted}+` : formatted;
+}
+
+function paintEngagementCount(card, type, result) {
+  const count = card.querySelector(`[data-engagement-count="${type}"]`);
+  if (!count) return;
+  count.textContent = result ? displayEngagementCount(result) : '—';
+  count.dataset.countState = result ? 'ready' : 'error';
+  const label = type === 'Like' ? 'likes' : type === 'Recast' ? 'recasts' : 'replies';
+  const button = count.closest('button');
+  if (button) {
+    const spoken = result ? `${result.more ? 'At least ' : ''}${result.count} ${label}` : `${label} count unavailable`;
+    button.setAttribute('aria-label', `${type === 'Like' ? 'Like cast' : type === 'Recast' ? 'Recast' : 'Reply'} · ${spoken}`);
+    button.title = spoken;
+  }
+}
+
+async function readEngagementCount(card, type) {
+  const fid = Number(card.dataset.castFid);
+  const hash = card.dataset.castHash;
+  const key = engagementKey(fid, hash, type);
+  const cached = engagementCountCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached;
+  if (engagementCountRequests.has(key)) return engagementCountRequests.get(key);
+  const request = (async () => {
+    const route = type === 'Like' || type === 'Recast' ? 'reactionsByCast' : 'replies';
+    const params = type === 'Like' || type === 'Recast'
+      ? { target_fid: fid, target_hash: hash, reaction_type: type, pageSize: 100, reverse: true }
+      : { fid, hash, pageSize: 100, reverse: true };
+    const response = await nodeRequest(route, params);
+    const messages = type === 'Like' || type === 'Recast'
+      ? reactionMessages(response)
+      : unwrapMessages(response).filter((message) => message?.data?.castAddBody);
+    const result = { count: messages.length, more: !!response?.nextPageToken, expiresAt: Date.now() + 60_000 };
+    engagementCountCache.set(key, result);
+    return result;
+  })();
+  engagementCountRequests.set(key, request);
+  try { return await request; }
+  finally { engagementCountRequests.delete(key); }
+}
+
+async function loadCastEngagement(card) {
+  if (!card?.isConnected) return;
+  card.dataset.engagementLoaded = 'true';
+  await Promise.all(['Like', 'Recast', 'Reply'].map(async (type) => {
+    try { paintEngagementCount(card, type, await readEngagementCount(card, type)); }
+    catch { paintEngagementCount(card, type, null); }
+  }));
+}
+
+function watchCastEngagement(root) {
+  const cards = root.matches?.('.post-card') ? [root] : [...(root.querySelectorAll?.('.post-card') || [])];
+  for (const card of cards) {
+    if (card.dataset.engagementLoaded) continue;
+    if (engagementObserver) engagementObserver.observe(card);
+    else if (card.getBoundingClientRect().top < window.innerHeight + 180) void loadCastEngagement(card);
+  }
+}
+
+function refreshCastEngagement(fid, hash) {
+  for (const type of ['Like', 'Recast', 'Reply']) engagementCountCache.delete(engagementKey(fid, hash, type));
+  document.querySelectorAll('.post-card').forEach((card) => {
+    if (Number(card.dataset.castFid) !== Number(fid) || card.dataset.castHash !== hash) return;
+    delete card.dataset.engagementLoaded;
+    for (const count of card.querySelectorAll('[data-engagement-count]')) {
+      count.textContent = '…';
+      count.dataset.countState = 'loading';
+    }
+    watchCastEngagement(card);
+  });
 }
 
 async function renderReactionGroup(panel, fid, hash, type, { append = false } = {}) {
@@ -1321,7 +1466,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   try {
     if (!state.nodeInfo) checkNode();
     const [followGraph, profile] = await Promise.all([
-      state.feedMode === 'following' ? fetchFollowGraph(fid) : Promise.resolve({ fids: [], complete: true }),
+      state.feedMode === 'following' ? fetchFollowGraph(fid, {}, { fresh }) : Promise.resolve({ fids: [], complete: true }),
       fetchProfile(state.feedMode === 'profile' ? fid : Number(state.fid), { fresh }),
     ]);
     const followFids = followGraph.fids;
@@ -1616,10 +1761,11 @@ function renderFeed() {
     : `${requestedSource ? `${messages.length} OF ${state.casts.length}` : messages.length} POSTS${repeatedGroupCount ? ` · ${repeatedGroupCount} GROUPED` : ''}`;
   $('#feed-end').hidden = false;
   const fragment = document.createDocumentFragment();
-  groups.forEach((group) => {
-    if (group.messages.length === 1) { fragment.append(renderCast(group.messages[0])); return; }
+  groups.forEach((group, index) => {
+    const priority = index < 3;
+    if (group.messages.length === 1) { fragment.append(renderCast(group.messages[0], { priority })); return; }
     const cluster = document.createElement('section'); cluster.className = 'repeat-cluster';
-    cluster.append(renderCast(group.messages[0]));
+    cluster.append(renderCast(group.messages[0], { priority }));
     const more = document.createElement('details'); more.className = 'repeat-cluster-more';
     const summary = document.createElement('summary');
     const people = new Set(group.messages.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0)).size;
@@ -1632,6 +1778,7 @@ function renderFeed() {
     more.append(summary, others); cluster.append(more); fragment.append(cluster);
   });
   list.replaceChildren(fragment);
+  watchCastEngagement(list);
   renderFeedMore();
 }
 
@@ -1691,13 +1838,13 @@ function renderProfileSummary() {
   const local = state.profileNotes[profile.fid] || {};
   const shell = document.createElement('div'); shell.className = 'profile-summary-main';
   const cover = document.createElement('div');
-  const coverTone = ['atlas', 'dawn', 'orbit', 'dusk', 'platinum'].includes(state.profileCovers[profile.fid]) ? state.profileCovers[profile.fid] : 'atlas';
+  const coverTone = ['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite'].includes(state.profileCovers[profile.fid]) ? state.profileCovers[profile.fid] : 'atlas';
   cover.className = 'profile-cover'; cover.dataset.cover = coverTone;
   const bannerUrl = state.remoteMediaEnabled ? safeImageUrl(profile.banner) : '';
-  if (bannerUrl) { const banner = makeRemoteImage(bannerUrl, 'profile-cover-image'); banner.alt = `${localProfileName(profile)}’s profile cover`; cover.append(banner); }
+  if (bannerUrl) { const banner = makeRemoteImage(bannerUrl, 'profile-cover-image', { priority: true }); banner.alt = `${localProfileName(profile)}’s profile cover`; cover.append(banner); }
   const avatar = document.createElement('span'); avatar.className = 'profile-summary-avatar'; avatar.textContent = localProfileName(profile).slice(0, 1).toUpperCase();
   const avatarUrl = safeImageUrl(profile.avatar);
-  if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
+  if (avatarUrl) setRemoteAvatar(avatar, avatarUrl, { priority: true });
   const identity = document.createElement('div'); identity.className = 'profile-summary-identity';
   const name = document.createElement('h3'); name.textContent = localProfileName(profile);
   const handle = document.createElement('p'); handle.textContent = `@${profile.username} · FID ${profile.fid}`;
@@ -1713,13 +1860,21 @@ function renderProfileSummary() {
   const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.copyProfile = String(profile.fid); share.textContent = 'Share profile';
   const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = isOwnProfile ? 'Your page cover' : 'Local cover';
   const coverSelect = document.createElement('select'); coverSelect.dataset.coverFid = String(profile.fid); coverSelect.setAttribute('aria-label', 'Choose a profile cover shown only on this device');
-  for (const [value, label] of [['atlas', 'Default'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk'], ['platinum', 'Platinum Mac']]) {
+  for (const [value, label] of [['atlas', 'Atlas'], ['platinum', 'Spacebar Silver'], ['blueberry', 'Blueberry'], ['graphite', 'Graphite'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk']]) {
     const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = coverTone === value; coverSelect.append(option);
   }
   coverLabel.append(coverSelect);
   const more = document.createElement('details'); more.className = 'profile-more-options';
   const moreLabel = document.createElement('summary'); moreLabel.textContent = isOwnProfile ? 'Customize' : 'Personalize';
   const morePanel = document.createElement('div'); morePanel.className = 'profile-more-panel';
+  if (isOwnProfile) {
+    const mediaLabel = document.createElement('label'); mediaLabel.className = 'profile-media-option'; mediaLabel.htmlFor = 'external-images';
+    const mediaToggle = document.createElement('input'); mediaToggle.type = 'checkbox'; mediaToggle.id = 'external-images'; mediaToggle.checked = state.remoteMediaEnabled;
+    const mediaCopy = document.createElement('span'); mediaCopy.append(document.createTextNode('Load GIFs and post images'));
+    const mediaPrivacy = document.createElement('small'); mediaPrivacy.textContent = 'Media hosts can see your IP address.'; mediaCopy.append(mediaPrivacy);
+    mediaLabel.append(mediaToggle, mediaCopy); morePanel.append(mediaLabel);
+    const localOnly = document.createElement('p'); localOnly.className = 'profile-local-note'; localOnly.textContent = 'Your name, note, and cover stay on this device.'; morePanel.append(localOnly);
+  }
   morePanel.append(coverLabel, edit, share);
   const profileUrl = originalProfileUrl(profile);
   if (profileUrl) {
@@ -1744,6 +1899,36 @@ function renderProfileSummary() {
     tab.textContent = `${label} · ${count}`; tabs.append(tab);
   }
   const pinnedSlot = document.createElement('div'); pinnedSlot.className = 'profile-pinned-slot';
+  const profileCasts = state.casts.filter((message) => Number(message?.data?.fid) === Number(profile.fid));
+  const activity = summarizeProfileActivity(profileCasts);
+  if (activity.loaded) {
+    const analytics = document.createElement('details'); analytics.className = 'profile-activity';
+    const summary = document.createElement('summary');
+    const label = document.createElement('span'); label.textContent = 'Activity';
+    const hint = document.createElement('small'); hint.textContent = `${activity.recent} this week · ${activity.activeDays} active days`; summary.append(label, hint);
+    const grid = document.createElement('div'); grid.className = 'profile-activity-grid';
+    for (const [value, caption] of [[activity.posts, 'Posts loaded'], [activity.replies, 'Replies'], [activity.media, 'With media'], [activity.averageLength, 'Avg. characters']]) {
+      const stat = document.createElement('div'); stat.className = 'profile-activity-stat';
+      const number = document.createElement('strong'); number.textContent = String(value);
+      const name = document.createElement('span'); name.textContent = caption;
+      stat.append(number, name); grid.append(stat);
+    }
+    const note = document.createElement('p'); note.className = 'profile-activity-note'; note.textContent = `From ${activity.loaded} posts already loaded · last 30 days for active days`;
+    const rhythm = document.createElement('section'); rhythm.className = 'profile-activity-rhythm';
+    const rhythmHeading = document.createElement('div'); rhythmHeading.className = 'profile-rhythm-heading';
+    const rhythmLabel = document.createElement('strong'); rhythmLabel.textContent = 'Post rhythm';
+    const rhythmScope = document.createElement('small'); rhythmScope.textContent = '7 days · loaded posts'; rhythmHeading.append(rhythmLabel, rhythmScope);
+    const rhythmChart = document.createElement('div'); rhythmChart.className = 'profile-rhythm-chart'; rhythmChart.setAttribute('role', 'img'); rhythmChart.setAttribute('aria-label', 'Original posts per day from posts loaded in this profile');
+    const rhythmMax = Math.max(1, ...activity.dailyPosts.map((day) => day.count));
+    for (const day of activity.dailyPosts) {
+      const column = document.createElement('div'); column.className = 'profile-rhythm-day'; column.title = `${day.date}: ${day.count} ${day.count === 1 ? 'post' : 'posts'}`;
+      const bar = document.createElement('i'); bar.style.height = `${Math.max(day.count ? 12 : 4, day.count / rhythmMax * 34)}px`;
+      const dayLabel = document.createElement('small'); dayLabel.textContent = day.label === 'Today' ? 'Now' : day.label;
+      column.append(bar, dayLabel); rhythmChart.append(column);
+    }
+    rhythm.append(rhythmHeading, rhythmChart);
+    analytics.append(summary, grid, rhythm, note); pinnedSlot.append(analytics);
+  }
   const pinnedHash = state.profilePins[profile.fid];
   const pinned = state.casts.find((message) => !isReply(message) && postHash(message) === pinnedHash && Number(message?.data?.fid) === Number(profile.fid));
   if (pinned) {
@@ -1751,6 +1936,7 @@ function renderProfileSummary() {
     pinnedSlot.append(label, renderCast(pinned));
   }
   cover.append(shell); card.replaceChildren(cover, tabs, pinnedSlot);
+  watchCastEngagement(card);
 }
 
 async function refreshFollowState(fid) {
@@ -1800,6 +1986,8 @@ async function searchProfile(rawQuery) {
   $('#people-query').disabled = true;
   status.dataset.state = 'loading';
   status.textContent = 'Searching Snapchain…';
+  const originalLabel = submit.textContent;
+  submit.textContent = 'Searching…';
   try {
     const fid = await resolveProfileFid(query);
     await fetchProfile(fid);
@@ -1825,6 +2013,7 @@ async function searchProfile(rawQuery) {
   } finally {
     form.removeAttribute('aria-busy');
     submit.disabled = false;
+    submit.textContent = originalLabel;
     $('#people-query').disabled = false;
   }
 }
@@ -1912,6 +2101,7 @@ async function openConversation(fidValue, hashValue, { updateRoute = true, fresh
     const profiles = [...new Set([rootFid, ...messages.map((message) => Number(message?.data?.fid)).filter(Boolean)])];
     await mapLimit(profiles, 6, fetchProfile);
     root.replaceChildren(renderCast(original));
+    watchCastEngagement(root);
     replies.replaceChildren(...messages.map(renderCast));
     $('#conversation-title').textContent = messages.length ? `${messages.length} ${messages.length === 1 ? 'reply' : 'replies'}` : 'A quiet thread';
     status.textContent = messages.length ? 'Replies are shown in chronological order.' : 'No replies found on this node yet.';
@@ -1969,6 +2159,7 @@ function saveProfileTouch(fid, values) {
 function renderDesk() {
   const container = $('#desk-pins');
   if (!container) return;
+  renderDeskStatus();
   $('#desk-people-count').textContent = `${state.deskPins.length} pinned`;
   container.replaceChildren();
   if (!state.deskPins.length) {
@@ -1991,7 +2182,165 @@ function renderDesk() {
     }
   }
   renderDeskShortcuts();
+  renderDeskAtlas();
   renderCapsuleShelf();
+  renderDeskActivity();
+}
+
+function renderDeskAtlas() {
+  const details = $('#desk-atlas');
+  const map = $('#desk-atlas-map');
+  const count = $('#desk-atlas-count');
+  if (!details || !map || !count) return;
+  count.textContent = String(state.deskPins.length);
+  if (!details.open) return;
+  map.replaceChildren();
+  if (!state.deskPins.length) {
+    const empty = document.createElement('p'); empty.className = 'desk-atlas-empty';
+    empty.textContent = 'Pin a few people and your constellation will appear here.';
+    map.append(empty);
+    return;
+  }
+
+  const stage = document.createElement('div'); stage.className = 'desk-atlas-stage';
+  stage.innerHTML = '<svg class="desk-atlas-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="50" cy="50" rx="24" ry="22"/><ellipse cx="50" cy="50" rx="37" ry="35"/><ellipse cx="50" cy="50" rx="48" ry="45"/><path d="M50 4v92M4 50h92M17.5 17.5l65 65m0-65-65 65"/><circle cx="50" cy="50" r="2.5"/></svg>';
+  const selfProfile = state.people.get(Number(state.fid)) || { name: 'You', username: 'you' };
+  const center = document.createElement('div'); center.className = 'desk-atlas-self';
+  const selfMark = document.createElement('span'); selfMark.textContent = localProfileName(selfProfile).slice(0, 1).toUpperCase();
+  const selfLabel = document.createElement('small'); selfLabel.textContent = 'YOU';
+  center.append(selfMark, selfLabel); stage.append(center);
+
+  for (const node of orbitAtlasLayout(state.deskPins)) {
+    const profile = state.people.get(node.fid) || { fid: node.fid, name: `Farcaster ${node.fid}`, username: `fid-${node.fid}` };
+    const name = localProfileName(profile);
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'desk-atlas-person';
+    button.dataset.deskFid = String(node.fid); button.style.left = `${node.x}%`; button.style.top = `${node.y}%`;
+    button.textContent = name.trim().slice(0, 1).toUpperCase() || '✳';
+    button.title = `Open @${profile.username || `fid-${node.fid}`}`;
+    button.setAttribute('aria-label', `Open ${name}, @${profile.username || `fid-${node.fid}`}, from your Orbit`);
+    stage.append(button);
+  }
+  const caption = document.createElement('span'); caption.className = 'desk-atlas-caption'; caption.textContent = 'Select a satellite to visit their profile';
+  map.append(stage, caption);
+}
+
+function renderDeskStatus() {
+  const strip = $('#desk-status');
+  if (!strip) return;
+  const delays = (state.nodeInfo?.shardInfos || []).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
+  const maxDelay = delays.length ? Math.max(...delays) : null;
+  const networkLabel = maxDelay === null ? 'Checking' : maxDelay <= 10 ? 'Synced' : 'Catching up';
+  const rows = [
+    ['ACCOUNT', state.fid ? `FID ${Number(state.fid).toLocaleString()}` : 'Not connected'],
+    ['SIGNER', state.signerReady ? 'Ready · on Snapchain' : 'Read only'],
+    ['NETWORK', networkLabel],
+  ];
+  strip.replaceChildren();
+  for (const [label, value] of rows) {
+    const item = document.createElement('div'); item.className = 'desk-status-item';
+    item.dataset.state = label === 'SIGNER' ? (state.signerReady ? 'ready' : 'idle') : label === 'NETWORK' ? (maxDelay !== null && maxDelay <= 10 ? 'ready' : maxDelay === null ? 'idle' : 'lagging') : (state.fid ? 'ready' : 'idle');
+    const name = document.createElement('span'); name.textContent = label;
+    const data = document.createElement('strong'); data.textContent = value;
+    item.append(name, data); strip.append(item);
+  }
+}
+
+function renderDeskActivity() {
+  const list = $('#desk-activity-list');
+  const count = $('#desk-activity-count');
+  if (!list || !count) return;
+  const unique = new Map();
+  for (const message of [...state.casts, ...state.deskActivityCasts]) {
+    const key = postHash(message);
+    if (key) unique.set(key, message);
+  }
+  const posts = recentOrbitCasts([...unique.values()], state.deskPins, 4);
+  renderDeskOrbitPulse(summarizeOrbitActivity([...unique.values()], state.deskPins));
+  count.textContent = `${posts.length} recent`;
+  list.replaceChildren();
+  if (!state.deskPins.length) {
+    const empty = document.createElement('p'); empty.className = 'desk-activity-empty'; empty.textContent = 'Pin a person to build your Orbit.'; list.append(empty); return;
+  }
+  if (!posts.length) {
+    const empty = document.createElement('p'); empty.className = 'desk-activity-empty';
+    empty.textContent = state.deskActivityOffset ? 'No original posts found in the profiles checked.' : 'Recent posts from pinned people, loaded only when you ask.';
+    list.append(empty);
+  } else for (const message of posts) {
+    const fid = Number(message.data.fid);
+    const profile = state.people.get(fid) || { fid, username: `fid-${fid}`, name: `Farcaster ${fid}` };
+    const item = document.createElement('article'); item.className = 'desk-activity-item';
+    const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'desk-activity-avatar'; avatar.dataset.openProfile = String(fid); avatar.textContent = localProfileName(profile).slice(0, 1).toUpperCase();
+    const avatarUrl = safeImageUrl(profile.avatar); if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
+    const body = document.createElement('div'); body.className = 'desk-activity-copy';
+    const meta = document.createElement('div'); meta.className = 'desk-activity-meta';
+    const author = document.createElement('button'); author.type = 'button'; author.dataset.openProfile = String(fid); author.textContent = `@${profile.username || `fid-${fid}`}`;
+    const date = document.createElement('time'); date.textContent = farcasterDate(message.data.timestamp); meta.append(author, date);
+    const text = document.createElement('p'); text.textContent = String(message.data.castAddBody.text || 'Posted a cast.');
+    body.append(meta, text);
+    const open = document.createElement('button'); open.type = 'button'; open.className = 'desk-activity-open'; open.dataset.openConversation = 'true'; open.dataset.fid = String(fid); open.dataset.hash = postHash(message); open.setAttribute('aria-label', `Open cast from @${profile.username || fid}`); open.textContent = '↗';
+    item.append(avatar, body, open); list.append(item);
+  }
+  const action = document.createElement('button'); action.type = 'button'; action.className = 'desk-activity-refresh'; action.dataset.deskActivityRefresh = 'true'; action.disabled = state.deskActivityBusy;
+  action.textContent = state.deskActivityBusy ? 'Checking…' : state.deskActivityOffset >= state.deskPins.length && state.deskActivityCasts.length ? 'Refresh Orbit ↻' : state.deskActivityOffset ? 'Load next 6 people ↓' : 'Load pinned activity ↓';
+  list.append(action);
+}
+
+function renderDeskOrbitPulse(pulse) {
+  const panel = $('#desk-orbit-pulse');
+  if (!panel) return;
+  panel.replaceChildren();
+  panel.hidden = !pulse.loaded;
+  if (!pulse.loaded) return;
+  const days = pulse.dailyPosts;
+  const max = Math.max(1, ...days.map((day) => day.count));
+  const heading = document.createElement('div'); heading.className = 'desk-orbit-pulse-head';
+  const title = document.createElement('strong'); title.textContent = `${pulse.thisWeek} ${pulse.thisWeek === 1 ? 'post' : 'posts'}`;
+  const sample = document.createElement('small'); sample.textContent = `${pulse.activePeople} ${pulse.activePeople === 1 ? 'person' : 'people'} · loaded this week`;
+  heading.append(title, sample);
+  const chart = document.createElement('div'); chart.className = 'desk-orbit-pulse-chart'; chart.setAttribute('role', 'img');
+  chart.setAttribute('aria-label', 'Original posts per day in the last seven days, from loaded pinned profiles');
+  for (const day of days) {
+    const column = document.createElement('div'); column.className = 'desk-orbit-pulse-day';
+    column.title = `${day.date}: ${day.count} ${day.count === 1 ? 'post' : 'posts'}`;
+    const bar = document.createElement('i'); bar.style.height = `${Math.max(day.count ? 12 : 4, day.count / max * 34)}px`;
+    const label = document.createElement('small'); label.textContent = day.label === 'Today' ? 'Now' : day.label;
+    column.append(bar, label); chart.append(column);
+  }
+  panel.append(heading, chart);
+}
+
+async function loadDeskActivity(button) {
+  if (!state.signerReady || state.deskActivityBusy || !state.deskPins.length) return;
+  const start = state.deskActivityOffset >= state.deskPins.length ? 0 : state.deskActivityOffset;
+  const pins = state.deskPins.slice(start, start + 6);
+  if (!pins.length) return;
+  state.deskActivityBusy = true; renderDeskActivity();
+  let results;
+  try {
+    results = await mapLimit(pins, 3, async (fid) => {
+      const response = await nodeRequest('casts', { fid, pageSize: 8, reverse: true });
+      return { fid, messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody) };
+    });
+  } catch (error) {
+    state.deskActivityBusy = false;
+    renderDeskActivity();
+    setNotice(`Could not load pinned activity. ${clientErrorText(error)}`, 'error');
+    return;
+  }
+  const successful = results.filter(Boolean);
+  if (!successful.length) {
+    state.deskActivityBusy = false; renderDeskActivity();
+    setNotice('Could not load pinned activity. Check the node connection and try again.', 'error'); return;
+  }
+  if (start === 0) state.deskActivityCasts = [];
+  const existing = new Set(state.deskActivityCasts.map(postHash));
+  for (const result of successful) for (const message of result.messages) {
+    state.messages.set(`${result.fid}:${postHash(message)}`, message);
+    if (!existing.has(postHash(message))) { state.deskActivityCasts.push(message); existing.add(postHash(message)); }
+  }
+  state.deskActivityOffset = start + pins.length;
+  state.deskActivityBusy = false; renderDeskActivity();
+  setNotice(`Loaded recent posts from ${successful.length} pinned ${successful.length === 1 ? 'person' : 'people'}.`, 'success');
 }
 
 function loadTimeCapsules(fid) {
@@ -2240,6 +2589,8 @@ async function toggleDeskPin(fidValue, button) {
   else { setNotice('Your Desk is full. Remove someone before pinning another person.'); return false; }
   try { localStorage.setItem(DESK_STORAGE, JSON.stringify(state.deskPins)); }
   catch { state.deskPins = previous; renderDesk(); setNotice('Browser storage is unavailable, so this Desk change could not be saved.', 'error'); return false; }
+  state.deskActivityOffset = 0;
+  state.deskActivityCasts = state.deskActivityCasts.filter((message) => state.deskPins.includes(Number(message?.data?.fid)));
   if (!state.people.has(fid)) await fetchProfile(fid);
   renderDesk();
   if (button) {
@@ -2724,6 +3075,7 @@ function renderIdentity() {
   const accountReady = !!state.fid && !!state.signerReady;
   const ready = accountReady;
   const publicProfilePreview = !state.fid && state.feedMode === 'profile' && !!state.feedTargetFid;
+  renderDeskStatus();
   document.body.dataset.accountView = ready ? 'member' : publicProfilePreview ? 'visitor-profile' : accountReady ? 'pending' : 'visitor';
   $('#portal-gate').hidden = accountReady;
   $('#member-workspace').hidden = !ready && !publicProfilePreview;
@@ -3073,11 +3425,12 @@ async function publishThread() {
 $('#feed-refresh').addEventListener('click', () => {
   const button = $('#feed-refresh');
   button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
   clearSnapchainReadCache();
   const task = state.conversation
     ? openConversation(state.conversation.fid, state.conversation.hash, { updateRoute: false, fresh: true })
     : state.boardMode === 'flight-log' ? Promise.resolve(renderFeed()) : loadFeed(state.feedTargetFid || state.fid, state.feedMode, { fresh: true });
-  Promise.resolve(task).finally(() => { button.disabled = false; });
+  Promise.resolve(task).finally(() => { button.disabled = false; button.removeAttribute('aria-busy'); });
 });
 $('#feed-more')?.addEventListener('click', () => state.feedMode === 'profile' ? loadOlderProfilePosts() : loadMoreFollowed());
 $('#show-suggested')?.addEventListener('click', toggleSuggestedPeople);
@@ -3100,6 +3453,11 @@ $('#search-examples')?.addEventListener('click', (event) => {
   searchProfile(button.dataset.profileExample);
 });
 $('#desk-add-person')?.addEventListener('submit', (event) => { event.preventDefault(); addDeskPerson($('#desk-person-query').value); });
+$('#desk-atlas')?.addEventListener('toggle', () => { if ($('#desk-atlas')?.open) renderDeskAtlas(); });
+$('#desk-activity-list')?.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-desk-activity-refresh]');
+  if (button) await loadDeskActivity(button);
+});
 $('#feed-search-launch')?.addEventListener('submit', (event) => { event.preventDefault(); searchLoadedFeed($('#feed-search-query').value); });
 $('#search-network-refresh')?.addEventListener('click', () => {
   if (!state.signerReady) { setNotice('Sign in to discover people through your follows.', 'pending'); return; }
@@ -3300,36 +3658,16 @@ document.addEventListener('change', (event) => {
   if (!coverSelect) return;
   setProfileCover(Number(coverSelect.dataset.coverFid), coverSelect.value);
 });
-$('#external-images').checked = state.remoteMediaEnabled;
-function syncRemoteMediaToggle() {
-  const button = $('#media-toggle');
-  if (!button) return;
-  button.setAttribute('aria-pressed', String(state.remoteMediaEnabled));
-  button.setAttribute('aria-label', state.remoteMediaEnabled ? 'Post media on. Profile photos always load. Media hosts can see your IP. Click to turn off.' : 'Post media off. Profile photos always load. Media hosts can see your IP. Click to load cast images and video.');
-  button.title = state.remoteMediaEnabled ? 'Post media on · hosts can see your IP' : 'Load cast images and video · hosts can see your IP';
-  button.querySelector('span').textContent = state.remoteMediaEnabled ? 'Posts on' : 'Posts off';
-  button.classList.toggle('is-on', state.remoteMediaEnabled);
-}
-syncRemoteMediaToggle();
-$('#media-toggle').addEventListener('click', () => {
-  const control = $('#external-images');
-  control.checked = !control.checked;
-  control.dispatchEvent(new Event('change', { bubbles: true }));
-});
-$('#external-images').addEventListener('change', (event) => {
-  state.remoteMediaEnabled = event.currentTarget.checked;
+document.addEventListener('change', (event) => {
+  if (!event.target.matches('#external-images')) return;
+  state.remoteMediaEnabled = event.target.checked;
   try { localStorage.setItem(REMOTE_MEDIA_STORAGE, String(state.remoteMediaEnabled)); } catch { /* Apply for this page even if preferences cannot be saved. */ }
-  syncRemoteMediaToggle();
   if (!state.remoteMediaEnabled) {
-    document.querySelectorAll('video').forEach((video) => {
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    });
+    document.querySelectorAll('video').forEach((video) => { video.pause(); video.removeAttribute('src'); video.load(); });
     document.querySelectorAll('img.remote-image').forEach((image) => image.removeAttribute('src'));
   }
   renderFeed(); renderDesk(); renderProfileSummary(); renderIdentity(); renderSuggestedPeople();
-  setNotice(state.remoteMediaEnabled ? 'Post images and video are on. Their hosts can see your IP address.' : 'Post images and video are off. Profile photos still load automatically.', state.remoteMediaEnabled ? 'pending' : 'success');
+  setNotice(state.remoteMediaEnabled ? 'Post images and GIFs are on. Media hosts can see your IP address.' : 'Post images and GIFs are off. Profile photos still load automatically.', state.remoteMediaEnabled ? 'pending' : 'success');
 });
 const commandPalette = $('#command-palette');
 const commandQuery = $('#command-query');
@@ -3627,14 +3965,14 @@ $('#composer-media-url').addEventListener('input', () => {
   const candidate = safeExternalUrl($('#composer-media-url').value.trim());
   const withinLimit = candidate && utf8ByteLength(candidate.href) <= CAST_EMBED_URL_LIMIT;
   $('#composer-media-note').textContent = candidate
-    ? withinLimit ? `${candidate.hostname} will be attached. Remote image previews remain off unless you enable them.` : `This link is over Farcaster’s ${CAST_EMBED_URL_LIMIT}-byte embed limit.`
-    : 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews stay off until you enable remote images.';
+    ? withinLimit ? `${candidate.hostname} will be attached. Previews are on by default; turn them off in Profile → Customize.` : `This link is over Farcaster’s ${CAST_EMBED_URL_LIMIT}-byte embed limit.`
+    : 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews are on by default.';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value.trim());
   saveComposerDraft();
 });
 $('#composer-media-clear').addEventListener('click', () => {
   $('#composer-media-url').value = ''; $('#composer-media').hidden = true;
-  $('#composer-media-note').textContent = 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews stay off until you enable remote images.';
+  $('#composer-media-note').textContent = 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews are on by default.';
   $('#draft-discard').hidden = !$('#composer-text').value.trim();
   saveComposerDraft();
 });
@@ -3940,10 +4278,13 @@ document.addEventListener('click', async (event) => {
       const label = routeType === 'Like' ? (active ? 'Like removed from Snapchain.' : 'Like confirmed in Snapchain.') : (active ? 'Recast removed from Snapchain.' : 'Recast confirmed in Snapchain.');
       if (active) await signAndRelayRemoval(message, 'reactionById', params, label);
       else await signAndRelay(message, 'reactionById', params, label);
-      button.textContent = routeType === 'Like' ? (active ? '♡' : '♥') : (active ? '⟳' : '✓');
+      const glyph = button.querySelector('.post-action-glyph');
+      if (glyph) glyph.textContent = routeType === 'Like' ? (active ? '♡' : '♥') : (active ? '⟳' : '✓');
+      else button.textContent = routeType === 'Like' ? (active ? '♡' : '♥') : (active ? '⟳' : '✓');
       button.setAttribute('aria-label', active ? (routeType === 'Like' ? 'Like cast' : 'Recast') : (routeType === 'Like' ? 'Remove like' : 'Remove recast'));
       button.title = button.getAttribute('aria-label');
       button.setAttribute('aria-pressed', String(!active));
+      refreshCastEngagement(targetFid, hash);
     }
     button.disabled = false;
   } catch (error) { setNotice(error.message, 'error'); button.disabled = !state.signerReady; }

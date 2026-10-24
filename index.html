@@ -13,6 +13,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="stylesheet" href="/src/styles.css" />
     <link rel="stylesheet" href="/src/site-shell.css" />
+    <link rel="stylesheet" href="/src/soft-reset.css" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -63,7 +64,7 @@
           <div class="top-actions">
             <a class="top-link" href="/tutorial.html">Guide <span>↗</span></a>
             <button type="button" class="icon-button command-open" id="command-open" aria-label="Jump to a page" title="Jump to a page · Ctrl/⌘ K">⌕</button>
-            <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Classic Mac · platinum</option><option value="night-radio">Night radio · violet dusk</option></select></label>
+            <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Spacebar · warm platinum</option><option value="soft-reset">Soft Reset · lilac dusk</option><option value="night-radio">Night Radio · violet dusk</option></select></label>
             <button class="avatar-button" id="open-account" aria-label="Account and signer settings"><span id="avatar-initial">?</span></button>
           </div>
         </header>
@@ -170,13 +171,20 @@
 
             <div id="member-workspace" hidden>
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title" data-area="desk">
-              <div class="desk-strip-head"><div><span class="overline">YOUR DESK</span><h2 id="desk-title">Your people. Your saves.</h2></div><p><button type="button" class="desk-backup-link" id="desk-backup-open">Move Desk ↗</button></p></div>
+              <div class="desk-strip-head"><div><span class="overline">YOUR SOCIAL DESKTOP</span><h2 id="desk-title">Your people. Your signals.</h2><p class="desk-subtitle">A personal window into the network.</p></div><p><button type="button" class="desk-backup-link" id="desk-backup-open">Move Desk ↗</button></p></div>
+              <div class="desk-status" id="desk-status" aria-label="Farcaster account and node status"></div>
               <form class="desk-add-person" id="desk-add-person" role="search">
                 <label for="desk-person-query"><span class="overline">ADD A PERSON</span></label>
                 <div><input id="desk-person-query" type="search" maxlength="200" placeholder="@username or FID" autocomplete="off" /><button type="submit" class="button button-outline">Add to Desk</button></div>
                 <p id="desk-person-status" role="status" aria-live="polite" hidden></p>
               </form>
               <section class="desk-people-section" aria-labelledby="desk-people-title"><div class="desk-section-heading"><h3 id="desk-people-title">People</h3><span id="desk-people-count">0 pinned</span></div><div class="desk-pins" id="desk-pins"><span class="desk-empty">Your pinned people will live here.</span></div></section>
+              <details class="desk-atlas" id="desk-atlas">
+                <summary><span><strong>Orbit atlas</strong><small>Your people, drawn as a little constellation</small></span><span class="atlas-count" id="desk-atlas-count">0</span></summary>
+                <div class="desk-atlas-map" id="desk-atlas-map" aria-label="Personal map of pinned Farcaster profiles"></div>
+                <p class="desk-atlas-note">A playful map of your Desk pins, not real-world locations. It stays on this device.</p>
+              </details>
+              <section class="desk-activity" aria-labelledby="desk-activity-title"><div class="desk-section-heading"><h3 id="desk-activity-title">Recent from your Orbit</h3><span id="desk-activity-count">0 recent</span></div><div class="desk-orbit-pulse" id="desk-orbit-pulse" hidden></div><div class="desk-activity-list" id="desk-activity-list"><p class="desk-activity-empty">Posts from pinned people appear here when loaded.</p></div></section>
               <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Saved posts and topics"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><span id="desk-cast-count">0 saved</span></div><div class="desk-saved-signals" id="desk-casts"></div></section><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Topics</h3><span id="desk-topic-count">0 pinned</span></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
               <p class="desk-active-topic" id="desk-active-topic" hidden></p>
               <details class="time-capsule" aria-labelledby="capsule-title">
@@ -201,7 +209,7 @@
                 <div class="classic-titlebar" aria-hidden="true"><span class="classic-titlebar-close"></span><span class="classic-titlebar-label">CASTONAUT</span><span class="classic-titlebar-grip">◢</span></div>
                 <div class="feed-toolbar">
                   <div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
-                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Circle <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Group <span id="crew-count">0</span></button></div><details class="feed-extra-menu"><summary class="board-tab" aria-label="More feed options">More <span aria-hidden="true">⌄</span></summary><div class="feed-extra-panel"><button type="button" class="board-tab discover-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel">Discover</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button><button type="button" class="board-tab media-toggle" id="media-toggle" aria-pressed="false" aria-label="Remote media off. Media hosts can see your IP when enabled.">▧ <span>Media off</span></button></div></details><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
+                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Circle <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Group <span id="crew-count">0</span></button></div><details class="feed-extra-menu"><summary class="board-tab" aria-label="More feed options">More <span aria-hidden="true">⌄</span></summary><div class="feed-extra-panel"><button type="button" class="board-tab discover-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel">Discover</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button></div></details><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
                 </div>
                 <section class="suggested-panel" id="suggested-panel" aria-labelledby="suggested-title" hidden>
                   <div class="suggested-panel-head"><div><span class="overline">FROM YOUR FOLLOW GRAPH</span><h3 id="suggested-title">People to discover</h3><p>Ranked by how many people you follow also follow them.</p></div><button type="button" class="icon-button" id="suggested-close" aria-label="Close suggestions">×</button></div>
@@ -221,7 +229,7 @@
                   <label class="composer-label" id="composer-label" for="composer-text">Write a cast</label>
                   <textarea id="composer-text" rows="3" placeholder="What’s on your mind?"></textarea>
                   <section class="composer-media" id="composer-media" hidden>
-                    <div class="media-url-field"><label for="composer-media-url">Attach a direct image or GIF</label><input id="composer-media-url" type="url" inputmode="url" maxlength="256" placeholder="Paste a direct https://…gif link" autocomplete="url" /><p id="composer-media-note">Castonaut does not upload media. Remote previews stay off until you enable them. Farcaster embeds allow up to 256 bytes per link.</p></div>
+                    <div class="media-url-field"><label for="composer-media-url">Attach a direct image or GIF</label><input id="composer-media-url" type="url" inputmode="url" maxlength="256" placeholder="Paste a direct https://…gif link" autocomplete="url" /><p id="composer-media-note">Castonaut does not upload media. Previews are on by default; turn them off in Profile → Customize. Farcaster embeds allow up to 256 bytes per link.</p></div>
                     <button type="button" id="composer-media-clear" class="media-clear">Remove attachment</button>
                     <details class="giphy-picker" id="giphy-picker">
                       <summary>Find a GIF</summary>
@@ -260,7 +268,6 @@
                       <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" type="checkbox" checked /><span>Group repeats</span></label>
                     </div>
                     <label class="source-control crew-name-control" for="crew-name"><span>Group name</span><input id="crew-name" type="text" maxlength="20" placeholder="My Group" /></label>
-                    <label class="external-media-option" for="external-images"><input id="external-images" type="checkbox" /><span>Load post media<small>Profile photos load automatically · hosts can see your IP</small></span></label>
                     <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>
                     <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Circle <kbd>3</kbd> Group <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
                   </div>

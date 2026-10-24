@@ -25,6 +25,18 @@ const MAX_SIGNER_CHECKS_PER_WINDOW = 60;
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_RATE_LIMIT_ENTRIES = 4096;
+// These successful reads are public and query-keyed. Keep only a brief shared
+// edge copy; browser responses remain no-store and auth-sensitive routes are
+// intentionally excluded.
+const SHARED_READ_CACHE_SECONDS = {
+  casts: 15,
+  replies: 15,
+  username: 300,
+  links: 15,
+  userData: 300,
+  castById: 15,
+  reactionsByCast: 10,
+};
 
 function rateLimitKey(req) {
   // Vercel overwrites x-forwarded-for with the connecting client IP. Validate
@@ -143,6 +155,11 @@ export default async function snapchain(req, res) {
     res.setHeader('Allow', route.method);
     return res.status(405).json({ error: 'Method not allowed for this Snapchain route' });
   }
+  const freshParams = url.searchParams.getAll('_fresh');
+  if (freshParams.length > 1 || (freshParams.length === 1 && (freshParams[0] !== '1' || route.method !== 'GET'))) {
+    return res.status(400).json({ error: 'Invalid refresh parameter' });
+  }
+  const bypassSharedCache = freshParams.length === 1;
   if (route.method === 'POST') {
     if (!isSameOrigin(req)) return res.status(403).json({ error: 'Write request origin could not be verified' });
     if (req.headers['content-type']?.split(';')[0].trim() !== 'application/octet-stream') return res.status(415).json({ error: 'Snapchain messages must use application/octet-stream' });
@@ -165,6 +182,7 @@ export default async function snapchain(req, res) {
   if (url.searchParams.getAll('route').length !== 1) return res.status(400).json({ error: 'Exactly one Snapchain route is required' });
   for (const [name, value] of url.searchParams.entries()) {
     if (name === 'route') continue;
+    if (name === '_fresh') continue;
     if (seenParams.has(name)) return res.status(400).json({ error: `Duplicate ${name} parameter` });
     seenParams.add(name);
     if (!route.params.includes(name) || !validateParam(name, value)) return res.status(400).json({ error: `Invalid ${name} parameter` });
@@ -194,7 +212,6 @@ export default async function snapchain(req, res) {
     const raw = await readResponse(response);
     let result;
     try { result = raw ? JSON.parse(raw) : {}; } catch { return res.status(502).json({ error: 'Snapchain returned an unreadable response' }); }
-    res.setHeader('Cache-Control', 'no-store');
     if (response.status >= 400) {
       const reason = safeRejectionReason(result);
       // Snapchain 0.14.x may report a missing cast as HTTP 400 "Failed to get cast".
@@ -209,11 +226,22 @@ export default async function snapchain(req, res) {
       if (routeName === 'linkById' && response.status === 400 && /^failed to get link(?:$|[:\s])/i.test(reason)) {
         return res.status(404).json({ error: 'Link not found' });
       }
+      // Snapchain 0.14.x also uses HTTP 400 when the viewer has not reacted
+      // to a cast. Treat this as an absent reaction so the client can add it.
+      if (routeName === 'reactionById' && response.status === 400 && /^failed to get reaction(?:$|[:\s])/i.test(reason)) {
+        return res.status(404).json({ error: 'Reaction not found' });
+      }
       const status = response.status >= 500 ? 502 : response.status;
       const message = response.status >= 500
         ? 'Snapchain is temporarily unavailable.'
         : `Snapchain rejected the request (${response.status}).${reason ? ` ${reason}` : ' Check the account or message and try again.'}`;
       return res.status(status).json({ error: message });
+    }
+    const sharedTtl = SHARED_READ_CACHE_SECONDS[routeName];
+    if (sharedTtl && !bypassSharedCache) {
+      // Vercel consumes this header at its edge. Cache-Control remains
+      // no-store for browsers and other intermediaries.
+      res.setHeader('Vercel-CDN-Cache-Control', `public, s-maxage=${sharedTtl}, stale-while-revalidate=30`);
     }
     return res.status(200).json(result);
   } catch (error) {

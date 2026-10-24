@@ -76,6 +76,12 @@ pageLabel.textContent = labels[route];
 context.append(contextIndicator, pageLabel);
 const accountToolsSlot = document.createElement('div');
 accountToolsSlot.className = 'site-account-tools';
+if (!isClient) {
+  const themePicker = document.createElement('label');
+  themePicker.className = 'theme-picker site-theme-picker';
+  themePicker.innerHTML = '<span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Spacebar · warm platinum</option><option value="soft-reset">Soft Reset · lilac dusk</option><option value="night-radio">Night Radio · violet dusk</option></select>';
+  accountToolsSlot.append(themePicker);
+}
 tools.append(context, accountToolsSlot);
 header.append(brand, siteNav, tools);
 
@@ -123,4 +129,17 @@ else document.body.append(footer);
 const active = route === 'guide' ? 'guide' : route === 'notes' ? 'notes' : route === 'privacy' || route === 'terms' ? route : 'client';
 header.querySelector(`[data-site-link="${active}"]`)?.setAttribute('aria-current', 'page');
 if (route === 'privacy' || route === 'terms') header.querySelector('[data-site-link="about"]')?.setAttribute('aria-current', 'location');
+
+const THEME_STORAGE = 'castonaut.theme.v1';
+const themeSelect = header.querySelector('#theme-select');
+function applyTheme(value) {
+  const theme = ['soft-reset', 'night-radio'].includes(value) ? value : 'atlas';
+  document.documentElement.dataset.theme = theme;
+  if (themeSelect && themeSelect.value !== theme) themeSelect.value = theme;
+}
+try { applyTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { applyTheme('atlas'); }
+themeSelect?.addEventListener('change', () => {
+  applyTheme(themeSelect.value);
+  try { localStorage.setItem(THEME_STORAGE, themeSelect.value); } catch { /* Theme still applies for this page view. */ }
+});
 

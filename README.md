@@ -14,6 +14,8 @@ A Farcaster feed in time order, with a personal Desk for people and posts you wa
 
 The Desk, saved posts, drafts, filters, and feed preferences stay in this browser. They are not synced between devices. Export a backup from the Desk before clearing site data.
 
+Public feed/profile reads also use a bounded device cache (up to 32 responses, 1 MB each) in IndexedDB, with short route-specific expiry. It excludes signer records and keys; accepted writes clear it. Hosted read responses can use a brief Vercel edge cache so repeated public queries do less work on the Snapchain VM. Browser responses remain `no-store`; use Refresh when you need a fresh read.
+
 ## Get started
 
 Open the [client](https://castonaut.vercel.app/). Reading the sample preview does not require an account. To post, follow, or personalize the Desk, sign in with an existing Farcaster account that has storage.

@@ -1,0 +1,119 @@
+/* Soft Reset: the middle stop between Spacebar's warm paper and Night Radio. */
+html[data-theme="soft-reset"] {
+  color-scheme: light;
+  --station-paper:#c8c2d0;
+  --station-card:#e1dce6;
+  --station-line:#a59dac;
+  --station-ink:#332e40;
+  --station-accent:#61517f;
+  --station-soft:#d4cddd;
+  --station-gold:#a87548;
+  --station-copy:#433d50;
+  --station-copy-muted:#5d5667;
+  --station-copy-soft:#716b7b;
+  --station-focus:#65508f;
+  --bg:#c8c2d0;
+  --panel:#e1dce6;
+  --panel-2:#d4cddd;
+  --panel-3:#c8c2d0;
+  --line:#a59dac;
+  --text:#332e40;
+  --muted:#5d5667;
+  --faint:#716b7b;
+  --orange:#a87548;
+  --cream:#e1dce6;
+  --shadow:0 12px 34px #38314318;
+}
+html[data-theme="soft-reset"] body {
+  color:var(--station-ink);
+  background-color:var(--station-paper);
+  background-image:repeating-linear-gradient(0deg,#ffffff26 0 1px,#c8c2d0 1px 2px),radial-gradient(ellipse at 78% -12%,#ece7f0 0,transparent 44%);
+  background-size:auto,100% 740px;
+}
+html[data-theme="soft-reset"] .app-frame .sidebar { border-color:var(--station-line);background:#d2ccd8; }
+html[data-theme="soft-reset"] .sidebar-note,
+html[data-theme="soft-reset"] .feed-window,
+html[data-theme="soft-reset"] .side-card,
+html[data-theme="soft-reset"] .desk-strip,
+html[data-theme="soft-reset"] .profile-summary,
+html[data-theme="soft-reset"] .about-local-card,
+html[data-theme="soft-reset"] .diagnostic-panel { border-color:var(--station-line);background:var(--station-card);color:var(--station-copy); }
+html[data-theme="soft-reset"] .topbar { border-color:var(--station-line);background:#d8d2dee8; }
+html[data-theme="soft-reset"] .nav-item { color:#514b5d; }
+html[data-theme="soft-reset"] .nav-item:hover,
+html[data-theme="soft-reset"] .nav-item.active { background:#e3ddea;color:#403454; }
+html[data-theme="soft-reset"] .nav-item.active { box-shadow:inset 3px 0 var(--station-accent); }
+html[data-theme="soft-reset"] .room-heading h1,
+html[data-theme="soft-reset"] .node-page-heading h1,
+html[data-theme="soft-reset"] .feed-toolbar h2,
+html[data-theme="soft-reset"] .desk-strip-head h2,
+html[data-theme="soft-reset"] .side-card h3,
+html[data-theme="soft-reset"] .identity-card h3 { color:var(--station-ink); }
+html[data-theme="soft-reset"] .lead,
+html[data-theme="soft-reset"] .feed-toolbar p,
+html[data-theme="soft-reset"] .desk-strip-head p,
+html[data-theme="soft-reset"] .side-card p,
+html[data-theme="soft-reset"] .identity-card p { color:var(--station-copy-muted); }
+html[data-theme="soft-reset"] .node-ribbon,
+html[data-theme="soft-reset"] .identity-bar,
+html[data-theme="soft-reset"] .feed-toolbar,
+html[data-theme="soft-reset"] .composer,
+html[data-theme="soft-reset"] .feed-filters,
+html[data-theme="soft-reset"] .window-titlebar { border-color:var(--station-line);background:var(--station-soft);color:var(--station-copy); }
+html[data-theme="soft-reset"] .node-ribbon strong,
+html[data-theme="soft-reset"] .identity-copy strong,
+html[data-theme="soft-reset"] .post-head strong { color:var(--station-ink); }
+html[data-theme="soft-reset"] .node-ribbon small,
+html[data-theme="soft-reset"] .post-meta,
+html[data-theme="soft-reset"] .post-context { color:var(--station-copy-muted); }
+html[data-theme="soft-reset"] .post-card { border-color:var(--station-line);background:var(--station-card); }
+html[data-theme="soft-reset"] .post-card:hover { background:#e9e4ed; }
+html[data-theme="soft-reset"] .post-copy { color:var(--station-copy); }
+html[data-theme="soft-reset"] .post-action,
+html[data-theme="soft-reset"] .post-more>summary { border-color:var(--station-line);background:#e5e0e8;color:#4b4358; }
+html[data-theme="soft-reset"] .button-outline,
+html[data-theme="soft-reset"] .post-more-action,
+html[data-theme="soft-reset"] .board-switch,
+html[data-theme="soft-reset"] .feed-option-control,
+html[data-theme="soft-reset"] .source-mode { border-color:var(--station-line);color:#433d50; }
+html[data-theme="soft-reset"] .button-orange,
+html[data-theme="soft-reset"] .hero-actions .button { border-color:#61517f;background:#61517f;color:#fff; }
+html[data-theme="soft-reset"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="soft-reset"] textarea,
+html[data-theme="soft-reset"] select { border-color:var(--station-line);background:#f1edf3;color:var(--station-ink); }
+html[data-theme="soft-reset"] .welcome-card,
+html[data-theme="soft-reset"] .diagnostic-body,
+html[data-theme="soft-reset"] .profile-activity-stat,
+html[data-theme="soft-reset"] .desk-person,
+html[data-theme="soft-reset"] .desk-signal,
+html[data-theme="soft-reset"] .desk-topic,
+html[data-theme="soft-reset"] .pulse-stat { border-color:var(--station-line);background:#e8e3eb;color:var(--station-copy); }
+html[data-theme="soft-reset"] .profile-activity-stat strong,
+html[data-theme="soft-reset"] .desk-person-open strong,
+html[data-theme="soft-reset"] .pulse-stat strong { color:var(--station-accent); }
+html[data-theme="soft-reset"] .theme-picker,
+html[data-theme="soft-reset"] .avatar-button { border-color:var(--station-line);background:#e3ddea;color:var(--station-accent); }
+html[data-theme="soft-reset"] :focus-visible { outline-color:var(--station-accent); }
+
+/* Carry the selected palette through the public guide, notes, and legal pages. */
+html[data-theme="soft-reset"] .guide-frame .sidebar { background:#d2ccd8;border-color:var(--station-line); }
+html[data-theme="soft-reset"] .guide-frame .guide-hero,
+html[data-theme="soft-reset"] .endorse-hero { background:radial-gradient(ellipse at 88% 4%,#c9bfd7 0,transparent 36%),linear-gradient(135deg,#eeeaf1,#d8d2de 78%); }
+html[data-theme="soft-reset"] .guide-frame .prereq-strip,
+html[data-theme="soft-reset"] .guide-frame .command-card,
+html[data-theme="soft-reset"] .guide-frame .concept-card,
+html[data-theme="soft-reset"] .guide-frame .flow-panel,
+html[data-theme="soft-reset"] .guide-frame .source-explainer,
+html[data-theme="soft-reset"] .guide-frame .check-list li,
+html[data-theme="soft-reset"] .guide-frame .references-section,
+html[data-theme="soft-reset"] .empty-note,
+html[data-theme="soft-reset"] .endorsement-card { background:#e9e5ec; }
+html[data-theme="soft-reset"] .guide-frame .cost-note,
+html[data-theme="soft-reset"] .guide-frame .security-card,
+html[data-theme="soft-reset"] .how-section { background:#dcd5e2; }
+html[data-theme="soft-reset"] .guide-frame .command-number,
+html[data-theme="soft-reset"] .guide-frame .command-card pre,
+html[data-theme="soft-reset"] .guide-frame code,
+html[data-theme="soft-reset"] .guide-frame .copy-command { background:#d8d2de;color:var(--station-ink);border-color:var(--station-line); }
+html[data-theme="soft-reset"] .legal-shell { --ink:#332e40;--accent:#61517f;--soft:#d4cddd;--line:#aaa3b5;--muted:#5d5667;--paper:#d8d2de;--card:#e9e5ec; }
+html[data-theme="soft-reset"] .legal-callout { background:#e6dfe9;border-color:#aaa3b5; }

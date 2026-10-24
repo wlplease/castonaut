@@ -74,6 +74,31 @@ test('proxy forwards standard Base64 Snapchain page cursors', async () => {
   assert.equal(forwarded.searchParams.get('pageToken'), token);
 });
 
+test('public read responses use a brief Vercel edge cache while browser responses stay private', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ messages: [] }), { status: 200 });
+  const cached = await callApi(makeRequest({ url: '/api/snapchain?route=casts&fid=37&pageSize=10', ip: '203.0.113.49' }));
+  assert.equal(cached.statusCode, 200);
+  assert.equal(cached.headers['cache-control'], 'no-store');
+  assert.match(cached.headers['vercel-cdn-cache-control'], /s-maxage=15/);
+
+  const fresh = await callApi(makeRequest({ url: '/api/snapchain?route=casts&fid=37&pageSize=10&_fresh=1', ip: '203.0.113.50' }));
+  assert.equal(fresh.statusCode, 200);
+  assert.equal(fresh.headers['vercel-cdn-cache-control'], undefined);
+});
+
+test('reserved fresh-read parameter is validated and never forwarded to Snapchain', async () => {
+  let forwarded;
+  globalThis.fetch = async (url) => {
+    forwarded = new URL(url);
+    return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+  };
+  const invalid = await callApi(makeRequest({ url: '/api/snapchain?route=casts&fid=37&_fresh=2' }));
+  assert.equal(invalid.statusCode, 400);
+  const fresh = await callApi(makeRequest({ url: '/api/snapchain?route=casts&fid=37&_fresh=1', ip: '203.0.113.51' }));
+  assert.equal(fresh.statusCode, 200);
+  assert.equal(forwarded.searchParams.has('_fresh'), false);
+});
+
 test('reaction details use the configured Snapchain node and forward bounded pages', async () => {
   let forwarded;
   globalThis.fetch = async (url) => {
@@ -100,6 +125,16 @@ test('reaction details reject malformed targets and pagination before contacting
   const localConfig = await (await import('node:fs/promises')).readFile(new URL('../vite.config.mjs', import.meta.url), 'utf8');
   assert.match(localConfig, /reactionsByCast: \{ path: '\/v1\/reactionsByCast', method: 'GET'/);
   assert.match(localConfig, /routeName === 'reactionsByCast' && \(!target\.searchParams\.has\('target_fid'\)/);
+});
+
+test('missing reaction from Snapchain 0.14.x is normalized to not found for like toggles', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Failed to get reaction' }), { status: 400 });
+  const result = await callApi(makeRequest({
+    url: `/api/snapchain?route=reactionById&fid=37&target_fid=18928&target_hash=0x${'a'.repeat(40)}&reaction_type=Like`,
+    ip: '203.0.113.73',
+  }));
+  assert.equal(result.statusCode, 404);
+  assert.deepEqual(result.payload, { error: 'Reaction not found' });
 });
 
 test('local Snapchain adapter accepts standard Base64 page cursors', async () => {

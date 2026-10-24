@@ -1,5 +1,3 @@
-import './endorsements.css';
-
 const SAFE_POST_HOSTS = new Set(['farcaster.xyz', 'warpcast.com']);
 const list = document.querySelector('#endorsement-list');
 const counter = document.querySelector('#note-count');
