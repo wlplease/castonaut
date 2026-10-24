@@ -109,7 +109,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -335,6 +335,10 @@ function clearWalletReview() {
 }
 
 function openConnectDialog() {
+  if (state.sessionRestoring) {
+    setNotice('Checking this browser for your saved sign-in…', 'pending');
+    return;
+  }
   if (!state.signer && !state.signerReady) clearWalletReview();
   if (state.signer && !state.signerReady) {
     setConnectionStatus('Your app key is saved in this browser. Check whether Snapchain has confirmed it before creating anything else.', { active: 'approve', completed: ['sign'], canRetry: true, canResume: state.hasPendingKeyAdd });
@@ -3298,8 +3302,13 @@ function renderIdentity() {
   $('#public-browse-note').hidden = ready || accountReady;
   empty.hidden = !!state.fid; connected.hidden = !state.fid;
   $('#portal-enter').textContent = state.fid && !ready ? 'Check key status ↻' : 'Sign in ↗';
+  if (state.sessionRestoring) $('#portal-enter').textContent = 'Checking this browser…';
+  $('#portal-enter').disabled = state.sessionRestoring;
+  $('#open-account').disabled = state.sessionRestoring;
   const portalStatus = $('#portal-status');
-  if (portalStatus) portalStatus.textContent = state.fid && !ready
+  if (portalStatus) portalStatus.textContent = state.sessionRestoring
+    ? 'Checking for your saved sign-in on this device…'
+    : state.fid && !ready
     ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.'
     : 'Sign in with your Farcaster recovery phrase to follow, post, and save.';
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
@@ -4698,7 +4707,13 @@ renderDesk();
 renderFlightLogCount();
 setBoardMode('signals');
 renderIdentity();
-restoreSession().then(applyLocationRoute);
+restoreSession().catch((error) => {
+  setNotice(`Could not check this browser’s saved sign-in. Your key has not been deleted. ${error.message}`, 'error');
+}).finally(() => {
+  state.sessionRestoring = false;
+  renderIdentity();
+  applyLocationRoute();
+});
 setInterval(() => {
   if (document.hidden) return;
   setStationTone();

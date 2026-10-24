@@ -24,3 +24,10 @@ test('standalone guide, field notes, and legal pages use the client theme palett
   assert.match(themes, /\.endorse-shell/);
   assert.match(themes, /--page-accent:var\(--accent\)/);
 });
+
+test('mobile client masthead reserves space for the brand mark', async () => {
+  const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
+  assert.match(styles, /@media\(max-width:620px\)\{\s*\.site-header--client \.site-brand\{min-width:0;gap:7px\}/);
+  assert.match(styles, /\.site-header--client \.site-brand img\{display:block;width:32px;height:32px;min-width:32px;flex:0 0 32px;object-fit:contain\}/);
+  assert.match(styles, /\.site-header--client \.site-brand small\{display:none\}/);
+});

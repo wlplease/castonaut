@@ -61,3 +61,14 @@ test('restored accounts load the feed after signer confirmation with no payment 
   const identity = source.slice(identityStart, identityEnd);
   assert.match(identity, /const ready = accountReady/);
 });
+
+test('startup restores the browser signer before inviting another sign-in', async () => {
+  const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /indexedDB\.open\(SIGNER_DB, 1\)/);
+  assert.match(source, /objectStore\(SIGNER_STORE\)\.put\(\{ \.\.\.record, id: 'active' \}\)/);
+  assert.match(source, /objectStore\(SIGNER_STORE\)\.get\('active'\)/);
+  assert.match(source, /sessionRestoring: true/);
+  assert.match(source, /if \(state\.sessionRestoring\) \{\s*setNotice\('Checking this browser for your saved sign-in/);
+  assert.match(source, /restoreSession\(\)\.catch\([\s\S]*?\)\.finally\(\(\) => \{\s*state\.sessionRestoring = false;\s*renderIdentity\(\);\s*applyLocationRoute\(\);/);
+  assert.match(source, /\$\('#portal-enter'\)\.disabled = state\.sessionRestoring/);
+});

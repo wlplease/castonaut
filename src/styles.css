@@ -3604,6 +3604,18 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .local-backup-drawer{margin-inline:0}
 }
 
+/* Keep the Castonaut mark legible in the narrow, one-row client masthead. */
+@media(max-width:620px){
+  .site-header--client .site-brand{min-width:0;gap:7px}
+  .site-header--client .site-brand img{display:block;width:32px;height:32px;min-width:32px;flex:0 0 32px;object-fit:contain}
+  .site-header--client .site-brand span{min-width:0}
+  .site-header--client .site-brand small{display:none}
+}
+@media(max-width:360px){
+  .site-header--client .site-brand img{width:29px;height:29px;min-width:29px;flex-basis:29px}
+  .site-header--client .site-brand strong{font-size:14px}
+}
+
 /* Final phone layout: compact touch controls and readable cards on narrow screens. */
 @media(max-width:620px){
   html,body{width:100%;min-width:320px;overflow-x:clip}
