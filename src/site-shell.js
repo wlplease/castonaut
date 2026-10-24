@@ -83,7 +83,9 @@ const oldHeader = document.querySelector('.topbar, .endorse-header, .legal-heade
 const accountTools = accountToolsSlot;
 if (isClient && oldHeader) {
   const theme = oldHeader.querySelector('#theme-select')?.closest('.theme-picker');
+  const commandButton = oldHeader.querySelector('#command-open');
   const account = oldHeader.querySelector('#open-account');
+  if (commandButton) accountTools.append(commandButton);
   if (theme) accountTools.append(theme);
   if (account) accountTools.append(account);
 }

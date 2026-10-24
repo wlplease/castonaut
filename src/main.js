@@ -3135,7 +3135,7 @@ function openCommandPalette(returnFocus = document.activeElement) {
   commandPalette.showModal();
   requestAnimationFrame(() => commandQuery.focus({ preventScroll: true }));
 }
-$('#command-open').addEventListener('click', (event) => openCommandPalette(event.currentTarget));
+$('#command-open')?.addEventListener('click', (event) => openCommandPalette(event.currentTarget));
 $('#command-close').addEventListener('click', () => commandPalette.close());
 commandPalette.addEventListener('close', () => {
   if (!document.querySelector('dialog[open]') && commandReturnFocus?.isConnected) commandReturnFocus.focus({ preventScroll: true });
