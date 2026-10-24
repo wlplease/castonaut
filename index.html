@@ -46,14 +46,15 @@
           <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />
           <span><strong>castonaut</strong><small>FARCASTER · CLIENT</small></span>
         </a>
-        <nav class="nav-list">
-          <a class="nav-item active" href="#feed" data-view="feed" aria-label="Feed"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Feed</span></a>
+        <nav class="nav-list" aria-label="Castonaut destinations">
+          <a class="nav-item nav-destination" href="#feed" data-feed-destination="following" aria-label="Following" title="Recent posts from people you follow"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span><small>Recent posts from your follows</small></a>
+          <a class="nav-item nav-destination" href="#feed" data-feed-destination="friends" aria-label="Top people" title="A short list you choose on this device"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span><small>Your handpicked circle</small></a>
+          <a class="nav-item nav-destination" href="#feed" data-feed-destination="crew" aria-label="Focus list" title="A fixed list of people, narrowed by Desk topics"><span class="nav-symbol" aria-hidden="true">▤</span><span>Focus list</span><small>People and topics you chose</small></a>
+          <a class="nav-item nav-destination" href="#feed" data-feed-destination="discover" aria-label="Discover" title="Find people through your public follow graph"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span><small>Find people through your graph</small></a>
           <a class="nav-item" href="#my-desk" data-view="desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
           <a class="nav-item" href="#people-search" data-view="search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span></a>
           <a class="nav-item" href="#profile" data-view="profile" aria-label="Your profile" title="Your profile and local appearance"><span class="nav-symbol" aria-hidden="true">◉</span><span>Profile</span></a>
-          <a class="nav-item" href="/tutorial.html" aria-label="How it works"><span class="nav-symbol">↗</span><span>Guide</span></a>
-          <a class="nav-item" href="/endorsements.html" aria-label="Community notes"><span class="nav-symbol" aria-hidden="true">✳</span><span>Field notes</span></a>
-          <a class="nav-item" href="#about" data-view="node" aria-label="Node setup and app details"><span class="nav-symbol" aria-hidden="true">⌘</span><span>Node</span></a>
+          <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>How Castonaut works</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Community notes</small></a><a class="nav-more-link" href="#about" data-view="node"><span>Node</span><small>Connection and setup</small></a></div></details>
         </nav>
       </aside>
 
@@ -189,24 +190,40 @@
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title" data-area="desk">
               <div class="desk-windowbar" aria-hidden="true"><span>CASTONAUT</span><strong>DESK</strong><i>37</i></div>
               <div class="desk-strip-head"><div><span class="overline">PERSONAL WORKSPACE</span><h2 id="desk-title">Your Desk</h2></div><div class="desk-head-actions"><button type="button" class="desk-backup-link" data-share-app="true">Invite ↗</button><button type="button" class="desk-backup-link" id="desk-backup-open">Backup ↗</button></div></div>
+              <p class="desk-privacy-note"><span><i aria-hidden="true">⌖</i> LOCAL · THIS DEVICE</span><span>Pins, saved posts, topics, and notes stay in this browser; pinning does not follow anyone. Casts, follows, likes, and recasts are public Farcaster actions.</span></p>
               <div class="desk-status" id="desk-status" aria-label="Farcaster account and node status"></div>
-              <form class="desk-add-person" id="desk-add-person" role="search">
-                <label class="sr-only" for="desk-person-query">Add a person</label>
-                <div><input id="desk-person-query" type="search" maxlength="200" placeholder="Find a person…" autocomplete="off" /><button type="submit" class="button button-outline">＋ Add</button></div>
-                <p id="desk-person-status" role="status" aria-live="polite" hidden></p>
-              </form>
-              <div class="desk-body-grid">
-                <div class="desk-main-column">
-                  <section class="desk-people-section desk-panel" aria-labelledby="desk-people-title"><div class="desk-section-heading"><h3 id="desk-people-title">People</h3><span id="desk-people-count">0 pinned</span></div><div class="desk-pins" id="desk-pins"><span class="desk-empty">Pin people to keep them close.</span></div></section>
-                  <section class="desk-activity desk-panel" aria-labelledby="desk-activity-title"><div class="desk-section-heading"><h3 id="desk-activity-title">Recent</h3><span id="desk-activity-count">0</span></div><div class="desk-orbit-pulse" id="desk-orbit-pulse" hidden></div><div class="desk-activity-list" id="desk-activity-list"><p class="desk-activity-empty">New posts from pinned people appear here.</p></div></section>
-                </div>
-                <div class="desk-files-column">
-                  <div class="desk-shortcuts desk-panel" id="desk-shortcuts" aria-label="Saved posts and topics"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><span id="desk-cast-count">0</span></div><div class="desk-saved-signals" id="desk-casts"></div></section><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Topics</h3><span id="desk-topic-count">0</span></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
-                  <p class="desk-active-topic" id="desk-active-topic" hidden></p>
-                </div>
+              <div class="desk-stack-tabs" role="tablist" aria-label="Desk stacks">
+                <button type="button" role="tab" id="desk-tab-people" class="desk-stack-tab is-active" data-desk-stack-tab="people" aria-controls="desk-stack-people" aria-selected="true"><span>People</span><small id="desk-stack-people-count">0</small></button>
+                <button type="button" role="tab" id="desk-tab-posts" class="desk-stack-tab" data-desk-stack-tab="posts" aria-controls="desk-stack-posts" aria-selected="false" tabindex="-1"><span>Posts</span><small id="desk-stack-posts-count">0</small></button>
+                <button type="button" role="tab" id="desk-tab-topics" class="desk-stack-tab" data-desk-stack-tab="topics" aria-controls="desk-stack-topics" aria-selected="false" tabindex="-1"><span>Topics</span><small id="desk-stack-topics-count">0</small></button>
               </div>
+              <section class="desk-stack-panel" id="desk-stack-people" role="tabpanel" aria-labelledby="desk-tab-people" tabindex="0">
+                <form class="desk-add-person" id="desk-add-person" role="search">
+                  <label class="sr-only" for="desk-person-query">Add a person</label>
+                  <div><input id="desk-person-query" type="search" maxlength="200" placeholder="Find a person…" autocomplete="off" /><button type="submit" class="button button-outline">＋ Add</button></div>
+                  <p id="desk-person-status" role="status" aria-live="polite" hidden></p>
+                </form>
+                <div class="desk-body-grid desk-people-grid">
+                  <section class="desk-people-section desk-panel" aria-labelledby="desk-people-title"><div class="desk-section-heading"><h3 id="desk-people-title">Pinned people</h3><span id="desk-people-count">0 pinned</span></div><div class="desk-pins" id="desk-pins"><span class="desk-empty">Pin people to keep them close.</span></div></section>
+                  <section class="desk-activity desk-panel" aria-labelledby="desk-activity-title"><div class="desk-section-heading"><h3 id="desk-activity-title">Recent from your people</h3><span id="desk-activity-count">0</span></div><div class="desk-orbit-pulse" id="desk-orbit-pulse" hidden></div><div class="desk-activity-list" id="desk-activity-list"><p class="desk-activity-empty">New posts from pinned people appear here.</p></div></section>
+                </div>
+              </section>
+              <section class="desk-stack-panel" id="desk-stack-posts" role="tabpanel" aria-labelledby="desk-tab-posts" tabindex="0" hidden>
+                <div class="desk-shortcuts desk-panel" id="desk-shortcuts" aria-label="Saved posts"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><span id="desk-cast-count">0</span></div><div class="desk-saved-signals" id="desk-casts"></div></section></div>
+                <details class="time-capsule" aria-labelledby="capsule-title">
+                  <summary class="capsule-heading"><span class="overline">TIME CAPSULE</span><span class="capsule-heading-title" id="capsule-title">Today’s page</span><span class="capsule-count">14 days · this device</span></summary>
+                  <div class="capsule-tools"><p id="capsule-save-note">Keep today’s feed for later.</p><button type="button" class="button button-outline" id="capsule-seal" disabled>Save today</button></div>
+                  <div class="capsule-shelf" id="capsule-shelf" aria-label="Saved time capsules"><span class="capsule-empty">Your first capsule will appear here.</span></div>
+                  <section class="capsule-replay" id="capsule-replay" aria-live="polite" hidden><div class="capsule-replay-head"><span><small>LOOKING BACK</small><strong id="capsule-replay-title"></strong></span><button type="button" id="capsule-replay-close" aria-label="Close capsule replay">×</button></div><div class="capsule-replay-list" id="capsule-replay-list"></div></section>
+                </details>
+              </section>
+              <section class="desk-stack-panel" id="desk-stack-topics" role="tabpanel" aria-labelledby="desk-tab-topics" tabindex="0" hidden>
+                <div class="desk-shortcuts desk-panel" aria-label="Pinned topics"><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Pinned topics</h3><span id="desk-topic-count">0</span></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
+                <p class="desk-active-topic" id="desk-active-topic" hidden></p>
+                <p class="desk-stack-hint">Choose a topic to filter the feed. Pins and topic choices stay on this device.</p>
+              </section>
               <details class="desk-accessories">
-                <summary><span>Accessories</span><small>Map · Notes</small></summary>
+                <summary><span>Desk tools</span><small>Orbit map · Notepad</small></summary>
                 <div class="desk-accessory-grid">
                   <details class="desk-atlas" id="desk-atlas">
                     <summary><span><strong>Orbit map</strong><small>Pinned people</small></span><span class="atlas-count" id="desk-atlas-count">0</span></summary>
@@ -218,12 +235,6 @@
                     <div class="desk-notepad-body"><label class="sr-only" for="desk-notepad-text">Private Desk note</label><textarea id="desk-notepad-text" maxlength="4000" rows="5" placeholder="A thought to keep…"></textarea><div class="desk-notepad-footer"><span id="desk-notepad-status" role="status" aria-live="polite">Saved on this device.</span><button type="button" class="button button-outline" id="desk-note-to-cast" disabled>Use in a cast</button><button type="button" class="button button-outline" id="desk-note-clear">Clear</button></div></div>
                   </details>
                 </div>
-              </details>
-              <details class="time-capsule" aria-labelledby="capsule-title">
-                <summary class="capsule-heading"><span class="overline">TIME CAPSULE</span><span class="capsule-heading-title" id="capsule-title">Today’s page</span><span class="capsule-count">14 days · this device</span></summary>
-                <div class="capsule-tools"><p id="capsule-save-note">Keep today’s feed for later.</p><button type="button" class="button button-outline" id="capsule-seal" disabled>Save today</button></div>
-                <div class="capsule-shelf" id="capsule-shelf" aria-label="Saved time capsules"><span class="capsule-empty">Your first capsule will appear here.</span></div>
-                <section class="capsule-replay" id="capsule-replay" aria-live="polite" hidden><div class="capsule-replay-head"><span><small>LOOKING BACK</small><strong id="capsule-replay-title"></strong></span><button type="button" id="capsule-replay-close" aria-label="Close capsule replay">×</button></div><div class="capsule-replay-list" id="capsule-replay-list"></div></section>
               </details>
             </section>
 
@@ -247,6 +258,11 @@
                     <div class="feed-view-controls" role="group" aria-label="Feed view and tools"><button type="button" class="board-tab is-active" id="show-recent" aria-pressed="true">Recent</button><button type="button" class="board-tab" id="show-popular" aria-pressed="false">Popular</button><button type="button" class="board-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel">Discover</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button></div>
                     <span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button>
                   </div>
+                </div>
+                <div class="feed-statusbar" id="feed-statusbar" role="group" aria-label="Active account and feed status">
+                  <span class="feed-status-account"><small>ACTIVE ACCOUNT</small><strong id="feed-status-account">Read-only</strong></span>
+                  <span class="feed-status-network"><i class="feed-status-led" id="feed-status-led" aria-hidden="true"></i><strong id="feed-status-network">Checking node</strong></span>
+                  <span class="feed-status-activity" id="feed-status-activity" role="status" aria-live="polite">Waiting for a feed check</span>
                 </div>
                 <details class="feed-quick-controls" id="feed-quick-controls">
                   <summary><span aria-hidden="true">☷</span> Quick controls</summary>
@@ -326,7 +342,7 @@
                     </div>
                     <label class="source-control crew-name-control" for="crew-name"><span>Focus list name</span><input id="crew-name" type="text" maxlength="20" placeholder="Focus list" /></label>
                     <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>
-                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Top people <kbd>3</kbd> Focus list <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
+                    <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Top people <kbd>3</kbd> Focus list <kbd>4</kbd> Discover <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
                   </div>
                 </details>
                 <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">
@@ -383,7 +399,10 @@
       <form class="command-search" id="command-search-form" role="search"><label class="sr-only" for="command-query">Find a page or action</label><span aria-hidden="true">⌕</span><input id="command-query" type="search" autocomplete="off" placeholder="Where would you like to go?" /><kbd>ESC</kbd></form>
       <nav class="command-items" id="command-items" aria-label="Pages and actions">
         <div class="command-personal-items" id="command-personal-items" aria-label="Your Desk shortcuts"></div>
-        <button type="button" class="command-item" data-command-view="feed"><span class="command-icon">⌂</span><span><strong>Feed</strong><small>Following, Top people, Focus list, and Discover</small></span></button>
+        <button type="button" class="command-item" data-command-feed-destination="following"><span class="command-icon">⌂</span><span><strong>Following</strong><small>Recent posts from people you follow</small></span></button>
+        <button type="button" class="command-item" data-command-feed-destination="friends"><span class="command-icon">✳</span><span><strong>Top people</strong><small>Your handpicked circle</small></span></button>
+        <button type="button" class="command-item" data-command-feed-destination="crew"><span class="command-icon">▤</span><span><strong>Focus list</strong><small>People and topics you choose</small></span></button>
+        <button type="button" class="command-item" data-command-feed-destination="discover"><span class="command-icon">✧</span><span><strong>Discover</strong><small>Find people through your follow graph</small></span></button>
         <button type="button" class="command-item" data-command-view="desk"><span class="command-icon">⌖</span><span><strong>Desk</strong><small>Pinned people and saved posts</small></span></button>
         <button type="button" class="command-item" data-command-view="search"><span class="command-icon">⌕</span><span><strong>Search</strong><small>Find a profile or loaded post</small></span></button>
         <button type="button" class="command-item" data-command-view="node"><span class="command-icon">⌘</span><span><strong>Node</strong><small>Connection and setup</small></span></button>
