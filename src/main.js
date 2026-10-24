@@ -93,6 +93,8 @@ const DESK_CASTS_STORAGE = 'castonaut.desk-casts.v1';
 const DESK_NOTEPAD_STORAGE = 'castonaut.desk-notepad.v1';
 const DESK_CAST_LABELS = ['', 'Read later', 'Idea', 'Keep'];
 const DESK_TOPICS_STORAGE = 'castonaut.desk-topics.v1';
+const DESK_SORT_STORAGE = 'castonaut.desk-sort.v1';
+const DESK_SORT_VALUES = { people: ['saved', 'name'], posts: ['saved', 'newest', 'oldest'], topics: ['saved', 'name'] };
 const PROFILE_NOTES_STORAGE = 'castonaut.profile-notes.v1';
 const FLIGHT_LOG_STORAGE = 'castonaut.flight-log.v1';
 const REMOTE_MEDIA_STORAGE = 'castonaut.remote-media.v1';
@@ -111,10 +113,17 @@ const PROFILE_PINS_STORAGE = 'castonaut.profile-pins.v1';
 const PROFILE_COVERS_STORAGE = 'castonaut.profile-covers.v1';
 const TIME_CAPSULES_STORAGE = 'castonaut.time-capsules.v1';
 const LOCAL_BACKUP_VERSION = 1;
-const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
+const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, DESK_SORT_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
 const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'Focus list', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+function loadDeskSortPreferences() {
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem(DESK_SORT_STORAGE) || '{}'); } catch { /* Use the recent-first defaults. */ }
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) stored = {};
+  return Object.fromEntries(Object.entries(DESK_SORT_VALUES).map(([stack, values]) => [stack, values.includes(stored[stack]) ? stored[stack] : 'saved']));
+}
+state.deskSort = loadDeskSortPreferences();
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -317,11 +326,12 @@ function clientErrorText(error) {
 }
 
 function setConnectionStatus(message, { canRetry = false, canRefresh = false, canResume = false, busy = false } = {}) {
-  const refreshChoice = refreshSignerFlow && !busy && !canRetry && !state.signerReady;
+  const hasSavedSigner = !!state.signer || state.signerReady;
+  const recoveringSavedRequest = canRetry || canResume || canRefresh;
   $('#dialog-status').textContent = message;
-  $('#recovery-import').hidden = busy || canRetry || canResume || !!pendingWalletAccount || (!!state.signer && !refreshChoice) || state.signerReady;
-  // Keep the unsupported wallet entry path out of the new-user sign-in UI.
-  // Existing saved browser signers still restore and can be checked normally.
+  $('#recovery-import').hidden = busy || recoveringSavedRequest || hasSavedSigner || !!pendingWalletAccount;
+  // Castonaut's supported first-run sign-in uses the Farcaster recovery phrase.
+  // Keep the legacy injected-wallet path out of the onboarding UI.
   $('#wallet-connect').hidden = true;
   $('#wallet-review').hidden = true;
   $('#wallet-authorize').hidden = true;
@@ -329,6 +339,7 @@ function setConnectionStatus(message, { canRetry = false, canRefresh = false, ca
   $('#check-signer').hidden = !canRetry;
   $('#refresh-signer').hidden = !canRefresh;
   $('#resume-signer').hidden = !canResume;
+  $('#connect-actions').hidden = !$('#connect-actions').querySelector('button:not([hidden])');
 }
 
 function clearWalletReview() {
@@ -342,7 +353,8 @@ function clearWalletReview() {
 
 function openConnectDialog() {
   if (state.sessionRestoring) {
-    setNotice('Checking this browser for your saved sign-in…', 'pending');
+    if (!$('#connect-dialog').open) $('#connect-dialog').showModal();
+    setConnectionStatus('Checking this browser for a saved sign-in…', { busy: true });
     return;
   }
   if (!state.signer && !state.signerReady) clearWalletReview();
@@ -687,6 +699,7 @@ function validateLocalBackup(value) {
     if ([THEME_STORAGE, VOICE_STORAGE, CREW_NAME_STORAGE, DESK_NOTEPAD_STORAGE].includes(key)) parsed = raw;
     else try { parsed = JSON.parse(raw); } catch { throw new Error(`The backup has invalid data for ${key.replace(/^castonaut\./, '')}.`); }
     if (key === THEME_STORAGE && !['atlas', 'soft-reset', 'night-radio', 'orbit-glass'].includes(raw)) throw new Error('The backup has an unsupported theme setting.');
+    if (key === DESK_SORT_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.entries(parsed).some(([stack, sort]) => !DESK_SORT_VALUES[stack]?.includes(sort)))) throw new Error('The backup has an invalid Desk sort preference.');
     if (key.startsWith(`${TIME_CAPSULES_STORAGE}:`)) {
       if (!Array.isArray(parsed) || parsed.length > 14 || parseTimeCapsules(raw).length !== parsed.length) throw new Error('The backup contains an invalid Time Capsule archive.');
     }
@@ -728,7 +741,7 @@ async function importLocalBackup(file) {
     }
     if (state.fid) { loadFlightLog(state.fid); loadCapsules(state.fid); }
     state.deskPins = readLocalFids(DESK_STORAGE); state.friendFids = readLocalFids(FRIENDS_STORAGE); state.crewFids = readLocalFids(CREW_STORAGE); state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
-    try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); state.crewName = localStorage.getItem(CREW_NAME_STORAGE) || 'Focus list'; const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
+    try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.deskSort = loadDeskSortPreferences(); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); state.crewName = localStorage.getItem(CREW_NAME_STORAGE) || 'Focus list'; const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
     if ($('#desk-notepad-text')) $('#desk-notepad-text').value = localStorage.getItem(DESK_NOTEPAD_STORAGE) || '';
     updateDeskNotepadControls();
     renderDesk(); renderDeskShortcuts(); renderFeed(); renderFlightLogCount(); setBackupStatus(`Restored ${entries.length} items/settings${backup.accountFid ? ` for FID ${backup.accountFid}` : ''}.`); setNotice('Your Castonaut backup is restored on this device.', 'success');
@@ -954,6 +967,9 @@ function updateFeedDestinationNav() {
   const discoveryOpen = currentArea === 'feed' && state.boardMode === 'signals' && !$('#suggested-panel')?.hidden;
   const feedWindow = $('#feed-window');
   if (feedWindow) feedWindow.dataset.discoverOpen = String(discoveryOpen);
+  const moreHasActiveDestination = currentArea === 'feed' && state.boardMode === 'signals'
+    && (discoveryOpen || ['friends', 'crew'].includes(state.feedMode));
+  document.querySelector('.nav-more')?.toggleAttribute('data-active', moreHasActiveDestination);
   document.querySelectorAll('[data-feed-destination]').forEach((link) => {
     const destination = link.dataset.feedDestination;
     const active = currentArea === 'feed' && state.boardMode === 'signals'
@@ -2601,17 +2617,38 @@ function setDeskStack(stack, focus = false) {
   }
 }
 
+function deskSortedPeople() {
+  const people = [...state.deskPins];
+  if (state.deskSort.people === 'name') people.sort((a, b) => localProfileName(state.people.get(a) || { fid: a, name: `Farcaster ${a}` }).localeCompare(localProfileName(state.people.get(b) || { fid: b, name: `Farcaster ${b}` }), undefined, { sensitivity: 'base', numeric: true }));
+  return people;
+}
+
+function deskSortedPosts() {
+  const posts = [...state.deskCasts];
+  if (state.deskSort.posts === 'newest') posts.sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+  else if (state.deskSort.posts === 'oldest') posts.sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+  return posts;
+}
+
+function deskSortedTopics() {
+  const topics = [...state.deskTopics];
+  if (state.deskSort.topics === 'name') topics.sort((a, b) => a.replace(/^site:/, '').localeCompare(b.replace(/^site:/, ''), undefined, { sensitivity: 'base', numeric: true }));
+  return topics;
+}
+
 function renderDesk() {
   const container = $('#desk-pins');
   if (!container) return;
   renderDeskStatus();
   $('#desk-people-count').textContent = `${state.deskPins.length} pinned`;
   $('#desk-stack-people-count').textContent = String(state.deskPins.length);
+  const peopleSort = $('[data-desk-sort="people"]');
+  if (peopleSort) peopleSort.value = state.deskSort.people;
   container.replaceChildren();
   if (!state.deskPins.length) {
     const empty = document.createElement('span'); empty.className = 'desk-empty'; empty.textContent = 'No pinned people yet.'; container.append(empty);
   } else {
-    for (const fid of state.deskPins) {
+    for (const fid of deskSortedPeople()) {
       const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '' };
       const chip = document.createElement('div'); chip.className = 'desk-person';
       const open = document.createElement('button'); open.type = 'button'; open.className = 'desk-person-open'; open.dataset.deskFid = String(fid);
@@ -2886,13 +2923,17 @@ function renderDeskShortcuts() {
   $('#desk-topic-count').textContent = `${state.deskTopics.length} pinned`;
   $('#desk-stack-posts-count').textContent = String(state.deskCasts.length);
   $('#desk-stack-topics-count').textContent = String(state.deskTopics.length);
+  const postsSort = $('[data-desk-sort="posts"]');
+  const topicsSort = $('[data-desk-sort="topics"]');
+  if (postsSort) postsSort.value = state.deskSort.posts;
+  if (topicsSort) topicsSort.value = state.deskSort.topics;
   if (!state.deskCasts.length) {
     const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'No saved posts yet.'; casts.append(empty);
   }
   if (!state.deskTopics.length) {
     const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'No pinned topics.'; topics.append(empty);
   }
-  for (const saved of state.deskCasts) {
+  for (const saved of deskSortedPosts()) {
     const item = document.createElement('article'); item.className = 'desk-signal';
     const meta = document.createElement('span'); meta.className = 'desk-signal-meta'; meta.textContent = `SIGNAL · @${saved.username || `fid-${saved.fid}`}`;
     const text = document.createElement('p'); text.textContent = saved.text || 'Saved signal';
@@ -2914,7 +2955,7 @@ function renderDeskShortcuts() {
     annotationBody.append(label, note); annotations.append(annotationSummary, annotationBody); item.append(annotations);
     item.append(remove); casts.append(item);
   }
-  for (const topic of state.deskTopics) {
+  for (const topic of deskSortedTopics()) {
     const chip = document.createElement('span'); chip.className = `desk-topic${state.activeDeskTopic === topic ? ' is-active' : ''}`;
     const view = document.createElement('button'); view.type = 'button'; view.dataset.deskTopic = topic; view.textContent = topic.replace(/^site:/, ''); view.setAttribute('aria-pressed', String(state.activeDeskTopic === topic));
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'desk-topic-remove'; remove.dataset.action = 'toggle-desk-topic'; remove.dataset.topic = topic; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove ${topic.replace(/^site:/, '')} from your Desk`);
@@ -3596,7 +3637,7 @@ function renderIdentity() {
     ? 'Checking for your saved sign-in on this device…'
     : state.fid && !ready
     ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.'
-    : 'Sign in with your Farcaster recovery phrase to follow, post, and save.';
+    : 'Connect with your Farcaster recovery phrase to post and follow.';
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
   const shownName = localProfileName(profile);
@@ -3806,7 +3847,7 @@ function saveComposerDraft() {
 function restoreComposerDraft(fid) {
   state.parent = null; state.threadRoot = null; state.threadItems = []; state.threadPending = null; state.pendingCast = null;
   setPendingCastControls(false);
-  $('#composer-submit').textContent = 'Post';
+  setComposerSubmitLabel('Post');
   try {
     const saved = JSON.parse(localStorage.getItem(`${COMPOSE_STORAGE}:${fid}`) || 'null');
     if (saved && typeof saved === 'object') {
@@ -3835,7 +3876,7 @@ function restoreComposerDraft(fid) {
     $('#composer-media-url').value = state.pendingCast.mediaUrl;
     $('#composer-media').hidden = !state.pendingCast.mediaUrl;
     setPendingCastControls(true);
-    $('#composer-submit').textContent = 'Resume saved post';
+    setComposerSubmitLabel('Resume saved post');
     $('#draft-status').textContent = 'A signed post is waiting for confirmation. Resume it to avoid creating a duplicate.';
   }
   renderThreadDraft();
@@ -3864,6 +3905,15 @@ function setPendingCastControls(pending) {
   });
   const submit = $('#composer-submit');
   if (submit && !pending) submit.disabled = !state.signerReady;
+}
+
+function setComposerSubmitLabel(label) {
+  const submit = $('#composer-submit');
+  if (!submit) return;
+  const compactResume = label === 'Resume saved post' && matchMedia('(max-width: 380px)').matches;
+  submit.textContent = compactResume ? 'Resume' : label;
+  if (compactResume) submit.setAttribute('aria-label', label);
+  else submit.removeAttribute('aria-label');
 }
 
 async function publishPendingCast(pending) {
@@ -3976,6 +4026,16 @@ $('#desk-add-person')?.addEventListener('submit', (event) => { event.preventDefa
 $('#my-desk')?.addEventListener('click', (event) => {
   const tab = event.target.closest('[data-desk-stack-tab]');
   if (tab) setDeskStack(tab.dataset.deskStackTab);
+});
+$('#my-desk')?.addEventListener('change', (event) => {
+  const select = event.target.closest('[data-desk-sort]');
+  if (!select) return;
+  const options = DESK_SORT_VALUES;
+  const stack = select.dataset.deskSort;
+  if (!options[stack]?.includes(select.value)) return;
+  state.deskSort[stack] = select.value;
+  try { localStorage.setItem(DESK_SORT_STORAGE, JSON.stringify(state.deskSort)); } catch { /* Sorting still applies for this visit. */ }
+  if (stack === 'people') renderDesk(); else renderDeskShortcuts();
 });
 $('#my-desk')?.addEventListener('keydown', (event) => {
   const tab = event.target.closest('[data-desk-stack-tab]');
@@ -4139,6 +4199,7 @@ $('#node-journey-check')?.addEventListener('click', async (event) => {
 });
 document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener('click', (event) => {
   event.preventDefault();
+  document.querySelectorAll('.nav-more[open]').forEach((menu) => { menu.open = false; });
   if (link.dataset.view === 'profile') {
     if (!state.signerReady || !state.fid) { openConnectDialog(); return; }
     state.parent = null;
@@ -4311,6 +4372,8 @@ document.addEventListener('change', (event) => {
 });
 const commandPalette = $('#command-palette');
 const commandQuery = $('#command-query');
+const shortcutPlatform = navigator.userAgentData?.platform || navigator.platform || '';
+$('#search-shortcut-hint').textContent = /mac|iphone|ipad|ipod/i.test(shortcutPlatform) ? '⌘K' : 'Ctrl K';
 let commandReturnFocus = null;
 function renderCommandPersonalItems() {
   const container = $('#command-personal-items');
@@ -4326,7 +4389,7 @@ function renderCommandPersonalItems() {
   };
   if (state.deskPins.length) {
     section('PINNED PEOPLE');
-    for (const fid of state.deskPins) {
+    for (const fid of deskSortedPeople()) {
       const profile = state.people.get(Number(fid)) || { fid, name: `FID ${fid}`, username: `fid-${fid}` };
       add('◎', localProfileName(profile), `@${profile.username || `fid-${fid}`} · open profile`, { commandProfile: fid });
     }
@@ -4338,7 +4401,7 @@ function renderCommandPersonalItems() {
   }
   if (state.deskTopics.length) {
     section('PINNED TOPICS');
-    for (const topic of state.deskTopics) add('#', topic.replace(/^site:/, ''), 'Show this topic in your feed', { commandTopic: topic });
+    for (const topic of deskSortedTopics()) add('#', topic.replace(/^site:/, ''), 'Show this topic in your feed', { commandTopic: topic });
   }
 }
 function filterCommandItems(query) {
@@ -4347,6 +4410,15 @@ function filterCommandItems(query) {
   document.querySelectorAll('.command-item').forEach((item) => {
     item.hidden = !!term && !item.textContent.toLocaleLowerCase().includes(term);
     if (!item.hidden) visible += 1;
+  });
+  document.querySelectorAll('.command-personal-heading').forEach((heading) => {
+    let entry = heading.nextElementSibling;
+    let hasVisibleItems = false;
+    while (entry && !entry.classList.contains('command-personal-heading')) {
+      if (entry.matches('.command-item:not([hidden])')) hasVisibleItems = true;
+      entry = entry.nextElementSibling;
+    }
+    heading.hidden = !hasVisibleItems;
   });
   $('#command-empty').hidden = visible > 0;
 }
@@ -4398,6 +4470,17 @@ $('#command-items').addEventListener('click', (event) => {
     if (state.boardMode !== 'signals') { setBoardMode('signals'); return; }
     renderDeskShortcuts(); renderFeed(); return;
   }
+  if (item.dataset.commandDeskStack) { navigate('desk'); setDeskStack(item.dataset.commandDeskStack); return; }
+  if (item.dataset.commandAction === 'compose') {
+    if (state.boardMode !== 'signals') setBoardMode('signals');
+    if (state.feedMode === 'profile') setFeedTab('following');
+    navigate('feed');
+    if (!state.signerReady) { openConnectDialog(); return; }
+    requestAnimationFrame(() => { $('#composer-text').focus({ preventScroll: true }); $('#composer-text').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+    return;
+  }
+  if (item.dataset.commandAction === 'refresh') { navigate('feed'); $('#feed-refresh').click(); return; }
+  if (item.dataset.commandAction === 'appearance') { $('#theme-select').focus({ preventScroll: true }); return; }
   if (item.dataset.commandAction === 'account') { $('#open-account').click(); return; }
   if (item.dataset.commandFeedDestination) { document.querySelector(`[data-feed-destination="${item.dataset.commandFeedDestination}"]`)?.click(); return; }
   document.querySelector(`[data-view="${item.dataset.commandView}"]`)?.click();
@@ -4785,7 +4868,7 @@ $('#composer').addEventListener('submit', async (event) => {
   try {
     let pending = state.pendingCast;
     if (!pending) {
-      submit.textContent = 'Preparing…';
+      setComposerSubmitLabel('Preparing…');
       const protocol = await import('./protocol.js');
       const signer = await getActiveSigner();
       const attributedText = withCastonautAttribution(text);
@@ -4800,7 +4883,7 @@ $('#composer').addEventListener('submit', async (event) => {
       $('#draft-status').textContent = 'Signed post saved on this device. Checking network status…';
       saveComposerDraft();
     }
-    submit.textContent = 'Checking post…';
+    setComposerSubmitLabel('Checking post…');
     await publishPendingCast(pending);
     state.pendingCast = null;
     clearCurrentDraft();
@@ -4812,7 +4895,7 @@ $('#composer').addEventListener('submit', async (event) => {
     }
     setNotice(clientErrorText(error), 'error');
   }
-  finally { submit.textContent = state.pendingCast ? 'Resume saved post' : 'Post'; submit.disabled = !state.signerReady; }
+  finally { setComposerSubmitLabel(state.pendingCast ? 'Resume saved post' : 'Post'); submit.disabled = !state.signerReady; }
 });
 
 document.addEventListener('click', async (event) => {
@@ -5037,6 +5120,15 @@ restoreSession().catch((error) => {
 }).finally(() => {
   state.sessionRestoring = false;
   renderIdentity();
+  if ($('#connect-dialog').open) {
+    if (state.signer && !state.signerReady) {
+      setConnectionStatus('A saved app key was found. Check whether the node has confirmed it before creating anything else.', { canRetry: true, canResume: state.hasPendingKeyAdd });
+    } else if (state.signerReady) {
+      setConnectionStatus('This browser is connected and ready for social actions.');
+    } else {
+      setConnectionStatus('');
+    }
+  }
   applyLocationRoute();
 });
 setInterval(() => {
