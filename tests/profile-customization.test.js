@@ -30,7 +30,8 @@ test('feed shows loading placeholders for profiles and images, with open-origina
   assert.match(source, /container\.classList\.add\('avatar-loading'\)/);
   assert.match(source, /className = 'post-image-frame';[\s\S]*?setAttribute\('aria-busy', 'true'\)/);
   assert.match(source, /mediaCaption\.append\(mediaKind, mediaOpen\)/);
-  assert.match(source, /domain\.textContent = previewUrl\.hostname\.replace\(\/\^www\\\.\/i, ''\)/);
+  assert.match(source, /domain\.textContent = isMiniApp \? 'Farcaster Mini App' : previewUrl\.hostname\.replace\(\/\^www\\\.\/i, ''\)/);
+  assert.match(source, /isFarcasterMiniAppLink\(previewUrl\)/);
   assert.match(styles, /\.post-image-frame\.is-loading::after[\s\S]*?Loading image/);
   assert.match(styles, /\.post-avatar\.avatar-loading/);
 });

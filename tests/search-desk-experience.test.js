@@ -23,6 +23,9 @@ test('Search offers curated Network School and Farcaster profiles plus broader b
   assert.match(html, /data-profile-example="quazia"[\s\S]*?@quazia/);
   assert.match(html, /Builders &amp; community/);
   assert.match(html, /data-profile-example="jesse\.base\.eth"/);
+  for (const handle of ['linda', 'horsefacts.eth', 'z00', 'zaal', 'trish', 'statuette', 'justin', 'pichi', 'borodutch']) {
+    assert.ok(html.includes(`data-profile-example="${handle}"`), `missing curated profile ${handle}`);
+  }
   assert.match(main, /\$\('#people-query'\)\.value = button\.dataset\.profileExample;\s*searchProfile\(button\.dataset\.profileExample\)/);
 });
 

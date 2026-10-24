@@ -130,6 +130,7 @@ test('global search returns bounded results without exposing the app key', async
   assert.equal(result.payload.data[0].images.fixed_width, undefined);
   assert.match(calls[1].url, /api_key=public-test-app-key/);
   assert.match(calls[1].url, /q=space/);
+  assert.match(calls[1].url, /limit=24/);
   assert.doesNotMatch(JSON.stringify(result.payload), /public-test-app-key|server-only-test-token|must-not-return/);
 });
 
@@ -163,6 +164,8 @@ test('draft restoration never assigns the invalid negative maxLength', async () 
 test('GIF search controls are not nested forms that browsers discard', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /<div class="giphy-search" id="giphy-search-form"/);
+  assert.match(html, /data-giphy-query="space"/);
+  assert.match(html, /data-giphy-query="celebrate"/);
   assert.doesNotMatch(html, /<form[^>]*id="giphy-search-form"/);
 });
 

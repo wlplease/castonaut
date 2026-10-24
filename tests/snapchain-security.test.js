@@ -142,6 +142,13 @@ test('local Snapchain adapter accepts standard Base64 page cursors', async () =>
   assert.ok(config.includes("if (name === 'pageToken') return value.length <= 2048 && /^[A-Za-z0-9+/_=-]*$/.test(value);"));
 });
 
+test('local Snapchain adapter consumes the fresh-read flag instead of forwarding it as a node parameter', async () => {
+  const config = await (await import('node:fs/promises')).readFile(new URL('../vite.config.mjs', import.meta.url), 'utf8');
+  assert.match(config, /const freshParams = requestUrl\.searchParams\.getAll\('_fresh'\)/);
+  assert.match(config, /key === 'route' \|\| key === '_fresh'/);
+  assert.match(config, /key !== 'route' && key !== '_fresh'/);
+});
+
 test('proxy blocks cross-origin writes and non-binary message bodies', async () => {
   globalThis.fetch = async () => { throw new Error('fetch should not run'); };
   const foreign = await callApi(makeRequest({

@@ -64,7 +64,7 @@
           <div class="top-actions">
             <a class="top-link" href="/tutorial.html">Guide <span>↗</span></a>
             <button type="button" class="icon-button command-open" id="command-open" aria-label="Jump to a page" title="Jump to a page · Ctrl/⌘ K">⌕</button>
-            <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Spacebar · Platinum</option><option value="soft-reset">Lilac Spacebar</option><option value="night-radio">Night Radio</option><option value="orbit-glass">Orbit Glass · Hybrid</option></select></label>
+            <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Spacebar · Platinum</option><option value="soft-reset">Lilac Spacebar</option><option value="night-radio">Night Radio</option></select></label>
             <button class="avatar-button" id="open-account" aria-label="Account and signer settings"><span id="avatar-initial">?</span></button>
           </div>
         </header>
@@ -137,6 +137,15 @@
                     <button type="button" class="directory-person" data-profile-example="vitalik.eth"><span class="directory-avatar">V</span><span><strong>Vitalik</strong><small>@vitalik.eth</small></span><span class="directory-open">↗</span></button>
                     <button type="button" class="directory-person" data-profile-example="jesse.base.eth"><span class="directory-avatar">J</span><span><strong>Jesse Pollak</strong><small>@jesse.base.eth</small></span><span class="directory-open">↗</span></button>
                     <button type="button" class="directory-person" data-profile-example="rish"><span class="directory-avatar">R</span><span><strong>Rish</strong><small>@rish</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="linda"><span class="directory-avatar">L</span><span><strong>Linda</strong><small>@linda</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="horsefacts.eth"><span class="directory-avatar">H</span><span><strong>horsefacts</strong><small>@horsefacts.eth</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="z00"><span class="directory-avatar">Z</span><span><strong>z00</strong><small>@z00</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="zaal"><span class="directory-avatar">Z</span><span><strong>Zaal</strong><small>@zaal</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="trish"><span class="directory-avatar">T</span><span><strong>Trish</strong><small>@trish</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="statuette"><span class="directory-avatar">S</span><span><strong>Statuette</strong><small>@statuette</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="justin"><span class="directory-avatar">J</span><span><strong>Justin</strong><small>@justin</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="pichi"><span class="directory-avatar">P</span><span><strong>Pichi</strong><small>@pichi</small></span><span class="directory-open">↗</span></button>
+                    <button type="button" class="directory-person" data-profile-example="borodutch"><span class="directory-avatar">B</span><span><strong>borodutch</strong><small>@borodutch</small></span><span class="directory-open">↗</span></button>
                   </div>
                   <button type="button" class="directory-find-more" data-directory-search="Builders &amp; community">Find another account <span aria-hidden="true">⌕</span></button>
                 </section>
@@ -178,26 +187,38 @@
 
             <div id="member-workspace" hidden>
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title" data-area="desk">
-              <div class="desk-strip-head"><div><span class="overline">YOUR SOCIAL DESKTOP</span><h2 id="desk-title">Your people. Your signals.</h2><p class="desk-subtitle">A personal window into the network.</p></div><p><button type="button" class="desk-backup-link" id="desk-backup-open">Move Desk ↗</button></p></div>
+              <div class="desk-windowbar" aria-hidden="true"><span>CASTONAUT</span><strong>DESK</strong><i>37</i></div>
+              <div class="desk-strip-head"><div><span class="overline">PERSONAL WORKSPACE</span><h2 id="desk-title">Your Desk</h2></div><button type="button" class="desk-backup-link" id="desk-backup-open">Backup ↗</button></div>
               <div class="desk-status" id="desk-status" aria-label="Farcaster account and node status"></div>
               <form class="desk-add-person" id="desk-add-person" role="search">
-                <label for="desk-person-query"><span class="overline">ADD A PERSON</span></label>
-                <div><input id="desk-person-query" type="search" maxlength="200" placeholder="@username or FID" autocomplete="off" /><button type="submit" class="button button-outline">Add to Desk</button></div>
+                <label class="sr-only" for="desk-person-query">Add a person</label>
+                <div><input id="desk-person-query" type="search" maxlength="200" placeholder="Find a person…" autocomplete="off" /><button type="submit" class="button button-outline">＋ Add</button></div>
                 <p id="desk-person-status" role="status" aria-live="polite" hidden></p>
               </form>
-              <section class="desk-people-section" aria-labelledby="desk-people-title"><div class="desk-section-heading"><h3 id="desk-people-title">People</h3><span id="desk-people-count">0 pinned</span></div><div class="desk-pins" id="desk-pins"><span class="desk-empty">Your pinned people will live here.</span></div></section>
-              <details class="desk-atlas" id="desk-atlas">
-                <summary><span><strong>Orbit atlas</strong><small>Your people, drawn as a little constellation</small></span><span class="atlas-count" id="desk-atlas-count">0</span></summary>
-                <div class="desk-atlas-map" id="desk-atlas-map" aria-label="Personal map of pinned Farcaster profiles"></div>
-                <p class="desk-atlas-note">A playful map of your Desk pins, not real-world locations. It stays on this device.</p>
+              <div class="desk-body-grid">
+                <div class="desk-main-column">
+                  <section class="desk-people-section desk-panel" aria-labelledby="desk-people-title"><div class="desk-section-heading"><h3 id="desk-people-title">People</h3><span id="desk-people-count">0 pinned</span></div><div class="desk-pins" id="desk-pins"><span class="desk-empty">Pin people to keep them close.</span></div></section>
+                  <section class="desk-activity desk-panel" aria-labelledby="desk-activity-title"><div class="desk-section-heading"><h3 id="desk-activity-title">Recent</h3><span id="desk-activity-count">0</span></div><div class="desk-orbit-pulse" id="desk-orbit-pulse" hidden></div><div class="desk-activity-list" id="desk-activity-list"><p class="desk-activity-empty">New posts from pinned people appear here.</p></div></section>
+                </div>
+                <div class="desk-files-column">
+                  <div class="desk-shortcuts desk-panel" id="desk-shortcuts" aria-label="Saved posts and topics"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><span id="desk-cast-count">0</span></div><div class="desk-saved-signals" id="desk-casts"></div></section><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Topics</h3><span id="desk-topic-count">0</span></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
+                  <p class="desk-active-topic" id="desk-active-topic" hidden></p>
+                </div>
+              </div>
+              <details class="desk-accessories">
+                <summary><span>Accessories</span><small>Map · Notes</small></summary>
+                <div class="desk-accessory-grid">
+                  <details class="desk-atlas" id="desk-atlas">
+                    <summary><span><strong>Orbit map</strong><small>Pinned people</small></span><span class="atlas-count" id="desk-atlas-count">0</span></summary>
+                    <div class="desk-atlas-map" id="desk-atlas-map" aria-label="Personal map of pinned Farcaster profiles"></div>
+                    <p class="desk-atlas-note">A local map of your pinned profiles.</p>
+                  </details>
+                  <details class="desk-notepad" id="desk-notepad-drawer">
+                    <summary><span><strong>Notepad</strong><small>Private · this device</small></span><span class="notepad-mark" aria-hidden="true">✎</span></summary>
+                    <div class="desk-notepad-body"><label class="sr-only" for="desk-notepad-text">Private Desk note</label><textarea id="desk-notepad-text" maxlength="4000" rows="5" placeholder="A thought to keep…"></textarea><div class="desk-notepad-footer"><span id="desk-notepad-status" role="status" aria-live="polite">Saved on this device.</span><button type="button" class="button button-outline" id="desk-note-to-cast" disabled>Use in a cast</button><button type="button" class="button button-outline" id="desk-note-clear">Clear</button></div></div>
+                  </details>
+                </div>
               </details>
-              <details class="desk-notepad" id="desk-notepad-drawer">
-                <summary><span><strong>Desk notepad</strong><small>A private scratchpad on this device</small></span><span class="notepad-mark" aria-hidden="true">✎</span></summary>
-                <div class="desk-notepad-body"><label class="sr-only" for="desk-notepad-text">Private Desk note</label><textarea id="desk-notepad-text" maxlength="4000" rows="5" placeholder="A thought to keep close…"></textarea><div class="desk-notepad-footer"><span id="desk-notepad-status" role="status" aria-live="polite">Saved only in this browser.</span><button type="button" class="button button-outline" id="desk-note-to-cast" disabled>Use in a cast</button><button type="button" class="button button-outline" id="desk-note-clear">Clear</button></div></div>
-              </details>
-              <section class="desk-activity" aria-labelledby="desk-activity-title"><div class="desk-section-heading"><h3 id="desk-activity-title">Recent from your Orbit</h3><span id="desk-activity-count">0 recent</span></div><div class="desk-orbit-pulse" id="desk-orbit-pulse" hidden></div><div class="desk-activity-list" id="desk-activity-list"><p class="desk-activity-empty">Posts from pinned people appear here when loaded.</p></div></section>
-              <div class="desk-shortcuts" id="desk-shortcuts" aria-label="Saved posts and topics"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><span id="desk-cast-count">0 saved</span></div><div class="desk-saved-signals" id="desk-casts"></div></section><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Topics</h3><span id="desk-topic-count">0 pinned</span></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
-              <p class="desk-active-topic" id="desk-active-topic" hidden></p>
               <details class="time-capsule" aria-labelledby="capsule-title">
                 <summary class="capsule-heading"><span class="overline">TIME CAPSULE</span><span class="capsule-heading-title" id="capsule-title">Today’s page</span><span class="capsule-count">14 days · this device</span></summary>
                 <div class="capsule-tools"><p id="capsule-save-note">Keep today’s feed for later.</p><button type="button" class="button button-outline" id="capsule-seal" disabled>Save today</button></div>
@@ -207,9 +228,9 @@
             </section>
 
             <details class="local-backup-drawer" data-area="desk">
-              <summary>Move your journal to another device <span>Backup · optional</span></summary>
+              <summary>Backup <span>Move Desk · optional</span></summary>
             <section class="local-backup" aria-labelledby="local-backup-title">
-              <div><span class="overline">YOUR SETTINGS</span><h2 id="local-backup-title">Move your Desk to another device.</h2><p>Export or restore your Desk, saved posts, pages, and appearance/feed preferences. Signers, wallet details, drafts, and recovery phrases are never included.</p></div>
+              <div><span class="overline">THIS DEVICE</span><h2 id="local-backup-title">Move your Desk.</h2><p>Export or restore pins, notes, labels, and saved posts. Signers and drafts are not included.</p></div>
               <div class="local-backup-actions"><button type="button" class="button button-outline" id="backup-export">Export backup</button><button type="button" class="button button-outline" id="backup-import-trigger">Restore backup</button><input id="backup-file" type="file" accept="application/json,.json" hidden aria-label="Choose a Castonaut backup file" /></div>
               <p class="backup-status" id="backup-status" role="status" aria-live="polite"></p>
             </section>
@@ -220,8 +241,24 @@
                 <div class="classic-titlebar" aria-hidden="true"><span class="classic-titlebar-close"></span><span class="classic-titlebar-label">CASTONAUT</span><span class="classic-titlebar-grip">◢</span></div>
                 <div class="feed-toolbar">
                   <div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
-                  <div class="feed-toolbar-actions"><div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Circle <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Group <span id="crew-count">0</span></button></div><details class="feed-extra-menu"><summary class="board-tab" aria-label="More feed options">More <span aria-hidden="true">⌄</span></summary><div class="feed-extra-panel"><button type="button" class="board-tab" id="show-recent" aria-pressed="true">Recent · 30d</button><button type="button" class="board-tab" id="show-popular" aria-pressed="false">Popular · 30d</button><button type="button" class="board-tab discover-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel">Discover</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button></div></details><span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button></div>
+                  <div class="feed-toolbar-actions">
+                    <div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Circle <span id="friend-count">0</span></button><button type="button" class="board-tab" id="show-crew" data-feed-tab="crew" aria-pressed="false">Group <span id="crew-count">0</span></button></div>
+                    <div class="feed-view-controls" role="group" aria-label="Feed view and tools"><button type="button" class="board-tab is-active" id="show-recent" aria-pressed="true">Recent</button><button type="button" class="board-tab" id="show-popular" aria-pressed="false">Popular</button><button type="button" class="board-tab" id="show-suggested" aria-expanded="false" aria-controls="suggested-panel">Discover</button><button type="button" class="board-tab flight-log-tab" id="show-flight-log" aria-pressed="false">Saved <span id="flight-log-count">0</span></button></div>
+                    <span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button>
+                  </div>
                 </div>
+                <details class="feed-quick-controls" id="feed-quick-controls">
+                  <summary><span aria-hidden="true">☷</span> Quick controls</summary>
+                  <div class="quick-control-list" aria-label="Quick feed settings">
+                    <label><input type="checkbox" data-quick-setting="compactMode" /><span>Compact layout</span></label>
+                    <label title="Loads images and GIFs from their original hosts, which can see your IP address."><input type="checkbox" data-quick-setting="remoteMediaEnabled" /><span>Post media</span></label>
+                    <label title="Limit this feed to replies."><input type="checkbox" data-quick-setting="repliesOnly" /><span>Replies only</span></label>
+                    <label title="Limit this feed to posts with images, GIFs, or video."><input type="checkbox" data-quick-setting="mediaOnly" /><span>Media only</span></label>
+                    <label title="Limit this feed to posts with app or website links."><input type="checkbox" data-quick-setting="appsOnly" /><span>Apps &amp; links only</span></label>
+                    <label><input type="checkbox" data-quick-setting="groupRepeats" /><span>Group repeated links</span></label>
+                  </div>
+                  <button type="button" class="quick-controls-more" id="quick-controls-more">All filters &amp; sources ↗</button>
+                </details>
                 <section class="suggested-panel" id="suggested-panel" aria-labelledby="suggested-title" hidden>
                   <div class="suggested-panel-head"><div><span class="overline">FROM YOUR FOLLOW GRAPH</span><h3 id="suggested-title">People to discover</h3><p>Ranked by how many people you follow also follow them.</p></div><button type="button" class="icon-button" id="suggested-close" aria-label="Close suggestions">×</button></div>
                   <div class="suggested-list" id="suggested-list" aria-live="polite"></div>
@@ -249,6 +286,13 @@
                         <input id="giphy-search-query" type="search" maxlength="50" placeholder="Search GIFs…" autocomplete="off" />
                         <button type="button" class="button button-orange" id="giphy-search-button">Search</button>
                       </div>
+                    <div class="giphy-quick-searches" role="group" aria-label="Quick GIF searches">
+                      <button type="button" data-giphy-query="space">Space</button>
+                      <button type="button" data-giphy-query="hello">Hello</button>
+                      <button type="button" data-giphy-query="celebrate">Celebrate</button>
+                      <button type="button" data-giphy-query="love">Love</button>
+                      <button type="button" data-giphy-query="funny reaction">Funny</button>
+                    </div>
                       <p class="giphy-status" id="giphy-status" role="status" aria-live="polite">Search the shared GIF library.</p>
                       <div class="giphy-results" id="giphy-results" aria-label="GIF search results"></div>
                       <a class="giphy-attribution" href="https://giphy.com" target="_blank" rel="noopener noreferrer">Powered by GIPHY</a>
@@ -336,6 +380,7 @@
       <div class="command-titlebar"><span class="window-controls" aria-hidden="true"><i></i><i></i><i></i></span><strong id="command-title">CASTONAUT · JUMP TO</strong><button type="button" class="command-close" id="command-close" aria-label="Close menu">×</button></div>
       <form class="command-search" id="command-search-form" role="search"><label class="sr-only" for="command-query">Find a page or action</label><span aria-hidden="true">⌕</span><input id="command-query" type="search" autocomplete="off" placeholder="Where would you like to go?" /><kbd>ESC</kbd></form>
       <nav class="command-items" id="command-items" aria-label="Pages and actions">
+        <div class="command-personal-items" id="command-personal-items" aria-label="Your Desk shortcuts"></div>
         <button type="button" class="command-item" data-command-view="feed"><span class="command-icon">⌂</span><span><strong>Feed</strong><small>Following, Circle, Group, and Discover</small></span></button>
         <button type="button" class="command-item" data-command-view="desk"><span class="command-icon">⌖</span><span><strong>Desk</strong><small>Pinned people and saved posts</small></span></button>
         <button type="button" class="command-item" data-command-view="search"><span class="command-icon">⌕</span><span><strong>Search</strong><small>Find a profile or loaded post</small></span></button>
@@ -343,7 +388,7 @@
         <button type="button" class="command-item" data-command-action="account"><span class="command-icon">◉</span><span><strong>Account</strong><small>Sign in and key settings</small></span></button>
         <p class="command-empty" id="command-empty" hidden>No matching destination.</p>
       </nav>
-      <p class="command-help">Type to filter · Enter to open</p>
+      <p class="command-help">Jump to a page, person, saved cast, or topic · Enter to open</p>
     </dialog>
     <dialog class="connect-dialog" id="connect-dialog" aria-labelledby="connect-title">
       <form method="dialog" class="dialog-top"><div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div><button class="dialog-close" value="close" aria-label="Close dialog">×</button></form>

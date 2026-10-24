@@ -171,7 +171,7 @@ export default async function giphy(req, res) {
     const searchUrl = new URL('https://api.giphy.com/v1/gifs/search');
     searchUrl.searchParams.set('api_key', config.apiKey);
     searchUrl.searchParams.set('q', query);
-    searchUrl.searchParams.set('limit', '16');
+    searchUrl.searchParams.set('limit', '24');
     searchUrl.searchParams.set('offset', '0');
     searchUrl.searchParams.set('rating', 'pg');
     searchUrl.searchParams.set('lang', 'en');
@@ -183,7 +183,7 @@ export default async function giphy(req, res) {
     if (!upstream.ok) return send(res, 502, { error: 'GIPHY could not complete that search. Try again when the shared timer clears.', retryAfterMs });
     const payload = await readLimitedJson(upstream);
     if (!Array.isArray(payload?.data)) return send(res, 502, { error: 'GIPHY returned an unreadable response.', retryAfterMs });
-    const data = payload.data.slice(0, 16).map((item) => ({
+    const data = payload.data.slice(0, 24).map((item) => ({
       title: typeof item?.title === 'string' ? item.title.slice(0, 100) : 'GIF',
       images: {
         original: { url: item?.images?.original?.url },

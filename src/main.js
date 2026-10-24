@@ -18,6 +18,7 @@ import { DeviceReadCache, ReadCache } from './read-cache.js';
 import { summarizeProfileActivity } from './profile-analytics.js';
 import { recentOrbitCasts, summarizeOrbitActivity } from './desk-orbit.js';
 import { orbitAtlasLayout } from './orbit-atlas.js';
+import { isFarcasterMiniAppLink } from './mini-app-links.js';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
 let analyticsEnabled = false;
@@ -84,6 +85,8 @@ const SIGNER_DB = 'castonaut-security';
 const SIGNER_STORE = 'signers';
 const DESK_STORAGE = 'packet-porch.desk-pins.v1';
 const DESK_CASTS_STORAGE = 'castonaut.desk-casts.v1';
+const DESK_NOTEPAD_STORAGE = 'castonaut.desk-notepad.v1';
+const DESK_CAST_LABELS = ['', 'Read later', 'Idea', 'Keep'];
 const DESK_TOPICS_STORAGE = 'castonaut.desk-topics.v1';
 const PROFILE_NOTES_STORAGE = 'castonaut.profile-notes.v1';
 const FLIGHT_LOG_STORAGE = 'castonaut.flight-log.v1';
@@ -103,7 +106,7 @@ const PROFILE_PINS_STORAGE = 'castonaut.profile-pins.v1';
 const PROFILE_COVERS_STORAGE = 'castonaut.profile-covers.v1';
 const TIME_CAPSULES_STORAGE = 'castonaut.time-capsules.v1';
 const LOCAL_BACKUP_VERSION = 1;
-const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
+const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
 const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
@@ -144,6 +147,9 @@ function setStationTone() {
 function setTheme(theme) {
   const validThemes = ['atlas', 'soft-reset', 'night-radio'];
   const selected = validThemes.includes(theme) ? theme : 'atlas';
+  if (theme === 'orbit-glass') {
+    try { localStorage.setItem(THEME_STORAGE, 'atlas'); } catch { /* The default remains active for this visit. */ }
+  }
   document.documentElement.dataset.theme = selected;
   const picker = document.querySelector('#theme-select');
   if (picker && picker.value !== selected) picker.value = selected;
@@ -663,9 +669,9 @@ function validateLocalBackup(value) {
   if (!entries.length || entries.length > 24 || entries.some(([key, raw]) => !allowed.has(key) || typeof raw !== 'string' || raw.length > 2_000_000)) throw new Error('The backup contains unsupported data or exceeds the size limit.');
   for (const [key, raw] of entries) {
     let parsed;
-    if ([THEME_STORAGE, VOICE_STORAGE, CREW_NAME_STORAGE].includes(key)) parsed = raw;
+    if ([THEME_STORAGE, VOICE_STORAGE, CREW_NAME_STORAGE, DESK_NOTEPAD_STORAGE].includes(key)) parsed = raw;
     else try { parsed = JSON.parse(raw); } catch { throw new Error(`The backup has invalid data for ${key.replace(/^castonaut\./, '')}.`); }
-    if (key === THEME_STORAGE && !['atlas', 'soft-reset', 'night-radio'].includes(raw)) throw new Error('The backup has an unsupported theme setting.');
+    if (key === THEME_STORAGE && !['atlas', 'soft-reset', 'night-radio', 'orbit-glass'].includes(raw)) throw new Error('The backup has an unsupported theme setting.');
     if (key.startsWith(`${TIME_CAPSULES_STORAGE}:`)) {
       if (!Array.isArray(parsed) || parsed.length > 14 || parseTimeCapsules(raw).length !== parsed.length) throw new Error('The backup contains an invalid Time Capsule archive.');
     }
@@ -674,11 +680,12 @@ function validateLocalBackup(value) {
     } else if ([DESK_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, MUTED_AUTHORS_STORAGE].includes(key)) {
       const max = key === DESK_STORAGE ? 24 : 36;
       if (!Array.isArray(parsed) || parsed.length > max || parsed.some((fid) => !Number.isSafeInteger(Number(fid)) || Number(fid) < 1)) throw new Error('The backup contains an invalid people list.');
-    } else if (key === DESK_CASTS_STORAGE && (!Array.isArray(parsed) || parsed.length > 8 || parsed.some((cast) => !cast || !Number.isSafeInteger(Number(cast.fid)) || Number(cast.fid) < 1 || !/^0x[\da-f]{40,64}$/i.test(String(cast.hash || '')) || typeof cast.text !== 'string'))) throw new Error('The backup contains an invalid saved signal list.');
+    } else if (key === DESK_CASTS_STORAGE && (!Array.isArray(parsed) || parsed.length > 8 || parsed.some((cast) => !cast || !Number.isSafeInteger(Number(cast.fid)) || Number(cast.fid) < 1 || !/^0x[\da-f]{40,64}$/i.test(String(cast.hash || '')) || typeof cast.text !== 'string' || (cast.note !== undefined && (typeof cast.note !== 'string' || cast.note.length > 280)) || (cast.label !== undefined && !DESK_CAST_LABELS.includes(cast.label))))) throw new Error('The backup contains an invalid saved signal list.');
     else if (key === DESK_TOPICS_STORAGE && (!Array.isArray(parsed) || parsed.length > 12 || parsed.some((topic) => typeof topic !== 'string' || !/^#[\p{L}\p{N}_]{2,40}$|^site:[a-z\d.-]{1,253}$/iu.test(topic)))) throw new Error('The backup contains invalid topic shortcuts.');
     else if ([REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE].includes(key) && !['true', 'false'].includes(raw)) throw new Error('The backup contains an invalid on/off preference.');
     else if (key === VOICE_STORAGE && !STATION_VOICES.some((voice) => voice.id === raw)) throw new Error('The backup contains an unsupported station voice.');
     else if (key === CREW_NAME_STORAGE && raw.length > 20) throw new Error('The backup contains an invalid crew name.');
+    else if (key === DESK_NOTEPAD_STORAGE && raw.length > 4000) throw new Error('The backup contains an oversized Desk note.');
     else if (key === PROFILE_COVERS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((cover) => !['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite'].includes(cover)))) throw new Error('The backup contains an invalid profile appearance.');
     else if (key === PROFILE_PINS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.entries(parsed).some(([fid, hash]) => !/^\d+$/.test(fid) || Number(fid) < 1 || !/^0x[\da-f]{40,64}$/i.test(String(hash))))) throw new Error('The backup contains invalid pinned posts.');
     else if (key === MUTED_TOPICS_STORAGE && (!Array.isArray(parsed) || parsed.length > 80 || parsed.some((topic) => typeof topic !== 'string' || topic.length > 260))) throw new Error('The backup contains invalid muted topics.');
@@ -707,6 +714,8 @@ async function importLocalBackup(file) {
     if (state.fid) { loadFlightLog(state.fid); loadCapsules(state.fid); }
     state.deskPins = readLocalFids(DESK_STORAGE); state.friendFids = readLocalFids(FRIENDS_STORAGE); state.crewFids = readLocalFids(CREW_STORAGE); state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
     try { state.deskCasts = JSON.parse(localStorage.getItem(DESK_CASTS_STORAGE) || '[]'); state.deskTopics = JSON.parse(localStorage.getItem(DESK_TOPICS_STORAGE) || '[]'); state.profileNotes = JSON.parse(localStorage.getItem(PROFILE_NOTES_STORAGE) || '{}'); state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]'); state.crewName = localStorage.getItem(CREW_NAME_STORAGE) || 'My Group'; const options = JSON.parse(localStorage.getItem(FEED_OPTIONS_STORAGE) || '{}'); Object.assign(state, { repliesOnly: options.repliesOnly === true, mediaOnly: options.mediaOnly === true, appsOnly: options.appsOnly === true, orbitOnly: options.orbitOnly === true, compactMode: options.compactMode === true }); state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; setTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { /* Values were parsed during validation; recover through the normal render paths if storage has a browser limit. */ }
+    if ($('#desk-notepad-text')) $('#desk-notepad-text').value = localStorage.getItem(DESK_NOTEPAD_STORAGE) || '';
+    updateDeskNotepadControls();
     renderDesk(); renderDeskShortcuts(); renderFeed(); renderFlightLogCount(); setBackupStatus(`Restored ${entries.length} items/settings${backup.accountFid ? ` for FID ${backup.accountFid}` : ''}.`); setNotice('Your Castonaut backup is restored on this device.', 'success');
   } catch (error) { setBackupStatus(error.message || 'Could not read that backup file.', true); }
   finally { const input = $('#backup-file'); if (input) input.value = ''; }
@@ -893,7 +902,7 @@ function updateFeedTabs() {
     popularSort.setAttribute('aria-pressed', String(state.feedSort === 'popular'));
     popularSort.hidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
     popularSort.disabled = false;
-    popularSort.textContent = 'Popular · 30d';
+    popularSort.textContent = 'Popular';
   }
   const discover = $('#show-suggested');
   if (discover) {
@@ -941,7 +950,7 @@ async function selectFeedSort(sort) {
       await loadPopularScores(candidates);
       if (requestId !== state.feedRequest) return;
       $('#show-popular').disabled = false;
-      $('#show-popular').textContent = 'Popular · 30d';
+      $('#show-popular').textContent = 'Popular';
     }
   }
   state.feedSort = sort;
@@ -951,7 +960,6 @@ async function selectFeedSort(sort) {
   $('#show-popular')?.setAttribute('aria-pressed', String(sort === 'popular'));
   $('#feed-caption').textContent = sort === 'popular' ? 'Most liked and recast among loaded posts · last 30 days.' : feedDescription();
   renderFeed();
-  document.querySelector('.feed-extra-menu')?.removeAttribute('open');
 }
 
 function feedScrollKey() {
@@ -1006,6 +1014,12 @@ function renderMutedManager() {
 function saveFeedOptions() {
   try { localStorage.setItem(FEED_OPTIONS_STORAGE, JSON.stringify({ repliesOnly: state.repliesOnly, mediaOnly: state.mediaOnly, appsOnly: state.appsOnly, orbitOnly: state.orbitOnly, compactMode: state.compactMode })); } catch { /* Preferences still apply during this visit. */ }
   document.documentElement.classList.toggle('compact-mode', state.compactMode);
+  syncQuickControls();
+}
+
+function syncQuickControls() {
+  const values = { compactMode: state.compactMode, remoteMediaEnabled: state.remoteMediaEnabled, repliesOnly: state.repliesOnly, mediaOnly: state.mediaOnly, appsOnly: state.appsOnly, groupRepeats: state.groupRepeats };
+  document.querySelectorAll('[data-quick-setting]').forEach((input) => { input.checked = values[input.dataset.quickSetting] === true; });
 }
 
 function setProfileCover(fid, cover) {
@@ -1149,12 +1163,14 @@ function renderCast(message, { priority = false } = {}) {
   const linkEmbed = embeds.find((embed) => embed !== imageEmbed && embed !== videoEmbed);
   const previewUrl = safeExternalUrl(linkEmbed?.url || String(body.text || '').match(/https?:\/\/[^\s<>"'`]+/i)?.[0]);
   if (previewUrl) {
-    const preview = document.createElement('a'); preview.className = 'post-link-preview'; preview.href = previewUrl.href; preview.target = '_blank'; preview.rel = 'noopener noreferrer nofollow';
-    const siteMark = document.createElement('span'); siteMark.className = 'link-preview-mark'; siteMark.setAttribute('aria-hidden', 'true'); siteMark.textContent = previewUrl.hostname.replace(/^www\./i, '').slice(0, 1).toUpperCase();
+    const isMiniApp = isFarcasterMiniAppLink(previewUrl);
+    const preview = document.createElement('a'); preview.className = `post-link-preview${isMiniApp ? ' post-miniapp-preview' : ''}`; preview.href = previewUrl.href; preview.target = '_blank'; preview.rel = 'noopener noreferrer nofollow';
+    preview.setAttribute('aria-label', isMiniApp ? `Open Farcaster Mini App: ${previewUrl.pathname.split('/')[3] || 'app'}` : `Open link at ${previewUrl.hostname}`);
+    const siteMark = document.createElement('span'); siteMark.className = 'link-preview-mark'; siteMark.setAttribute('aria-hidden', 'true'); siteMark.textContent = isMiniApp ? '✦' : previewUrl.hostname.replace(/^www\./i, '').slice(0, 1).toUpperCase();
     const site = document.createElement('span'); site.className = 'link-preview-copy';
-    const domain = document.createElement('strong'); domain.textContent = previewUrl.hostname.replace(/^www\./i, '');
-    const path = document.createElement('small'); path.textContent = readableLinkPath(previewUrl.pathname) || 'Open link';
-    const open = document.createElement('span'); open.className = 'link-preview-open'; open.setAttribute('aria-hidden', 'true'); open.textContent = '↗';
+    const domain = document.createElement('strong'); domain.textContent = isMiniApp ? 'Farcaster Mini App' : previewUrl.hostname.replace(/^www\./i, '');
+    const path = document.createElement('small'); path.textContent = isMiniApp ? (previewUrl.pathname.split('/')[3] || 'Open app') : readableLinkPath(previewUrl.pathname) || 'Open link';
+    const open = document.createElement('span'); open.className = 'link-preview-open'; open.setAttribute('aria-hidden', 'true'); open.textContent = isMiniApp ? 'Open app ↗' : '↗';
     site.append(domain, path); preview.append(siteMark, site, open); content.append(preview);
   }
   const actions = document.createElement('div'); actions.className = 'post-actions';
@@ -1177,8 +1193,9 @@ function renderCast(message, { priority = false } = {}) {
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'post-action pin-action'; pin.textContent = '⌖'; pin.setAttribute('aria-label', state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk'); pin.title = pin.getAttribute('aria-label'); pin.dataset.action = 'pin-person';
   pin.setAttribute('aria-pressed', String(state.deskPins.includes(fid)));
   const deskSignal = document.createElement('button'); deskSignal.type = 'button'; deskSignal.className = 'post-action pin-action'; deskSignal.dataset.action = 'toggle-desk-cast'; deskSignal.dataset.fid = String(fid); deskSignal.dataset.hash = postHash(message);
+  deskSignal.draggable = !matchMedia('(pointer: coarse)').matches;
   const signalSaved = state.deskCasts.some((cast) => Number(cast.fid) === fid && cast.hash === postHash(message));
-  deskSignal.textContent = signalSaved ? '▣' : '⌑'; deskSignal.setAttribute('aria-label', signalSaved ? 'Remove cast from Desk' : 'Save cast to Desk'); deskSignal.title = deskSignal.getAttribute('aria-label'); deskSignal.setAttribute('aria-pressed', String(signalSaved));
+  deskSignal.textContent = signalSaved ? '▣' : '⌑'; deskSignal.setAttribute('aria-label', signalSaved ? 'Remove cast from Desk' : 'Save cast to Desk'); deskSignal.title = signalSaved ? 'Remove cast from Desk' : 'Save to Desk · drag to Desk'; deskSignal.setAttribute('aria-pressed', String(signalSaved));
   const flightLog = document.createElement('button'); flightLog.type = 'button'; flightLog.className = 'post-more-action flight-log-action';
   flightLog.dataset.flightLog = 'true'; flightLog.dataset.fid = String(fid); flightLog.dataset.hash = postHash(message);
   const saved = state.savedCasts.some((cast) => Number(cast.fid) === fid && cast.hash === postHash(message));
@@ -1203,7 +1220,10 @@ function renderCast(message, { priority = false } = {}) {
   const deskTopic = topics.find((topic) => !state.deskTopics.includes(topic));
   if (deskTopic) menu.append(menuAction(`Pin topic ${deskTopic.replace(/^site:/, '')}`, 'toggle-desk-topic', fid, { topic: deskTopic }));
   if (topics.length) menu.append(menuAction(`Mute ${topics[0].replace(/^site:/, '')}`, 'mute-topic', fid, { topic: topics[0] }));
-  if (originalUrl) { const open = document.createElement('a'); open.className = 'post-more-action'; open.href = originalUrl; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.textContent = 'Open original cast ↗'; menu.append(open); }
+  if (originalUrl) {
+    menu.append(menuAction('Quote cast', 'quote-cast', fid, { hash: postHash(message), url: originalUrl }));
+    const open = document.createElement('a'); open.className = 'post-more-action'; open.href = originalUrl; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.textContent = 'Open original cast ↗'; menu.append(open);
+  }
   const pinLabel = state.profilePins[fid] === postHash(message) ? 'Unpin from profile' : 'Pin to profile';
   menu.append(menuAction(pinLabel, 'toggle-profile-pin', fid, { hash: postHash(message) }));
   more.append(moreSummary, menu); actions.append(more);
@@ -2260,7 +2280,7 @@ function renderDesk() {
   $('#desk-people-count').textContent = `${state.deskPins.length} pinned`;
   container.replaceChildren();
   if (!state.deskPins.length) {
-    const empty = document.createElement('span'); empty.className = 'desk-empty'; empty.textContent = 'Add a profile above or pin someone from a post.'; container.append(empty);
+    const empty = document.createElement('span'); empty.className = 'desk-empty'; empty.textContent = 'No pinned people yet.'; container.append(empty);
   } else {
     for (const fid of state.deskPins) {
       const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '' };
@@ -2282,6 +2302,12 @@ function renderDesk() {
   renderDeskAtlas();
   renderCapsuleShelf();
   renderDeskActivity();
+}
+
+function updateDeskNotepadControls() {
+  const field = $('#desk-notepad-text');
+  const useInCast = $('#desk-note-to-cast');
+  if (useInCast) useInCast.disabled = !state.signerReady || !field?.value.trim();
 }
 
 function renderDeskAtlas() {
@@ -2530,10 +2556,10 @@ function renderDeskShortcuts() {
   $('#desk-cast-count').textContent = `${state.deskCasts.length} saved`;
   $('#desk-topic-count').textContent = `${state.deskTopics.length} pinned`;
   if (!state.deskCasts.length) {
-    const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'Save a post from its ••• menu.'; casts.append(empty);
+    const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'No saved posts yet.'; casts.append(empty);
   }
   if (!state.deskTopics.length) {
-    const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'Pin a topic from a post menu.'; topics.append(empty);
+    const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'No pinned topics.'; topics.append(empty);
   }
   for (const saved of state.deskCasts) {
     const item = document.createElement('article'); item.className = 'desk-signal';
@@ -2547,6 +2573,14 @@ function renderDeskShortcuts() {
     open.dataset.openDeskCast = 'true'; open.dataset.fid = String(saved.fid); open.dataset.hash = saved.hash;
     open.textContent = 'Read in Castonaut'; item.append(open);
     if (original) { const link = document.createElement('a'); link.href = original; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Original ↗'; item.append(link); }
+    const annotations = document.createElement('details'); annotations.className = 'desk-cast-annotations';
+    const annotationSummary = document.createElement('summary'); annotationSummary.textContent = saved.label || saved.note ? `${saved.label || 'Private note'} · edit` : 'Add a private note or label';
+    const annotationBody = document.createElement('div'); annotationBody.className = 'desk-cast-annotation-body';
+    const label = document.createElement('select'); label.setAttribute('aria-label', 'Label this saved post'); label.dataset.deskCastLabel = 'true'; label.dataset.fid = String(saved.fid); label.dataset.hash = saved.hash;
+    for (const value of DESK_CAST_LABELS) { const option = document.createElement('option'); option.value = value; option.textContent = value || 'No label'; label.append(option); }
+    label.value = DESK_CAST_LABELS.includes(saved.label || '') ? saved.label || '' : '';
+    const note = document.createElement('textarea'); note.maxLength = 280; note.rows = 2; note.placeholder = 'A private reminder…'; note.value = String(saved.note || ''); note.setAttribute('aria-label', 'Private note for this saved post'); note.dataset.deskCastNote = 'true'; note.dataset.fid = String(saved.fid); note.dataset.hash = saved.hash;
+    annotationBody.append(label, note); annotations.append(annotationSummary, annotationBody); item.append(annotations);
     item.append(remove); casts.append(item);
   }
   for (const topic of state.deskTopics) {
@@ -2574,12 +2608,72 @@ function toggleDeskCast(fidValue, hashValue) {
     if (!message) { setNotice('Refresh this feed before pinning that signal.', 'error'); return; }
     if (state.deskCasts.length >= 8) { setNotice('Your Desk has room for 8 saved signals. Remove one to make space.'); return; }
     const profile = state.people.get(fid) || { username: `fid-${fid}`, name: `Farcaster ${fid}` };
-    state.deskCasts.unshift({ fid, hash, username: String(profile.username || `fid-${fid}`).slice(0, 32), text: String(message.data?.castAddBody?.text || '').slice(0, 500), timestamp: Number(message.data?.timestamp) || 0 });
+    state.deskCasts.unshift({ fid, hash, username: String(profile.username || `fid-${fid}`).slice(0, 32), text: String(message.data?.castAddBody?.text || '').slice(0, 500), timestamp: Number(message.data?.timestamp) || 0, label: '', note: '' });
   }
   try { localStorage.setItem(DESK_CASTS_STORAGE, JSON.stringify(state.deskCasts)); }
   catch { state.deskCasts = previous; setNotice('This browser could not save the Desk signal.', 'error'); return; }
   renderDeskShortcuts(); renderFeed();
   setNotice(existing >= 0 ? 'Signal removed from your Desk.' : 'Signal pinned to your Desk on this device.', 'success');
+}
+
+function saveDraggedCast(payload) {
+  const fid = Number(payload?.fid), hash = String(payload?.hash || '').toLowerCase();
+  if (!Number.isSafeInteger(fid) || fid <= 0 || !/^[0-9a-f]{40,128}$/.test(hash)) return false;
+  const exists = state.deskCasts.some((cast) => Number(cast.fid) === fid && String(cast.hash).toLowerCase() === hash);
+  if (!exists) toggleDeskCast(fid, hash);
+  return exists || state.deskCasts.some((cast) => Number(cast.fid) === fid && String(cast.hash).toLowerCase() === hash);
+}
+
+document.addEventListener('dragstart', (event) => {
+  const button = event.target.closest('[data-action="toggle-desk-cast"][draggable="true"]');
+  if (!button || !event.dataTransfer) return;
+  const payload = JSON.stringify({ fid: Number(button.dataset.fid), hash: String(button.dataset.hash || '') });
+  event.dataTransfer.setData('application/x-castonaut-desk-cast', payload);
+  event.dataTransfer.setData('text/plain', 'Castonaut saved post');
+  event.dataTransfer.effectAllowed = 'copy';
+});
+document.addEventListener('dragend', () => document.querySelectorAll('.desk-drop-target, .is-drop-target').forEach((item) => item.classList.remove('desk-drop-target', 'is-drop-target')));
+function readDeskDrag(event) {
+  try { return JSON.parse(event.dataTransfer?.getData('application/x-castonaut-desk-cast') || 'null'); }
+  catch { return null; }
+}
+function acceptDeskDrop(event, target) {
+  if (!event.dataTransfer?.types?.includes('application/x-castonaut-desk-cast')) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+  target?.classList.add('is-drop-target');
+}
+function completeDeskDrop(event) {
+  const payload = readDeskDrag(event);
+  if (!payload) return;
+  event.preventDefault();
+  return saveDraggedCast(payload);
+}
+document.addEventListener('dragover', (event) => {
+  const target = event.target.closest('[data-view="desk"], #desk-casts');
+  if (target) acceptDeskDrop(event, target);
+});
+document.addEventListener('dragleave', (event) => {
+  const target = event.target.closest('[data-view="desk"], #desk-casts');
+  if (target && !target.contains(event.relatedTarget)) target.classList.remove('is-drop-target');
+});
+document.addEventListener('drop', (event) => {
+  if (!event.target.closest('[data-view="desk"], #desk-casts')) return;
+  const saved = completeDeskDrop(event);
+  document.querySelectorAll('.is-drop-target').forEach((item) => item.classList.remove('is-drop-target'));
+  if (saved && currentArea !== 'desk') navigate('desk');
+});
+
+function updateDeskCastAnnotation(fidValue, hashValue, field, value) {
+  const fid = Number(fidValue), hash = String(hashValue || '').toLowerCase();
+  const index = state.deskCasts.findIndex((cast) => Number(cast.fid) === fid && String(cast.hash).toLowerCase() === hash);
+  if (index < 0 || !['label', 'note'].includes(field)) return;
+  const safeValue = field === 'label' ? DESK_CAST_LABELS.includes(value) ? value : '' : String(value).slice(0, 280);
+  const previous = state.deskCasts;
+  state.deskCasts = state.deskCasts.map((cast, itemIndex) => itemIndex === index ? { ...cast, [field]: safeValue } : cast);
+  try { localStorage.setItem(DESK_CASTS_STORAGE, JSON.stringify(state.deskCasts)); }
+  catch { state.deskCasts = previous; setNotice('This browser could not save the private note.', 'error'); return; }
+  setNotice(field === 'label' ? 'Saved-post label updated on this device.' : 'Private note saved on this device.', 'success');
 }
 
 function toggleDeskTopic(topicValue) {
@@ -3201,6 +3295,7 @@ function renderIdentity() {
   $('#composer').hidden = !ready || state.boardMode === 'flight-log' || (state.feedMode === 'profile' && !state.parent);
   $('#composer-text').disabled = !ready;
   $('#composer button[type="submit"]').disabled = !ready;
+  updateDeskNotepadControls();
   document.querySelectorAll('.post-action:not(.pin-action)').forEach((button) => { button.disabled = !state.signerReady; });
 }
 
@@ -3564,6 +3659,51 @@ $('#search-examples')?.addEventListener('click', (event) => {
 });
 $('#desk-add-person')?.addEventListener('submit', (event) => { event.preventDefault(); addDeskPerson($('#desk-person-query').value); });
 $('#desk-atlas')?.addEventListener('toggle', () => { if ($('#desk-atlas')?.open) renderDeskAtlas(); });
+document.addEventListener('change', (event) => {
+  const target = event.target;
+  if (target.matches('[data-desk-cast-label]')) {
+    updateDeskCastAnnotation(target.dataset.fid, target.dataset.hash, 'label', target.value);
+    const note = target.closest('.desk-cast-annotations')?.querySelector('[data-desk-cast-note]')?.value.trim();
+    const summary = target.closest('.desk-cast-annotations')?.querySelector('summary');
+    if (summary) summary.textContent = target.value || note ? `${target.value || 'Private note'} · edit` : 'Add a private note or label';
+  } else if (target.matches('[data-desk-cast-note]')) {
+    updateDeskCastAnnotation(target.dataset.fid, target.dataset.hash, 'note', target.value);
+    const label = target.closest('.desk-cast-annotations')?.querySelector('[data-desk-cast-label]')?.value;
+    const summary = target.closest('.desk-cast-annotations')?.querySelector('summary');
+    if (summary) summary.textContent = label || target.value.trim() ? `${label || 'Private note'} · edit` : 'Add a private note or label';
+  }
+});
+const deskNotepad = $('#desk-notepad-text');
+if (deskNotepad) {
+  try { deskNotepad.value = localStorage.getItem(DESK_NOTEPAD_STORAGE) || ''; } catch { /* The scratchpad remains usable for this visit. */ }
+  deskNotepad.addEventListener('input', () => {
+    const status = $('#desk-notepad-status');
+    try {
+      localStorage.setItem(DESK_NOTEPAD_STORAGE, deskNotepad.value.slice(0, 4000));
+      if (status) status.textContent = 'Saved only in this browser.';
+    } catch {
+      if (status) status.textContent = 'Browser storage is full; this edit may not be saved.';
+    }
+    updateDeskNotepadControls();
+  });
+  $('#desk-note-clear')?.addEventListener('click', () => {
+    deskNotepad.value = '';
+    deskNotepad.dispatchEvent(new Event('input', { bubbles: true }));
+    deskNotepad.focus();
+  });
+  $('#desk-note-to-cast')?.addEventListener('click', () => {
+    const note = deskNotepad.value.trim();
+    if (!note || !state.signerReady) return;
+    const composer = $('#composer-text');
+    composer.value = [composer.value.trim(), note].filter(Boolean).join('\n\n');
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    navigate('feed');
+    composer.focus({ preventScroll: true });
+    composer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setNotice('Copied to the composer. Review it before posting.', 'success');
+  });
+  updateDeskNotepadControls();
+}
 $('#desk-activity-list')?.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-desk-activity-refresh]');
   if (button) await loadDeskActivity(button);
@@ -3651,9 +3791,6 @@ document.querySelectorAll('[data-feed-tab]').forEach((button) => button.addEvent
 $('#show-flight-log').addEventListener('click', () => setBoardMode('flight-log'));
 $('#show-recent')?.addEventListener('click', () => selectFeedSort('recent'));
 $('#show-popular')?.addEventListener('click', () => selectFeedSort('popular'));
-$('.feed-extra-menu')?.addEventListener('click', (event) => {
-  if (event.target.closest('button')) queueMicrotask(() => { $('.feed-extra-menu').open = false; });
-});
 $('#refresh-node').addEventListener('click', checkNode);
 $('#refresh-node-large')?.addEventListener('click', checkNode);
 $('#node-journey-check')?.addEventListener('click', async (event) => {
@@ -3743,6 +3880,7 @@ $('#group-repeats').checked = state.groupRepeats;
 $('#group-repeats').addEventListener('change', (event) => {
   state.groupRepeats = event.currentTarget.checked;
   try { localStorage.setItem(REPEAT_GROUPING_STORAGE, String(state.groupRepeats)); } catch { /* The preference still applies for this visit. */ }
+  syncQuickControls();
   renderFeed();
 });
 $('#filter-replies').checked = state.repliesOnly;
@@ -3758,6 +3896,23 @@ for (const [selector, key] of [['#filter-replies', 'repliesOnly'], ['#filter-med
     renderFeed();
   });
 }
+$('#feed-quick-controls')?.addEventListener('change', (event) => {
+  const setting = event.target.dataset.quickSetting;
+  if (!setting) return;
+  if (setting === 'remoteMediaEnabled') { setRemoteMediaEnabled(event.target.checked); return; }
+  const paired = { compactMode: '#compact-mode', repliesOnly: '#filter-replies', mediaOnly: '#filter-media', appsOnly: '#filter-apps', groupRepeats: '#group-repeats' }[setting];
+  const target = paired ? $(paired) : null;
+  if (target) { target.checked = event.target.checked; target.dispatchEvent(new Event('change', { bubbles: true })); }
+  syncQuickControls();
+});
+syncQuickControls();
+$('#quick-controls-more')?.addEventListener('click', () => {
+  const filters = $('#feed-filters');
+  if (!filters) return;
+  filters.hidden = false; filters.open = true;
+  filters.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  filters.querySelector('summary')?.focus({ preventScroll: true });
+});
 $('#crew-name').value = state.crewName;
 $('#crew-name').addEventListener('change', (event) => {
   state.crewName = event.currentTarget.value.trim().slice(0, 20) || 'My Group';
@@ -3770,9 +3925,8 @@ document.addEventListener('change', (event) => {
   if (!coverSelect) return;
   setProfileCover(Number(coverSelect.dataset.coverFid), coverSelect.value);
 });
-document.addEventListener('change', (event) => {
-  if (!event.target.matches('#external-images')) return;
-  state.remoteMediaEnabled = event.target.checked;
+function setRemoteMediaEnabled(enabled) {
+  state.remoteMediaEnabled = Boolean(enabled);
   try { localStorage.setItem(REMOTE_MEDIA_STORAGE, String(state.remoteMediaEnabled)); } catch { /* Apply for this page even if preferences cannot be saved. */ }
   if (!state.remoteMediaEnabled) {
     document.querySelectorAll('video').forEach((video) => { video.pause(); video.removeAttribute('src'); video.load(); });
@@ -3780,10 +3934,44 @@ document.addEventListener('change', (event) => {
   }
   renderFeed(); renderDesk(); renderProfileSummary(); renderIdentity(); renderSuggestedPeople();
   setNotice(state.remoteMediaEnabled ? 'Post images and GIFs are on. Media hosts can see your IP address.' : 'Post images and GIFs are off. Profile photos still load automatically.', state.remoteMediaEnabled ? 'pending' : 'success');
+  syncQuickControls();
+}
+document.addEventListener('change', (event) => {
+  if (!event.target.matches('#external-images')) return;
+  setRemoteMediaEnabled(event.target.checked);
 });
 const commandPalette = $('#command-palette');
 const commandQuery = $('#command-query');
 let commandReturnFocus = null;
+function renderCommandPersonalItems() {
+  const container = $('#command-personal-items');
+  if (!container) return;
+  container.replaceChildren();
+  const section = (title) => { const heading = document.createElement('p'); heading.className = 'command-personal-heading'; heading.textContent = title; container.append(heading); };
+  const add = (icon, title, description, data) => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'command-item';
+    for (const [key, value] of Object.entries(data)) button.dataset[key] = String(value);
+    const mark = document.createElement('span'); mark.className = 'command-icon'; mark.textContent = icon;
+    const copy = document.createElement('span'); const strong = document.createElement('strong'); strong.textContent = title; const small = document.createElement('small'); small.textContent = description;
+    copy.append(strong, small); button.append(mark, copy); container.append(button);
+  };
+  if (state.deskPins.length) {
+    section('PINNED PEOPLE');
+    for (const fid of state.deskPins) {
+      const profile = state.people.get(Number(fid)) || { fid, name: `FID ${fid}`, username: `fid-${fid}` };
+      add('◎', localProfileName(profile), `@${profile.username || `fid-${fid}`} · open profile`, { commandProfile: fid });
+    }
+  }
+  const saved = [...state.deskCasts, ...state.savedCasts].filter((cast, index, list) => list.findIndex((item) => Number(item.fid) === Number(cast.fid) && String(item.hash).toLowerCase() === String(cast.hash).toLowerCase()) === index).slice(0, 16);
+  if (saved.length) {
+    section('SAVED CASTS');
+    for (const cast of saved) add('▣', String(cast.text || 'Saved cast').replace(/\s+/g, ' ').slice(0, 64), `@${cast.username || state.people.get(Number(cast.fid))?.username || `fid-${cast.fid}`} · open conversation`, { commandCastFid: cast.fid, commandCastHash: cast.hash });
+  }
+  if (state.deskTopics.length) {
+    section('PINNED TOPICS');
+    for (const topic of state.deskTopics) add('#', topic.replace(/^site:/, ''), 'Show this topic in your feed', { commandTopic: topic });
+  }
+}
 function filterCommandItems(query) {
   const term = String(query).trim().toLocaleLowerCase();
   let visible = 0;
@@ -3796,6 +3984,7 @@ function filterCommandItems(query) {
 function openCommandPalette(returnFocus = document.activeElement) {
   if (!commandPalette || commandPalette.open || document.querySelector('dialog[open]')) return;
   commandReturnFocus = returnFocus instanceof HTMLElement ? returnFocus : $('#command-open');
+  renderCommandPersonalItems();
   commandQuery.value = '';
   filterCommandItems('');
   commandPalette.showModal();
@@ -3829,6 +4018,17 @@ $('#command-items').addEventListener('click', (event) => {
   const item = event.target.closest('.command-item');
   if (!item) return;
   commandPalette.close();
+  if (item.dataset.commandProfile) {
+    const fid = Number(item.dataset.commandProfile); navigate('feed'); setProfileRoute(fid); void loadFeed(fid, 'profile'); return;
+  }
+  if (item.dataset.commandCastFid && item.dataset.commandCastHash) {
+    navigate('feed'); void openConversation(Number(item.dataset.commandCastFid), item.dataset.commandCastHash); return;
+  }
+  if (item.dataset.commandTopic) {
+    state.activeDeskTopic = item.dataset.commandTopic; navigate('feed');
+    if (state.boardMode !== 'signals') { setBoardMode('signals'); return; }
+    renderDeskShortcuts(); renderFeed(); return;
+  }
   if (item.dataset.commandAction === 'account') { $('#open-account').click(); return; }
   document.querySelector(`[data-view="${item.dataset.commandView}"]`)?.click();
 });
@@ -4070,6 +4270,12 @@ async function searchGifs() {
   }
 }
 $('#giphy-search-button').addEventListener('click', searchGifs);
+$('#giphy-picker').addEventListener('click', (event) => {
+  const quickSearch = event.target.closest('[data-giphy-query]');
+  if (!quickSearch) return;
+  $('#giphy-search-query').value = quickSearch.dataset.giphyQuery;
+  searchGifs();
+});
 $('#giphy-search-query').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') { event.preventDefault(); searchGifs(); }
 });
@@ -4351,6 +4557,23 @@ document.addEventListener('click', async (event) => {
       $('#composer').hidden = false;
       $('#composer-text').placeholder = `Replying to ${profileLabel(state.people.get(targetFid), targetFid)}…`;
       $('#composer-text').focus(); $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (button.dataset.action === 'quote-cast') {
+      if (!state.signerReady) { $('#connect-dialog').showModal(); return; }
+      const quoteUrl = safeExternalUrl(button.dataset.url);
+      if (!quoteUrl) throw new Error('This cast does not have a valid share link.');
+      state.parent = null;
+      const field = $('#composer-text');
+      const existing = field.value.trimEnd();
+      const beforeQuote = existing ? `${existing}\n\n` : '';
+      field.value = `${beforeQuote}${quoteUrl.href}\n\n`;
+      field.setSelectionRange(beforeQuote.length, beforeQuote.length);
+      $('#composer-label').textContent = 'Quote cast · add a thought';
+      $('#composer').hidden = false;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.focus();
+      $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (!state.signerReady) { $('#connect-dialog').showModal(); return; }

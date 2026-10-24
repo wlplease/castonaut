@@ -95,6 +95,8 @@ function localSnapchainAdapter(serverEnv) {
         if (!route) return sendJson(res, 404, { error: 'Unknown Snapchain route' });
         if (!base && !proxyUrl) return sendJson(res, 503, { error: 'No Snapchain route is configured. Set SNAPCHAIN_URL or SNAPCHAIN_PROXY_URL for local development.' });
         if (req.method !== route.method) { res.setHeader('allow', route.method); return sendJson(res, 405, { error: 'Method not allowed' }); }
+        const freshParams = requestUrl.searchParams.getAll('_fresh');
+        if (freshParams.length > 1 || (freshParams.length === 1 && (freshParams[0] !== '1' || route.method !== 'GET'))) return sendJson(res, 400, { error: 'Invalid refresh parameter' });
         if (route.method === 'POST') {
           if (!sameOriginWrite(req)) return sendJson(res, 403, { error: 'Write request origin could not be verified' });
           if (req.headers['content-type']?.split(';')[0].trim() !== 'application/octet-stream') return sendJson(res, 415, { error: 'Snapchain messages must use application/octet-stream' });
@@ -110,7 +112,7 @@ function localSnapchainAdapter(serverEnv) {
           if (proxyTarget) target.searchParams.set('route', routeName);
           if ((serverEnv.SNAPCHAIN_HTTP_USER || serverEnv.SNAPCHAIN_HTTP_PASS) && target.protocol !== 'https:') throw new Error('Proxy credentials require an HTTPS Snapchain endpoint.');
           for (const [key, value] of requestUrl.searchParams.entries()) {
-            if (key === 'route') continue;
+            if (key === 'route' || key === '_fresh') continue;
             if (!route.params.includes(key) || !validParam(key, value)) return sendJson(res, 400, { error: `Invalid ${key} parameter` });
             target.searchParams.set(key, value);
           }
@@ -121,7 +123,7 @@ function localSnapchainAdapter(serverEnv) {
           if (routeName === 'reactionById' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return sendJson(res, 400, { error: 'reaction target and type are required' });
           if (routeName === 'reactionsByCast' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return sendJson(res, 400, { error: 'reaction target and type are required' });
           if (requestUrl.searchParams.getAll('route').length !== 1) return sendJson(res, 400, { error: 'Exactly one Snapchain route is required' });
-          const params = [...requestUrl.searchParams.keys()].filter((key) => key !== 'route');
+          const params = [...requestUrl.searchParams.keys()].filter((key) => key !== 'route' && key !== '_fresh');
           if (new Set(params).size !== params.length) return sendJson(res, 400, { error: 'Duplicate query parameters are not allowed' });
           const headers = { accept: 'application/json' };
           if (proxyTarget && req.method === 'POST') headers.origin = proxyTarget.origin;
