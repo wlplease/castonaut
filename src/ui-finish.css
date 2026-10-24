@@ -33,6 +33,19 @@
 .feed-window>.feed-toolbar .board-tab.is-active,
 .feed-window>.feed-toolbar .board-tab[aria-pressed="true"]{background:var(--station-card);color:var(--station-ink);box-shadow:inset 0 -2px var(--station-accent)}
 
+/* Empty feeds should feel like a calm status panel, with an obvious next step. */
+.feed-window>.feed-list[data-empty="true"]>.empty-message{border-radius:10px;box-shadow:0 1px 4px color-mix(in srgb,var(--station-ink) 7%,transparent)}
+.empty-message-actions>.button{border-radius:8px;font-family:var(--display);font-weight:600}
+
+/* Put the timeline first in the reader’s attention; open the full composer on demand. */
+.feed-window>.composer:not(.is-expanded){padding:0 14px;border-bottom:1px solid var(--station-line);background:var(--station-card)}
+.composer-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;padding:0 2px;border:0;background:transparent;color:var(--station-ink);font:600 12px var(--display);text-align:left}
+.composer-toggle:hover{color:var(--station-accent)}
+.composer-toggle-mark{display:grid;width:26px;height:26px;place-items:center;border:1px solid var(--station-line);border-radius:50%;color:var(--station-accent);font:14px var(--mono)}
+.composer-content{min-width:0}
+.composer:not(.is-expanded) .composer-content{display:none}
+.composer.is-expanded .composer-label{display:none}
+
 /* Consistent focus and field surfaces across Search, Desk, and dialogs. */
 :where(.button,.icon-button,.avatar-button,.board-tab,.profile-tab,.desk-stack-tab,.feed-filter-summary,.feed-quick-controls>summary,.nav-item,.nav-more-link){transition:background-color .14s ease,color .14s ease,border-color .14s ease,box-shadow .14s ease}
 :where(.button,.icon-button,.avatar-button,.board-tab,.profile-tab,.desk-stack-tab,.feed-filter-summary,.feed-quick-controls>summary,.nav-item):focus-visible{outline:2px solid var(--station-focus);outline-offset:2px}
@@ -44,7 +57,109 @@
 .desk-person:focus-within,.desk-signal:focus-within,.suggested-person:focus-within{outline:2px solid color-mix(in srgb,var(--station-accent) 42%,transparent);outline-offset:1px}
 .button:disabled,.post-action:disabled{cursor:not-allowed;opacity:.58}
 
+/* Profile clarity: mark public identity separately from device-only styling. */
+.profile-summary-identity .profile-visibility{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.profile-visibility>span{display:inline-flex;align-items:center;min-height:21px;padding:3px 7px;border:1px solid var(--station-line);border-radius:99px;font:8px var(--mono);line-height:1.25}
+.profile-visibility-public{background:color-mix(in srgb,var(--station-accent) 9%,var(--station-card));color:var(--station-accent)}
+.profile-visibility-local{background:color-mix(in srgb,var(--station-soft) 52%,var(--station-card));color:var(--station-copy-muted)}
+
+/* Profile appearance opens as a roomy editor in the card, not a floating menu. */
+.profile-summary-main.is-customizing .profile-summary-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;width:100%;padding-left:0}
+.profile-summary-main.is-customizing .profile-more-options{position:static;flex:1 0 100%;min-width:0}
+.profile-summary-main.is-customizing .profile-more-options>summary{display:flex;align-items:center;justify-content:space-between;width:max-content;min-width:130px;min-height:38px;padding:0 13px;border:1px solid var(--station-line);border-radius:8px;background:var(--station-card);color:var(--station-accent);font:600 10px var(--display);cursor:pointer}
+.profile-summary-main.is-customizing .profile-more-options>summary::marker{content:""}
+.profile-summary-main.is-customizing .profile-more-options>summary::after{content:"⌃";margin-left:12px;font:12px var(--mono)}
+.profile-summary-main.is-customizing .profile-more-panel{position:static;z-index:auto;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(190px,.8fr);align-items:stretch;gap:14px;width:100%;min-width:0;max-width:none;margin-top:10px;padding:14px;border:1px solid var(--station-line);border-radius:10px;background:color-mix(in srgb,var(--station-soft) 22%,var(--station-card));box-shadow:none}
+.profile-cover-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px;min-width:0;margin:0;padding:10px;border:1px solid var(--station-line);border-radius:9px;background:var(--station-card)}
+.profile-cover-picker legend{padding:0 6px;color:var(--station-copy-muted);font:9px var(--mono);letter-spacing:.06em}
+.profile-cover-choice{position:relative;display:grid;gap:5px;min-width:0;color:var(--station-copy-muted);font:9px var(--display);text-align:center;cursor:pointer}
+.profile-cover-choice input{position:absolute;z-index:2;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.profile-cover-swatch-art{position:relative;display:block;height:43px;overflow:hidden;border:1px solid color-mix(in srgb,var(--station-ink) 18%,var(--station-line));border-radius:6px;background:linear-gradient(125deg,#e7deed,#f2e8da 53%,#dce5d9)}
+.profile-cover-swatch-art[data-cover="platinum"]{background:repeating-linear-gradient(0deg,#e7e7e9 0 2px,#f7f7f7 2px 4px)}
+.profile-cover-swatch-art[data-cover="blueberry"]{background:linear-gradient(130deg,#c8d9f4,#f0eaf7 52%,#d3e6ef)}
+.profile-cover-swatch-art[data-cover="graphite"]{background:linear-gradient(130deg,#aeb4bf,#e1e2e5 52%,#c0c3c9)}
+.profile-cover-swatch-art[data-cover="hypercard"]{background:repeating-linear-gradient(0deg,#dce8c5 0 5px,#f3efd5 5px 9px)}
+.profile-cover-swatch-art[data-cover="cyberpunk"]{background:linear-gradient(130deg,#100d28,#392060 54%,#08d9d2)}
+.profile-cover-swatch-art[data-cover="manga"]{background:repeating-linear-gradient(135deg,#fff 0 7px,#222 7px 9px,#f3f3f3 9px 15px)}
+.profile-cover-swatch-art[data-cover="dawn"]{background:linear-gradient(130deg,#f3c9ac,#e9c9df 52%,#d9d9f3)}
+.profile-cover-swatch-art[data-cover="orbit"]{background:radial-gradient(circle at 76% 28%,#fff 0 1px,transparent 2px),radial-gradient(circle at 23% 67%,#f9db9c 0 1px,transparent 2px),linear-gradient(130deg,#18152f,#55487f 56%,#b8a6cf)}
+.profile-cover-swatch-art[data-cover="dusk"]{background:linear-gradient(130deg,#394461,#9c7891 55%,#e8b797)}
+.profile-cover-choice input:checked+.profile-cover-swatch-art{outline:2px solid var(--station-accent);outline-offset:2px}
+.profile-cover-choice input:checked+.profile-cover-swatch-art::after{content:"✓";position:absolute;top:4px;right:5px;display:grid;width:17px;height:17px;place-items:center;border-radius:50%;background:var(--station-card);color:var(--station-accent);font:11px var(--display)}
+.profile-cover-choice input:focus-visible+.profile-cover-swatch-art{outline:2px solid var(--station-focus);outline-offset:2px}
+.profile-customize-details{display:flex;flex-direction:column;align-items:stretch;gap:9px;min-width:0;padding:12px;border:1px solid var(--station-line);border-radius:9px;background:var(--station-card)}
+.profile-customize-details>strong{color:var(--station-ink);font:600 12px var(--display)}
+.profile-customize-details>.button{justify-content:center;min-height:36px}
 @media(max-width:620px){
+  .profile-summary-main.is-customizing .profile-summary-actions{gap:6px}
+  .profile-summary-main.is-customizing .profile-more-panel{grid-template-columns:minmax(0,1fr);gap:9px;padding:9px}
+  .profile-cover-picker{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:8px}
+  .profile-cover-swatch-art{height:38px}
+  .profile-cover-choice{font-size:8px}
+  .profile-customize-details{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:9px}
+  .profile-customize-details>strong{grid-column:1/-1}
+  .profile-customize-details>.button{min-width:0;padding-inline:6px;font-size:9px}
+}
+
+/* Profile filters scan as three equal destinations, with loaded counts kept secondary. */
+.profile-timeline-controls .profile-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;overflow:visible;padding:7px 3px 0}
+.profile-timeline-controls .profile-tab{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:44px;padding:8px 6px;border:1px solid transparent;border-bottom:2px solid var(--station-line);border-radius:8px 8px 0 0;background:transparent;color:var(--station-copy-muted);font:600 11px var(--display);white-space:nowrap}
+.profile-timeline-controls .profile-tab:hover{background:color-mix(in srgb,var(--station-soft) 40%,transparent);color:var(--station-ink)}
+.profile-timeline-controls .profile-tab.is-active{border-color:var(--station-line);border-bottom:2px solid var(--station-accent);background:var(--station-card);color:var(--station-ink)}
+.profile-tab-count{display:inline-grid;min-width:22px;height:20px;place-items:center;padding:0 5px;border:1px solid var(--station-line);border-radius:99px;color:var(--station-copy-muted);font:9px var(--mono);font-variant-numeric:tabular-nums}
+.profile-tab.is-active .profile-tab-count{border-color:color-mix(in srgb,var(--station-accent) 30%,var(--station-line));color:var(--station-accent)}
+.profile-tabs-note{margin:6px 4px 9px;color:var(--station-copy-muted);font:9px/1.4 var(--mono)}
+
+/* Make discovery useful for building a local shortlist and following on the network. */
+.suggested-person{grid-template-columns:38px minmax(0,1fr) auto;gap:9px}
+.suggested-actions{display:grid;justify-items:stretch;gap:5px;min-width:88px}
+.suggested-actions>.button{min-height:28px;padding:0 8px;white-space:nowrap;font-size:9px}
+.suggested-follow,.search-network-panel .suggested-follow{grid-column:auto;grid-row:auto;justify-self:stretch}
+.nav-destination>.nav-count{grid-column:3;grid-row:1;align-self:center;justify-self:end;min-width:19px;padding:3px 5px;border:1px solid var(--station-line);border-radius:99px;color:var(--station-accent);font:9px var(--mono);line-height:1;text-align:center}
+
+/* Make the optional node page useful as a live chain readout. */
+.node-chain-panel{margin:18px 0 24px;padding:clamp(16px,2.4vw,24px);border:1px solid var(--station-line);border-radius:12px;background:var(--station-card);box-shadow:0 2px 10px color-mix(in srgb,var(--station-ink) 5%,transparent)}
+.node-chain-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-bottom:16px;border-bottom:1px solid var(--station-line)}
+.node-chain-head h2{margin:5px 0 4px;color:var(--station-ink);font:600 clamp(20px,2.4vw,26px)/1.15 var(--display);letter-spacing:-.035em}
+.node-chain-head p,.node-chain-note{margin:0;color:var(--station-copy-muted);font-size:12px;line-height:1.55}
+.node-chain-updated{flex:0 0 auto;padding:6px 9px;border:1px solid var(--station-line);border-radius:99px;color:var(--station-copy-muted);font:10px var(--mono)}
+.node-chain-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:16px 0}
+.node-chain-summary>div{display:grid;gap:6px;min-width:0}
+.node-chain-summary span{color:var(--station-copy-muted);font:9px var(--mono);letter-spacing:.08em}
+.node-chain-summary strong{overflow-wrap:anywhere;color:var(--station-ink);font:600 16px var(--display)}
+.node-shard-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.node-shard-card{min-width:0;padding:13px;border:1px solid var(--station-line);border-radius:9px;background:color-mix(in srgb,var(--station-soft) 45%,var(--station-card))}
+.node-shard-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--station-ink);font-size:12px}
+.node-shard-delay{flex:0 0 auto;padding:4px 6px;border-radius:99px;background:color-mix(in srgb,var(--station-warn,#d39a48) 15%,var(--station-card));color:var(--station-copy-muted);font:9px var(--mono)}
+.node-shard-delay.is-current{background:color-mix(in srgb,var(--station-accent) 12%,var(--station-card));color:var(--station-accent)}
+.node-shard-facts{display:grid;gap:8px;margin:13px 0 0}
+.node-shard-facts>div{display:flex;justify-content:space-between;gap:10px}
+.node-shard-facts dt{color:var(--station-copy-muted);font-size:10px}
+.node-shard-facts dd{margin:0;color:var(--station-ink);font:10px var(--mono);text-align:right}
+.node-chain-empty{grid-column:1/-1;margin:0;padding:16px;border:1px dashed var(--station-line);border-radius:8px;color:var(--station-copy-muted);font-size:12px}
+.node-chain-note{margin-top:12px;font-size:10px}
+
+@media(max-width:620px){
+  .profile-summary-identity .profile-visibility{gap:4px;margin-top:6px}
+  .profile-visibility>span{min-height:20px;padding-inline:6px;font-size:7px}
+  .profile-timeline-controls .profile-tabs{gap:4px;margin-inline:5px;padding-top:7px}
+  .profile-timeline-controls .profile-tab{min-height:42px;gap:5px;padding-inline:3px;font-size:10px}
+  .profile-tab-count{min-width:20px;height:19px;padding-inline:4px;font-size:8px}
+  .profile-tabs-note{margin:5px 8px 8px;font-size:8px}
+  .suggested-person{grid-template-columns:34px minmax(0,1fr) auto;gap:7px;padding:9px}
+  .suggested-actions{min-width:82px;gap:4px}
+  .suggested-actions>.button{min-height:29px;padding-inline:6px;font-size:9px}
+  .nav-destination>.nav-count{margin-left:auto;padding:3px 5px}
+  .node-chain-panel{margin:14px 0 20px;padding:14px;border-radius:10px}
+  .node-chain-head{display:grid;gap:10px}
+  .node-chain-updated{justify-self:start}
+  .node-chain-summary{gap:8px;padding:13px 0}
+  .node-chain-summary strong{font-size:13px}
+  .node-chain-summary span{font-size:8px;letter-spacing:.03em}
+  .node-shard-list{grid-template-columns:1fr;gap:7px}
+  .node-shard-card{padding:11px}
+  .feed-window>.composer:not(.is-expanded){margin:0 0 7px;padding:0 10px}
+  .composer-toggle{min-height:42px;font-size:11px}
   .feed-toolbar-actions>.feed-view-controls{display:flex;grid-template-columns:none;justify-self:start;width:max-content;max-width:100%;padding:0;border:0;background:transparent}
   .feed-toolbar-actions>.feed-view-controls>.board-tab{flex:0 0 auto;min-width:88px;padding-inline:11px}
   .feed-window>.feed-list>.post-card,

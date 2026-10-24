@@ -187,8 +187,8 @@ try {
 } catch { /* Local profile touches are optional. */ }
 try {
   const savedMediaPreference = localStorage.getItem(REMOTE_MEDIA_STORAGE);
-  state.remoteMediaEnabled = savedMediaPreference === null || savedMediaPreference === 'true';
-} catch { state.remoteMediaEnabled = true; /* New sessions show post media unless the user opts out. */ }
+  state.remoteMediaEnabled = savedMediaPreference !== 'false';
+} catch { state.remoteMediaEnabled = true; /* Media is on by default. */ }
 try { state.groupRepeats = localStorage.getItem(REPEAT_GROUPING_STORAGE) !== 'false'; } catch { /* Repeated links are grouped by default. */ }
 function readLocalFids(key) {
   try {
@@ -711,7 +711,7 @@ function validateLocalBackup(value) {
     else if (key === VOICE_STORAGE && !STATION_VOICES.some((voice) => voice.id === raw)) throw new Error('The backup contains an unsupported station voice.');
     else if (key === CREW_NAME_STORAGE && raw.length > 20) throw new Error('The backup contains an invalid crew name.');
     else if (key === DESK_NOTEPAD_STORAGE && raw.length > 4000) throw new Error('The backup contains an oversized Desk note.');
-    else if (key === PROFILE_COVERS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((cover) => !['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite'].includes(cover)))) throw new Error('The backup contains an invalid profile appearance.');
+    else if (key === PROFILE_COVERS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((cover) => !['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite', 'hypercard', 'cyberpunk', 'manga'].includes(cover)))) throw new Error('The backup contains an invalid profile appearance.');
     else if (key === PROFILE_PINS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.entries(parsed).some(([fid, hash]) => !/^\d+$/.test(fid) || Number(fid) < 1 || !/^0x[\da-f]{40,64}$/i.test(String(hash))))) throw new Error('The backup contains invalid pinned posts.');
     else if (key === MUTED_TOPICS_STORAGE && (!Array.isArray(parsed) || parsed.length > 80 || parsed.some((topic) => typeof topic !== 'string' || topic.length > 260))) throw new Error('The backup contains invalid muted topics.');
     else if (key === FEED_OPTIONS_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((setting) => typeof setting !== 'boolean'))) throw new Error('The backup contains invalid feed preferences.');
@@ -785,6 +785,15 @@ async function checkNode() {
     const meter = $('#delay-meter'); if (meter) meter.value = maxDelay === null ? 0 : Math.max(6, Math.min(100, maxDelay * 3));
     const version = $('#node-version'); if (version) version.textContent = info.version || 'Unknown';
     const shardCount = $('#node-shards'); if (shardCount) shardCount.textContent = `${shards.length || info.numShards || '—'} ACTIVE`;
+    const chainVersion = $('#chain-version'); if (chainVersion) chainVersion.textContent = info.version || 'Unknown';
+    const chainShardCount = $('#chain-shard-count'); if (chainShardCount) chainShardCount.textContent = String(shards.length || info.numShards || '—');
+    const messageCounts = shards.map((shard) => Number(shard.numMessages)).filter(Number.isFinite);
+    const chainMessages = $('#chain-message-count');
+    if (chainMessages) chainMessages.textContent = messageCounts.length === shards.length && messageCounts.length
+      ? messageCounts.reduce((total, count) => total + count, 0).toLocaleString()
+      : 'Unavailable';
+    const updated = $('#node-chain-updated');
+    if (updated) updated.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     const inSync = maxDelay !== null && maxDelay <= 10;
     const title = inSync ? 'Snapchain is ready' : 'The feed is catching up';
     const detail = inSync ? 'Connected. Sign in to open your feed.' : `Connected, but the feed is not current: its latest network data is about ${maxDelay === null ? 'an unknown amount' : formatNodeDelay(maxDelay)} behind.`;
@@ -793,12 +802,25 @@ async function checkNode() {
     if (state.feedMode === 'following') updateFollowingCoverage();
     const list = $('#shard-list');
     if (list) list.replaceChildren();
-    for (const shard of list ? (info.shardInfos || []) : []) {
-      const row = document.createElement('div'); row.className = 'shard-row';
-      const label = document.createElement('span'); label.textContent = Number(shard.shardId) === 0 ? 'BLOCK SHARD' : `SHARD ${shard.shardId}`;
-      const height = document.createElement('strong'); height.textContent = `HEIGHT ${Number(shard.maxHeight || 0).toLocaleString()}`;
-      const delay = document.createElement('small'); delay.textContent = `${formatNodeDelay(shard.blockDelay || 0)} behind`;
-      row.append(label, height, delay); list.append(row);
+    for (const shard of list ? shards : []) {
+      const row = document.createElement('article'); row.className = 'node-shard-card';
+      const heading = document.createElement('div'); heading.className = 'node-shard-heading';
+      const label = document.createElement('strong'); label.textContent = Number(shard.shardId) === 0 ? 'Block shard' : `Shard ${shard.shardId}`;
+      const delay = document.createElement('span');
+      const delaySeconds = Number(shard.blockDelay);
+      delay.className = `node-shard-delay${Number.isFinite(delaySeconds) && delaySeconds <= 10 ? ' is-current' : ''}`;
+      delay.textContent = Number.isFinite(delaySeconds) ? `${formatNodeDelay(delaySeconds)} behind` : 'Freshness unknown';
+      heading.append(label, delay);
+      const facts = document.createElement('dl'); facts.className = 'node-shard-facts';
+      const heightValue = Number(shard.maxHeight);
+      for (const [term, value] of [
+        ['Height', Number.isFinite(heightValue) ? heightValue.toLocaleString() : 'Unavailable'],
+        ['Messages', Number.isFinite(Number(shard.numMessages)) ? Number(shard.numMessages).toLocaleString() : 'Unavailable'],
+      ]) {
+        const item = document.createElement('div'); const dt = document.createElement('dt'); const dd = document.createElement('dd');
+        dt.textContent = term; dd.textContent = value; item.append(dt, dd); facts.append(item);
+      }
+      row.append(heading, facts); list.append(row);
     }
   } catch (error) {
     state.nodeInfo = null;
@@ -806,8 +828,12 @@ async function checkNode() {
     const meter = $('#delay-meter'); if (meter) meter.value = 0;
     const version = $('#node-version'); if (version) version.textContent = 'Not connected';
     const shardCount = $('#node-shards'); if (shardCount) shardCount.textContent = '—';
+    const chainVersion = $('#chain-version'); if (chainVersion) chainVersion.textContent = '—';
+    const chainShardCount = $('#chain-shard-count'); if (chainShardCount) chainShardCount.textContent = '—';
+    const chainMessages = $('#chain-message-count'); if (chainMessages) chainMessages.textContent = '—';
+    const updated = $('#node-chain-updated'); if (updated) updated.textContent = 'Could not refresh';
     const list = $('#shard-list');
-    if (list) { const empty = document.createElement('div'); empty.className = 'empty-shards'; empty.textContent = 'App service is not connected.'; list.replaceChildren(empty); }
+    if (list) { const empty = document.createElement('p'); empty.className = 'node-chain-empty'; empty.textContent = 'Shard data is unavailable. Check the node connection and try again.'; list.replaceChildren(empty); }
     const needsSetup = /SNAPCHAIN_URL|not configured|not been configured/i.test(error.message);
     const setupLink = $('#node-setup-link'); if (setupLink) setupLink.hidden = !needsSetup;
     if (setupLink && needsSetup) setupLink.textContent = 'See feed setup ↗';
@@ -858,6 +884,8 @@ function renderEmpty(title, copy, action = null) {
       else if (item.type === 'search') button.addEventListener('click', () => { navigate('search'); requestAnimationFrame(() => $('#people-query').focus()); });
       else if (item.type === 'clear-source') button.addEventListener('click', () => { $('#source-fid').value = ''; $('#source-mode').value = 'include'; renderFeed(); });
       else if (item.type === 'clear-feed-filters') button.addEventListener('click', clearFeedFilters);
+      else if (item.type === 'clear-desk-topic') button.addEventListener('click', () => { state.activeDeskTopic = ''; renderDeskShortcuts(); renderFeed(); });
+      else if (item.type === 'clear-orbit-filter') button.addEventListener('click', () => { state.orbitOnly = false; $('#orbit-only').checked = false; saveFeedOptions(); syncQuickControls(); renderFeed(); });
       else if (item.type === 'feed') button.addEventListener('click', () => setFeedTab(item.mode));
       else if (item.type === 'discover') button.addEventListener('click', toggleSuggestedPeople);
       else if (item.type === 'node') button.addEventListener('click', () => { navigate('node'); void checkNode(); });
@@ -932,8 +960,8 @@ function updateFeedTabs() {
     button.classList.toggle('is-active', state.boardMode === 'signals' && state.feedMode === mode);
     button.setAttribute('aria-pressed', String(state.boardMode === 'signals' && state.feedMode === mode));
   }
-  $('#friend-count').textContent = String(state.friendFids.length);
-  $('#friend-count').hidden = state.friendFids.length === 0;
+  const friendCount = $('#friend-count');
+  if (friendCount) { friendCount.textContent = String(state.friendFids.length); friendCount.hidden = state.friendFids.length === 0; }
   const peopleTabs = $('.board-switch');
   if (peopleTabs) peopleTabs.hidden = state.feedMode === 'profile' || state.boardMode !== 'signals';
   const feedTools = $('.feed-view-controls');
@@ -1119,17 +1147,18 @@ function saveFeedOptions() {
 }
 
 function syncQuickControls() {
-  const values = { compactMode: state.compactMode, remoteMediaEnabled: state.remoteMediaEnabled, repliesOnly: state.repliesOnly, mediaOnly: state.mediaOnly, appsOnly: state.appsOnly, groupRepeats: state.groupRepeats };
+  const values = { compactMode: state.compactMode, remoteMediaEnabled: state.remoteMediaEnabled, repliesOnly: state.repliesOnly, mediaOnly: state.mediaOnly, appsOnly: state.appsOnly, orbitOnly: state.orbitOnly, groupRepeats: state.groupRepeats };
   document.querySelectorAll('[data-quick-setting]').forEach((input) => { input.checked = values[input.dataset.quickSetting] === true; });
 }
 
 function setProfileCover(fid, cover) {
-  if (!['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite'].includes(cover)) return;
+  if (!['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite', 'hypercard', 'cyberpunk', 'manga'].includes(cover)) return;
   if (cover === 'atlas') delete state.profileCovers[fid];
   else state.profileCovers[fid] = cover;
   try { localStorage.setItem(PROFILE_COVERS_STORAGE, JSON.stringify(state.profileCovers)); }
   catch { setNotice('This browser could not save the profile cover.', 'error'); return; }
-  renderProfileSummary();
+  const coverElement = $('#profile-summary .profile-cover');
+  if (coverElement) coverElement.dataset.cover = cover;
 }
 
 function menuAction(label, action, fid, extra = {}) {
@@ -1310,11 +1339,13 @@ function renderCast(message, { priority = false } = {}) {
   const moreSummary = document.createElement('summary'); moreSummary.textContent = '•••'; moreSummary.setAttribute('aria-label', 'Save or manage this post');
   const menu = document.createElement('div'); menu.className = 'post-more-menu';
   const pinnedCast = state.deskCasts.some((cast) => Number(cast.fid) === fid && cast.hash === postHash(message));
-  const primary = document.createElement('div'); primary.className = 'post-desk-actions'; primary.setAttribute('role', 'group'); primary.setAttribute('aria-label', 'Save and follow');
+  const primary = document.createElement('div'); primary.className = 'post-desk-actions'; primary.setAttribute('role', 'group'); primary.setAttribute('aria-label', 'Save, pin, follow, and shortlist');
   const saveToDesk = menuAction(pinnedCast ? '✓ Saved to Desk' : '＋ Save post to Desk', 'toggle-desk-cast', fid, { hash: postHash(message) }); saveToDesk.dataset.deskPrimary = 'save'; saveToDesk.setAttribute('aria-pressed', String(pinnedCast)); primary.append(saveToDesk);
   const personPinned = state.deskPins.includes(fid);
   const pinAuthor = menuAction(personPinned ? '✓ Author pinned to Desk' : '⌖ Pin author to Desk', personPinned ? 'unpin-person' : 'pin-person', fid); pinAuthor.dataset.deskPrimary = 'pin'; pinAuthor.setAttribute('aria-pressed', String(personPinned)); primary.append(pinAuthor);
   const followAuthor = menuAction(state.following.get(fid) ? `✓ Following @${profile.username || `fid-${fid}`}` : `＋ Follow @${profile.username || `fid-${fid}`}`, 'follow', fid, { hash: postHash(message) }); followAuthor.dataset.deskPrimary = 'follow'; followAuthor.setAttribute('aria-pressed', String(!!state.following.get(fid))); primary.append(followAuthor);
+  const inTopPeople = state.friendFids.includes(fid);
+  const topPeopleAction = menuAction(inTopPeople ? '✓ In Top people' : '＋ Add to Top people', 'toggle-friend', fid); topPeopleAction.setAttribute('aria-pressed', String(inTopPeople)); primary.append(topPeopleAction);
   more.addEventListener('toggle', () => {
     if (!more.open || !state.fid || fid === Number(state.fid)) return;
     const delay = maxNodeDelay();
@@ -1337,7 +1368,6 @@ function renderCast(message, { priority = false } = {}) {
   const share = document.createElement('button'); share.type = 'button'; share.className = 'post-more-action'; share.dataset.shareCast = 'true'; share.dataset.fid = String(fid); share.dataset.hash = postHash(message); share.textContent = 'Share cast'; secondaryList.append(share);
   const reactionDetails = document.createElement('button'); reactionDetails.type = 'button'; reactionDetails.className = 'post-more-action'; reactionDetails.dataset.reactionsCast = 'true'; reactionDetails.dataset.fid = String(fid); reactionDetails.dataset.hash = postHash(message); reactionDetails.textContent = 'Who liked or recast'; secondaryList.append(reactionDetails);
   secondaryList.append(flightLog);
-  secondaryList.append(menuAction(state.friendFids.includes(fid) ? 'Remove from Top people' : 'Add to Top people', 'toggle-friend', fid));
   secondaryList.append(menuAction(state.mutedAuthors.includes(fid) ? 'Unhide author' : 'Hide author', 'toggle-author-mute', fid));
   const topics = topicsForCast(message);
   const deskTopic = topics.find((topic) => !state.deskTopics.includes(topic));
@@ -1609,7 +1639,7 @@ function updateFeedFilterSummary() {
     !!state.feedQuery.trim(), state.repliesOnly, state.mediaOnly, state.appsOnly, state.orbitOnly,
     Number($('#source-fid')?.value) > 0,
   ].filter(Boolean).length;
-  summary.textContent = activeCount ? `Filters · ${activeCount}` : 'Filters';
+  summary.textContent = activeCount ? `View & filters · ${activeCount}` : 'View & filters';
 }
 
 function renderSuggestedPeople() {
@@ -1635,7 +1665,7 @@ function renderSuggestedPeople() {
     showEmpty('Connect your Farcaster account to check your follow graph for recommendations.');
     return;
   }
-  const visibleSuggestions = state.suggestedPeople.filter((person) => !state.following.get(Number(person.fid)));
+  const visibleSuggestions = state.suggestedPeople.filter((person) => !state.following.get(Number(person.fid)) && !state.friendFids.includes(Number(person.fid)));
   if (!visibleSuggestions.length) {
     const nodeDelay = maxNodeDelay();
     const nodeBehind = nodeDelay !== null && nodeDelay > 10;
@@ -1655,7 +1685,7 @@ function renderSuggestedPeople() {
     return;
   }
   const fragment = document.createDocumentFragment();
-  for (const suggestion of visibleSuggestions.slice(0, 5)) {
+  for (const suggestion of visibleSuggestions.slice(0, 12)) {
     const profile = state.people.get(suggestion.fid) || { fid: suggestion.fid, name: `Farcaster ${suggestion.fid}`, username: `fid-${suggestion.fid}` };
     const row = document.createElement('article'); row.className = 'suggested-person';
     const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'suggested-avatar profile-open-button'; avatar.dataset.openProfile = String(suggestion.fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
@@ -1664,10 +1694,17 @@ function renderSuggestedPeople() {
     const identity = document.createElement('button'); identity.type = 'button'; identity.className = 'suggested-identity profile-open-button'; identity.dataset.openProfile = String(suggestion.fid); identity.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
     const name = document.createElement('strong'); name.textContent = localProfileName(profile);
     const handle = document.createElement('span'); handle.textContent = `@${profile.username || `fid-${suggestion.fid}`}`;
-    const context = document.createElement('small'); context.textContent = `In ${suggestion.mutualCount} of your follows’ circles`;
+    const context = document.createElement('small'); context.textContent = `${suggestion.mutualCount} people you follow also follow them`;
     identity.append(name, handle, context);
+    const actions = document.createElement('div'); actions.className = 'suggested-actions';
     const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline suggested-follow'; follow.dataset.action = 'follow'; follow.dataset.fid = String(suggestion.fid); updateFollowButton(follow, suggestion.fid);
-    row.append(avatar, identity, follow); fragment.append(row);
+    const topPerson = document.createElement('button'); topPerson.type = 'button'; topPerson.className = 'button button-outline suggested-top-person'; topPerson.dataset.action = 'toggle-friend'; topPerson.dataset.fid = String(suggestion.fid);
+    const inTopPeople = state.friendFids.includes(Number(suggestion.fid));
+    topPerson.textContent = inTopPeople ? '✓ Top people' : '＋ Top people';
+    topPerson.setAttribute('aria-label', inTopPeople ? `Remove ${localProfileName(profile)} from Top people` : `Add ${localProfileName(profile)} to Top people`);
+    topPerson.setAttribute('aria-pressed', String(inTopPeople));
+    actions.append(follow, topPerson);
+    row.append(avatar, identity, actions); fragment.append(row);
   }
   for (const list of lists) list.replaceChildren(...[...fragment.children].map((child) => child.cloneNode(true)));
 }
@@ -1685,14 +1722,14 @@ async function loadSuggestedPeople() {
       state.followStatusUnknown.clear();
       for (const target of followed) setFollowState(target, true);
     }
-    const sources = (followed.length ? followed : state.feedSources).slice(0, 4).filter((fid) => fid !== Number(state.fid));
+    const sources = (followed.length ? followed : state.feedSources).slice(0, 8).filter((fid) => fid !== Number(state.fid));
     const groups = await mapLimit(sources, 2, async (sourceFid) => {
       const response = await nodeRequest('links', { fid: sourceFid, link_type: 'follow', pageSize: 50, reverse: true });
       return { sourceFid, messages: unwrapMessages(response) };
     });
     if (sources.length && !groups.some(Boolean)) throw new Error('No follow graphs responded.');
     const alreadyKnown = new Set([...state.following.keys(), ...state.friendFids, ...state.mutedAuthors]);
-    const ranked = rankFollowRecommendations(groups.filter(Boolean), { ownFid: state.fid, followingFids: alreadyKnown, limit: 5 });
+    const ranked = rankFollowRecommendations(groups.filter(Boolean), { ownFid: state.fid, followingFids: alreadyKnown, limit: 12 });
     // The feed may only have loaded the first page of follows. Confirm each
     // suggestion against our node so accounts from later pages are excluded too.
     const nodeDelay = maxNodeDelay();
@@ -1739,7 +1776,7 @@ function toggleSuggestedPeople() {
   panel.hidden = !opening;
   $('#show-suggested')?.setAttribute('aria-expanded', String(opening));
   $('#feed-title').textContent = opening ? 'Discover' : feedWindowTitle();
-  $('#feed-caption').textContent = opening ? 'People your follows know · suggestions come from public follow graphs.' : feedDescription();
+  $('#feed-caption').textContent = opening ? 'People your follows know · follow on Farcaster or add to Top people on this device.' : feedDescription();
   updateFeedDestinationNav();
   if (opening) { loadSuggestedPeople(); panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
@@ -1923,7 +1960,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     const missingPins = state.deskPins.filter((target) => !state.people.has(target));
     renderDesk();
     renderFeed();
-    $('#feed-filters').hidden = state.boardMode === 'flight-log' || !state.casts.length;
+    $('#feed-filters').hidden = state.boardMode === 'flight-log';
     if (state.feedMode === 'profile') renderProfileSummary();
     if (!messages.length) $('#feed-count').textContent = '0 POSTS';
     renderFeedMore();
@@ -2202,14 +2239,17 @@ function renderFeed() {
         { type: 'retry', label: 'Retry Following' },
       ]);
       else renderEmpty('Your Following list continues.', 'No recent posts on this page. Check more followed accounts to keep the timeline moving.', { type: 'more-following', label: 'Check more followed accounts' });
-    } else if (state.feedMode === 'following' && state.casts.length && (
-      state.orbitOnly || state.repliesOnly || state.mediaOnly || state.appsOnly ||
-      state.activeDeskTopic || query || sourceFilter
-    )) {
+    } else if (state.feedMode !== 'profile' && state.activeDeskTopic) {
+      renderEmpty(`No posts match ${state.activeDeskTopic.replace(/^site:/, '')}.`, 'Try another topic or remove this shortcut to return to the full feed.', { type: 'clear-desk-topic', label: 'Clear topic shortcut' });
+    } else if (state.feedMode !== 'profile' && state.orbitOnly) {
+      renderEmpty(state.deskPins.length ? 'No posts from pinned people.' : 'No pinned people yet.', state.deskPins.length ? 'Turn off this filter to return to the full feed.' : 'Pin someone to your Desk or turn off this filter to see the full feed.', { type: 'clear-orbit-filter', label: 'Show everyone' });
+    } else if (state.feedMode === 'following' && (state.repliesOnly || state.mediaOnly || state.appsOnly)) {
       renderEmpty('Filters hid your Following posts.', `${state.casts.length} recent posts loaded. Clear the active filters to see the full timeline.`, { type: 'clear-feed-filters', label: 'Show all Following posts' });
+    } else if (state.feedMode !== 'profile' && state.feedMode !== 'following' && (state.repliesOnly || state.mediaOnly || state.appsOnly)) {
+      renderEmpty(`Filters hid your ${feedWindowTitle()} posts.`, `${state.casts.length} recent posts loaded. Clear the active filters to see this timeline.`, { type: 'clear-feed-filters', label: 'Show all posts' });
     } else if (query) {
-      renderEmpty('No loaded posts match.', 'Load more posts or clear your search.');
-    } else if (state.casts.length && sourceFilter) {
+      renderEmpty('No loaded posts match.', 'Try another search or clear the current search and filters.', { type: 'clear-feed-filters', label: 'Clear search and filters' });
+    } else if (sourceFilter) {
       renderEmpty('No posts match this source.', 'Clear the source filter to see more posts.', { type: 'clear-source', label: 'Clear source' });
     } else if (state.feedMode === 'profile') {
       const profile = state.people.get(state.feedTargetFid);
@@ -2218,7 +2258,10 @@ function renderFeed() {
       const handle = profile?.username ? `@${profile.username}` : 'this profile';
       renderEmpty(isMediaTab ? 'No media yet.' : isRepliesTab ? 'No replies yet.' : 'No original posts yet.', `Nothing to show for ${handle}.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
     } else if (state.feedMode === 'friends' && !state.friendFids.length) {
-      renderEmpty('Your Top people list is empty.', 'Find someone by name, then add them to this on-device shortlist.', { type: 'search', label: 'Search people' });
+      renderEmpty('Your Top people list is empty.', 'Add people from posts or discover accounts your follows know. This shortlist stays on this device.', [
+        { type: 'discover', label: 'Discover people' },
+        { type: 'search', label: 'Search people' },
+      ]);
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedSources.length) {
       const checked = Math.max(state.feedSourceOffset, Math.min(state.feedSources.length, state.feedFollowTotal || state.feedSources.length));
       if (nodeBehind) renderEmpty('No recent posts are visible yet.', `Checked ${checked} followed accounts, but node data is ${formatNodeDelay(nodeDelay)} behind. New posts may be missing.`, [
@@ -2244,12 +2287,6 @@ function renderFeed() {
         { type: 'discover', label: 'Discover people' },
         { type: 'search', label: 'Search people' },
       ]);
-    } else if (state.orbitOnly && !state.deskPins.length) {
-      renderEmpty('No pinned people yet.', 'Pin someone to your Desk to use this filter.');
-    } else if (state.orbitOnly) {
-      renderEmpty('No posts from pinned people.', 'Turn off the filter to see everyone.');
-    } else if (state.activeDeskTopic) {
-      renderEmpty(`No posts match ${state.activeDeskTopic.replace(/^site:/, '')}.`, 'Try another topic or clear this shortcut.');
     } else if (state.casts.length) {
       renderEmpty('Nothing matches these filters.', 'Adjust View options to bring posts back.');
     } else {
@@ -2388,7 +2425,7 @@ function renderProfileSummary() {
   const local = state.profileNotes[profile.fid] || {};
   const shell = document.createElement('div'); shell.className = 'profile-summary-main';
   const cover = document.createElement('div');
-  const coverTone = ['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite'].includes(state.profileCovers[profile.fid]) ? state.profileCovers[profile.fid] : 'atlas';
+  const coverTone = ['atlas', 'dawn', 'orbit', 'dusk', 'platinum', 'blueberry', 'graphite', 'hypercard', 'cyberpunk', 'manga'].includes(state.profileCovers[profile.fid]) ? state.profileCovers[profile.fid] : 'atlas';
   cover.className = 'profile-cover'; cover.dataset.cover = coverTone;
   const bannerUrl = state.remoteMediaEnabled ? safeImageUrl(profile.banner) : '';
   if (bannerUrl) { const banner = makeRemoteImage(bannerUrl, 'profile-cover-image', { priority: true }); banner.alt = `${localProfileName(profile)}’s profile cover`; cover.append(banner); }
@@ -2396,9 +2433,14 @@ function renderProfileSummary() {
   const avatarUrl = safeImageUrl(profile.avatar);
   if (avatarUrl) setRemoteAvatar(avatar, avatarUrl, { priority: true });
   const identity = document.createElement('div'); identity.className = 'profile-summary-identity';
+  const kicker = document.createElement('span'); kicker.className = 'profile-summary-kicker'; kicker.textContent = isOwnProfile ? 'YOUR FARCASTER PROFILE' : 'FARCASTER PROFILE';
   const name = document.createElement('h3'); name.textContent = localProfileName(profile);
   const handle = document.createElement('p'); handle.textContent = `@${profile.username} · FID ${profile.fid}`;
-  identity.append(name, handle);
+  identity.append(kicker, name, handle);
+  const visibility = document.createElement('div'); visibility.className = 'profile-visibility'; visibility.setAttribute('aria-label', 'Public and local profile details');
+  const publicTag = document.createElement('span'); publicTag.className = 'profile-visibility-public'; publicTag.textContent = 'Public on Farcaster';
+  const localTag = document.createElement('span'); localTag.className = 'profile-visibility-local'; localTag.textContent = 'Style and notes · this device';
+  visibility.append(publicTag, localTag); identity.append(visibility);
   if (profile.bio) { const bio = document.createElement('p'); bio.className = 'profile-summary-bio'; bio.textContent = profile.bio; identity.append(bio); }
   if (local.nickname || local.note) { const note = document.createElement('p'); note.className = 'profile-private-note'; note.textContent = local.note ? `Your note: ${local.note}` : 'Your personal nickname is saved on this device.'; identity.append(note); }
   const actions = document.createElement('div'); actions.className = 'profile-summary-actions';
@@ -2406,33 +2448,33 @@ function renderProfileSummary() {
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'button button-outline'; pin.dataset.profilePin = String(profile.fid); pin.textContent = state.deskPins.includes(profile.fid) ? 'On your Desk ✓' : 'Pin to Desk';
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline'; follow.dataset.action = 'follow'; follow.dataset.fid = String(profile.fid); updateFollowButton(follow, profile.fid);
   const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Top people' : '＋ Add to Top people'; friend.disabled = Number(profile.fid) === Number(state.fid);
-  const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.copyProfile = String(profile.fid); share.textContent = 'Share'; share.setAttribute('aria-label', `Share ${localProfileName(profile)}’s profile`);
+  const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.castProfile = String(profile.fid); share.textContent = 'Cast profile'; share.setAttribute('aria-label', `Write a Farcaster cast about ${localProfileName(profile)}’s profile`);
   const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button button-outline'; edit.dataset.editProfile = String(profile.fid); edit.textContent = isOwnProfile ? 'Local name & note' : 'Personalize';
-  const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = isOwnProfile ? 'Your page cover' : 'Local cover';
-  const coverSelect = document.createElement('select'); coverSelect.dataset.coverFid = String(profile.fid); coverSelect.setAttribute('aria-label', 'Choose a profile cover shown only on this device');
-  for (const [value, label] of [['atlas', 'Atlas'], ['platinum', 'Spacebar Silver'], ['blueberry', 'Blueberry'], ['graphite', 'Graphite'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk']]) {
-    const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = coverTone === value; coverSelect.append(option);
-  }
-  coverLabel.append(coverSelect);
   const more = document.createElement('details'); more.className = 'profile-more-options';
   const moreLabel = document.createElement('summary'); moreLabel.textContent = isOwnProfile ? 'Customize' : 'Personalize';
   const morePanel = document.createElement('div'); morePanel.className = 'profile-more-panel';
-  if (isOwnProfile) {
-    const mediaLabel = document.createElement('label'); mediaLabel.className = 'profile-media-option'; mediaLabel.htmlFor = 'external-images';
-    const mediaToggle = document.createElement('input'); mediaToggle.type = 'checkbox'; mediaToggle.id = 'external-images'; mediaToggle.checked = state.remoteMediaEnabled;
-    const mediaCopy = document.createElement('span'); mediaCopy.append(document.createTextNode('Load GIFs and post images'));
-    const mediaPrivacy = document.createElement('small'); mediaPrivacy.textContent = 'Media hosts can see your IP address.'; mediaCopy.append(mediaPrivacy);
-    mediaLabel.append(mediaToggle, mediaCopy); morePanel.append(mediaLabel);
-    const localOnly = document.createElement('p'); localOnly.className = 'profile-local-note'; localOnly.textContent = 'Your name, note, and cover stay on this device.'; morePanel.append(localOnly);
+  const coverFieldset = document.createElement('fieldset'); coverFieldset.className = 'profile-cover-picker';
+  const coverLegend = document.createElement('legend'); coverLegend.textContent = 'Choose a profile cover'; coverFieldset.append(coverLegend);
+  const coverOptions = [['atlas', 'Atlas'], ['platinum', 'Spacebar'], ['blueberry', 'Blueberry'], ['graphite', 'Graphite'], ['hypercard', 'HyperCard'], ['cyberpunk', 'Cyberpunk'], ['manga', 'Manga ink'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk']];
+  for (const [value, label] of coverOptions) {
+    const choice = document.createElement('label'); choice.className = 'profile-cover-choice';
+    const input = document.createElement('input'); input.type = 'radio'; input.name = `profile-cover-${profile.fid}`; input.value = value; input.checked = coverTone === value; input.dataset.coverFid = String(profile.fid); input.setAttribute('aria-label', `${label} profile cover`);
+    const preview = document.createElement('span'); preview.className = 'profile-cover-swatch-art'; preview.dataset.cover = value; preview.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span'); text.className = 'profile-cover-swatch-label'; text.textContent = label;
+    choice.append(input, preview, text); coverFieldset.append(choice);
   }
-  morePanel.append(coverLabel, edit);
+  const detailsSection = document.createElement('section'); detailsSection.className = 'profile-customize-details';
+  const detailsHeading = document.createElement('strong'); detailsHeading.textContent = 'Profile details';
+  detailsSection.append(detailsHeading, edit);
+  morePanel.append(coverFieldset, detailsSection);
   const profileUrl = originalProfileUrl(profile);
   if (profileUrl) {
     const openOriginal = document.createElement('a'); openOriginal.className = 'button button-outline'; openOriginal.href = profileUrl; openOriginal.target = '_blank'; openOriginal.rel = 'noopener noreferrer'; openOriginal.textContent = 'Open on Farcaster ↗';
-    morePanel.append(openOriginal);
+    detailsSection.append(openOriginal);
   }
   more.open = false;
   more.append(moreLabel, morePanel);
+  more.addEventListener('toggle', () => shell.classList.toggle('is-customizing', more.open));
   morePanel.addEventListener('click', (event) => {
     if (event.target.closest('button, a')) queueMicrotask(() => { more.open = false; });
   });
@@ -2446,8 +2488,26 @@ function renderProfileSummary() {
   for (const [mode, label, count] of [['posts', 'Posts', postCount], ['replies', 'Replies', replyCount], ['media', 'Media', mediaCount]]) {
     const tab = document.createElement('button'); tab.type = 'button'; tab.className = `profile-tab${state.profileTab === mode ? ' is-active' : ''}`;
     tab.dataset.profileTab = mode; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(state.profileTab === mode));
-    tab.textContent = `${label} · ${count}`; tabs.append(tab);
+    tab.tabIndex = state.profileTab === mode ? 0 : -1;
+    const tabLabel = document.createElement('span'); tabLabel.className = 'profile-tab-label'; tabLabel.textContent = label;
+    const tabCount = document.createElement('span'); tabCount.className = 'profile-tab-count'; tabCount.textContent = String(count); tabCount.setAttribute('aria-label', `${count} loaded`);
+    tab.append(tabLabel, tabCount); tabs.append(tab);
   }
+  tabs.addEventListener('keydown', (event) => {
+    const buttons = [...tabs.querySelectorAll('[data-profile-tab]')];
+    const currentIndex = buttons.indexOf(document.activeElement);
+    if (currentIndex < 0) return;
+    const nextIndex = event.key === 'ArrowRight' ? (currentIndex + 1) % buttons.length
+      : event.key === 'ArrowLeft' ? (currentIndex - 1 + buttons.length) % buttons.length
+        : event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : -1;
+    if (nextIndex < 0) return;
+    event.preventDefault();
+    const next = buttons[nextIndex];
+    state.profileTab = next.dataset.profileTab;
+    renderProfileSummary(); renderFeed();
+    requestAnimationFrame(() => timelineControls?.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true }));
+  });
+  const tabsNote = document.createElement('p'); tabsNote.className = 'profile-tabs-note'; tabsNote.textContent = 'Counts show posts currently loaded from this profile.';
   const pinnedSlot = document.createElement('div'); pinnedSlot.className = 'profile-pinned-slot';
   const profileCasts = state.casts.filter((message) => Number(message?.data?.fid) === Number(profile.fid));
   const activity = summarizeProfileActivity(profileCasts);
@@ -2486,7 +2546,7 @@ function renderProfileSummary() {
     pinnedSlot.append(label, renderCast(pinned));
   }
   cover.append(shell); card.replaceChildren(cover);
-  timelineControls?.replaceChildren(tabs, pinnedSlot);
+  timelineControls?.replaceChildren(tabs, tabsNote, pinnedSlot);
   watchCastEngagement(card);
 }
 
@@ -2665,7 +2725,7 @@ function closeConversation() {
   $('#conversation-view').hidden = true;
   $('#feed-list').hidden = false;
   $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log';
-  $('#feed-filters').hidden = state.boardMode === 'flight-log' || !state.casts.length;
+  $('#feed-filters').hidden = state.boardMode === 'flight-log';
   $('#feed-pulse').hidden = !state.casts.length || state.boardMode === 'flight-log';
   history.pushState(null, '', state.feedMode === 'profile' ? `#profile=${Number(state.feedTargetFid)}` : '#feed');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2733,6 +2793,7 @@ function deskSortedPosts() {
   const posts = [...state.deskCasts];
   if (state.deskSort.posts === 'newest') posts.sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
   else if (state.deskSort.posts === 'oldest') posts.sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+  else if (posts.some((post) => Number(post.savedAt) > 0)) posts.sort((a, b) => Number(b.savedAt || 0) - Number(a.savedAt || 0));
   return posts;
 }
 
@@ -3093,7 +3154,7 @@ function toggleDeskCast(fidValue, hashValue) {
     if (!message) { setNotice('Refresh this feed before pinning that signal.', 'error'); return; }
     if (state.deskCasts.length >= 8) { setNotice('Your Desk has room for 8 saved signals. Remove one to make space.'); return; }
     const profile = state.people.get(fid) || { username: `fid-${fid}`, name: `Farcaster ${fid}` };
-    state.deskCasts.unshift({ fid, hash, username: String(profile.username || `fid-${fid}`).slice(0, 32), text: String(message.data?.castAddBody?.text || '').slice(0, 500), timestamp: Number(message.data?.timestamp) || 0, label: '', note: '' });
+    state.deskCasts.unshift({ fid, hash, username: String(profile.username || `fid-${fid}`).slice(0, 32), text: String(message.data?.castAddBody?.text || '').slice(0, 500), timestamp: Number(message.data?.timestamp) || 0, savedAt: Date.now(), label: '', note: '' });
   }
   try { localStorage.setItem(DESK_CASTS_STORAGE, JSON.stringify(state.deskCasts)); }
   catch { state.deskCasts = previous; setNotice('This browser could not save the Desk signal.', 'error'); return; }
@@ -3224,7 +3285,7 @@ function setBoardMode(mode) {
   $('#feed-caption').textContent = logMode
     ? 'Saved on this device.'
     : state.feedMode === 'profile' ? `@${state.people.get(state.feedTargetFid)?.username || 'this profile'}` : feedDescription();
-  $('#feed-filters').hidden = logMode || !state.casts.length;
+  $('#feed-filters').hidden = logMode;
   $('#composer').hidden = !state.signerReady || logMode || (state.feedMode === 'profile' && !state.parent);
   renderFeed();
   restoreFeedScroll();
@@ -3959,6 +4020,18 @@ function saveComposerDraft() {
   } catch { if (status) status.textContent = 'Draft could not be saved in this browser.'; }
 }
 
+function setComposerExpanded(expanded, { focus = false } = {}) {
+  const composer = $('#composer');
+  const toggle = $('#composer-toggle');
+  if (!composer || !toggle) return;
+  const open = Boolean(expanded);
+  composer.classList.toggle('is-expanded', open);
+  toggle.setAttribute('aria-expanded', String(open));
+  const mark = toggle.querySelector('.composer-toggle-mark');
+  if (mark) mark.textContent = open ? '−' : '＋';
+  if (focus && open) requestAnimationFrame(() => $('#composer-text')?.focus({ preventScroll: true }));
+}
+
 function restoreComposerDraft(fid) {
   state.parent = null; state.threadRoot = null; state.threadItems = []; state.threadPending = null; state.pendingCast = null;
   setPendingCastControls(false);
@@ -3994,6 +4067,7 @@ function restoreComposerDraft(fid) {
     setComposerSubmitLabel('Resume saved post');
     $('#draft-status').textContent = 'A signed post is waiting for confirmation. Resume it to avoid creating a duplicate.';
   }
+  setComposerExpanded(Boolean(state.pendingCast || $('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.threadItems.length || state.threadPending));
   renderThreadDraft();
 }
 
@@ -4008,6 +4082,7 @@ function clearCurrentDraft() {
   $('#composer-label').textContent = 'Write a cast';
   $('#composer-text').placeholder = 'What’s on your mind?';
   $('#draft-discard').hidden = true;
+  setComposerExpanded(false);
   saveComposerDraft();
 }
 
@@ -4015,7 +4090,7 @@ function setPendingCastControls(pending) {
   $('#composer-text').readOnly = pending;
   $('#composer-media-url').disabled = pending;
   $('#composer')?.querySelectorAll('button').forEach((button) => {
-    if (button.type === 'submit' || button.id === 'draft-discard') return;
+    if (button.type === 'submit' || button.id === 'draft-discard' || button.id === 'composer-toggle') return;
     button.disabled = pending;
   });
   const submit = $('#composer-submit');
@@ -4442,23 +4517,16 @@ for (const [selector, key] of [['#filter-replies', 'repliesOnly'], ['#filter-med
     renderFeed();
   });
 }
-$('#feed-quick-controls')?.addEventListener('change', (event) => {
+$('#feed-filters')?.addEventListener('change', (event) => {
   const setting = event.target.dataset.quickSetting;
   if (!setting) return;
   if (setting === 'remoteMediaEnabled') { setRemoteMediaEnabled(event.target.checked); return; }
   const paired = { compactMode: '#compact-mode', repliesOnly: '#filter-replies', mediaOnly: '#filter-media', appsOnly: '#filter-apps', groupRepeats: '#group-repeats' }[setting];
   const target = paired ? $(paired) : null;
-  if (target) { target.checked = event.target.checked; target.dispatchEvent(new Event('change', { bubbles: true })); }
+  if (target && target !== event.target) { target.checked = event.target.checked; target.dispatchEvent(new Event('change', { bubbles: true })); }
   syncQuickControls();
 });
 syncQuickControls();
-$('#quick-controls-more')?.addEventListener('click', () => {
-  const filters = $('#feed-filters');
-  if (!filters) return;
-  filters.hidden = false; filters.open = true;
-  filters.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  filters.querySelector('summary')?.focus({ preventScroll: true });
-});
 document.addEventListener('change', (event) => {
   const coverSelect = event.target.closest('[data-cover-fid]');
   if (!coverSelect) return;
@@ -4475,10 +4543,6 @@ function setRemoteMediaEnabled(enabled) {
   setNotice(state.remoteMediaEnabled ? 'Post images and GIFs are on. Media hosts can see your IP address.' : 'Post images and GIFs are off. Profile photos still load automatically.', state.remoteMediaEnabled ? 'pending' : 'success');
   syncQuickControls();
 }
-document.addEventListener('change', (event) => {
-  if (!event.target.matches('#external-images')) return;
-  setRemoteMediaEnabled(event.target.checked);
-});
 const commandPalette = $('#command-palette');
 const commandQuery = $('#command-query');
 const shortcutPlatform = navigator.userAgentData?.platform || navigator.platform || '';
@@ -4590,6 +4654,7 @@ $('#command-items').addEventListener('click', (event) => {
     if (state.feedMode === 'profile') setFeedTab('following');
     navigate('feed');
     if (!state.signerReady) { openConnectDialog(); return; }
+    setComposerExpanded(true);
     requestAnimationFrame(() => { $('#composer-text').focus({ preventScroll: true }); $('#composer-text').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
     return;
   }
@@ -4632,6 +4697,7 @@ document.addEventListener('keydown', (event) => {
   if (key === '4') { event.preventDefault(); navigate('feed'); setBoardMode('flight-log'); return; }
   if (key === 'c' && state.signerReady && state.boardMode !== 'flight-log') {
     event.preventDefault();
+    setComposerExpanded(true);
     $('#composer-text').focus();
     $('#composer-text').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
@@ -4706,6 +4772,10 @@ window.addEventListener('pagehide', clearRecoveryImport);
 window.addEventListener('beforeunload', clearRecoveryImport);
 $('#connect-dialog').addEventListener('close', () => { clearRecoveryImport(); clearWalletReview(); });
 $('#connect-dialog').addEventListener('click', (event) => { if (event.target === $('#connect-dialog')) $('#connect-dialog').close(); });
+$('#composer-toggle').addEventListener('click', () => {
+  const opening = !$('#composer').classList.contains('is-expanded');
+  setComposerExpanded(opening, { focus: opening });
+});
 $('#composer-text').addEventListener('input', (event) => {
   const field = event.currentTarget;
   if (utf8ByteLength(field.value) > CAST_USER_LIMIT) {
@@ -5030,6 +5100,34 @@ document.addEventListener('click', async (event) => {
     await shareOrCopyLink(url.href, { title: 'Castonaut', text: 'A Farcaster client with a personal Desk.', copiedMessage: 'Castonaut link' });
     return;
   }
+  const castProfile = event.target.closest('[data-cast-profile]');
+  if (castProfile) {
+    if (!state.signerReady) { openConnectDialog(); return; }
+    const fid = Number(castProfile.dataset.castProfile);
+    const profile = state.people.get(fid) || { fid, username: `fid-${fid}`, name: `Farcaster ${fid}` };
+    const username = String(profile.username || '');
+    const profileUrl = originalProfileUrl(profile) || (() => { const url = new URL(`${location.pathname}${location.search}`, location.origin); url.hash = `profile=${fid}`; return url.href; })();
+    const introduction = /^[a-z\d._-]{1,32}$/i.test(username) && !/^fid-\d+$/.test(username)
+      ? `Take a look at ${localProfileName(profile)} on Farcaster:`
+      : 'Take a look at this Farcaster profile:';
+    const castText = `${introduction}\n${profileUrl}`;
+    navigate('feed');
+    if (state.boardMode !== 'signals') setBoardMode('signals');
+    await loadFeed(state.fid, 'following');
+    state.parent = null;
+    const composer = $('#composer-text');
+    const existing = composer.value.trimEnd();
+    const separator = existing ? `${existing}\n\n` : '';
+    composer.value = `${separator}${castText}`;
+    composer.setSelectionRange(composer.value.length, composer.value.length);
+    $('#composer-label').textContent = 'Cast profile';
+    $('#composer').hidden = false;
+    setComposerExpanded(true);
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    composer.focus();
+    $('#composer').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+    return;
+  }
   const shareCast = event.target.closest('[data-share-cast]');
   if (shareCast) {
     const url = new URL(`${location.pathname}${location.search}`, location.origin);
@@ -5043,18 +5141,6 @@ document.addEventListener('click', async (event) => {
       title: `Cast by @${profile?.username || `fid-${fid}`}`,
       text: castText ? castText.slice(0, 240) : 'Open this conversation on Castonaut.',
       copiedMessage: 'Cast link',
-    });
-    return;
-  }
-  const shareProfile = event.target.closest('[data-copy-profile]');
-  if (shareProfile) {
-    const fid = Number(shareProfile.dataset.copyProfile);
-    const url = new URL(`${location.pathname}${location.search}`, location.origin); url.hash = `profile=${fid}`;
-    const profile = state.people.get(fid);
-    await shareOrCopyLink(url.href, {
-      title: `@${profile?.username || `fid-${fid}`} on Castonaut`,
-      text: `See ${localProfileName(profile || { username: `fid-${fid}`, fid })} on Castonaut.`,
-      copiedMessage: 'Profile link',
     });
     return;
   }
@@ -5087,7 +5173,12 @@ document.addEventListener('click', async (event) => {
     renderFeed(); return;
   }
   const profileTab = event.target.closest('[data-profile-tab]');
-  if (profileTab) { state.profileTab = ['media', 'replies'].includes(profileTab.dataset.profileTab) ? profileTab.dataset.profileTab : 'posts'; renderProfileSummary(); renderFeed(); return; }
+  if (profileTab) {
+    state.profileTab = ['media', 'replies'].includes(profileTab.dataset.profileTab) ? profileTab.dataset.profileTab : 'posts';
+    renderProfileSummary(); renderFeed();
+    requestAnimationFrame(() => $('#profile-timeline-controls [aria-selected="true"]')?.focus({ preventScroll: true }));
+    return;
+  }
   const profilePin = event.target.closest('[data-profile-pin]');
   if (profilePin) {
     await toggleDeskPin(profilePin.dataset.profilePin, null);
@@ -5117,6 +5208,7 @@ document.addEventListener('click', async (event) => {
       updateFeedTabs();
       if (state.feedMode === 'friends') await loadFeed(state.fid, 'friends');
       else renderFeed();
+      renderSuggestedPeople();
       if (state.feedMode === 'profile' && Number(state.feedTargetFid) === targetFid) renderProfileSummary();
       setNotice(state.friendFids.includes(targetFid) ? 'Added to Top people on this device.' : 'Removed from Top people.', 'success'); return;
     }
@@ -5143,6 +5235,7 @@ document.addEventListener('click', async (event) => {
       state.parent = { fid: targetFid, hash: button.dataset.hash };
       $('#composer-label').textContent = `Reply to ${profileLabel(state.people.get(targetFid), targetFid)}`;
       $('#composer').hidden = false;
+      setComposerExpanded(true);
       $('#composer-text').placeholder = `Replying to ${profileLabel(state.people.get(targetFid), targetFid)}…`;
       $('#composer-text').focus(); $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
@@ -5159,6 +5252,7 @@ document.addEventListener('click', async (event) => {
       field.setSelectionRange(beforeQuote.length, beforeQuote.length);
       $('#composer-label').textContent = 'Quote cast · add a thought';
       $('#composer').hidden = false;
+      setComposerExpanded(true);
       field.dispatchEvent(new Event('input', { bubbles: true }));
       field.focus();
       $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });

@@ -212,6 +212,12 @@ img{max-width:100%}
 .profile-cover{position:relative;min-height:130px;padding:58px 15px 15px;border-radius:6px;background:linear-gradient(120deg,#d6c1dc,#f0d9c8 52%,#d2dfd0);overflow:hidden}
 .profile-cover[data-cover="dawn"]{background:linear-gradient(120deg,#f2c5a5,#f7e0c5 52%,#d8c7d9)}.profile-cover[data-cover="orbit"]{background:radial-gradient(circle at 80% 20%,#735e92 0 2px,transparent 3px),radial-gradient(circle at 28% 35%,#fff7d2 0 1px,transparent 2px),linear-gradient(120deg,#343452,#74628e 55%,#c7a9bc)}.profile-cover[data-cover="dusk"]{background:linear-gradient(120deg,#45566a,#8b8196 55%,#e0a984)}
 .profile-cover[data-cover="platinum"]{background:repeating-linear-gradient(0deg,#ffffff18 0 1px,#6d687512 1px 2px),linear-gradient(120deg,#e3e1e7,#f4f1f2 48%,#c9c5d0)}
+.profile-cover[data-cover="hypercard"]{background:repeating-linear-gradient(0deg,#ffffff20 0 1px,#b8a66b10 1px 3px),linear-gradient(125deg,#f4e7bc,#fbf5dd 52%,#d7dfcc)}
+.profile-cover[data-cover="hypercard"]:before{border-style:dashed;border-color:#9c774c55}
+.profile-cover[data-cover="cyberpunk"]{background:linear-gradient(125deg,#17172d,#292346 52%,#482d58)}
+.profile-cover[data-cover="cyberpunk"]:before{border-color:#7cf4ef55;box-shadow:0 0 0 12px #7cf4ef0c,0 0 0 34px #f45dd40a,0 0 0 62px #7cf4ef08}
+.profile-cover[data-cover="manga"]{background:repeating-linear-gradient(135deg,#171717 0 1px,#fff 1px 8px,#fff 8px 12px)}
+.profile-cover[data-cover="manga"]:before{border:2px solid #171717;box-shadow:0 0 0 12px #17171712,0 0 0 34px #1717170a,0 0 0 62px #17171708}
 .profile-cover-image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.62}.profile-summary-main{position:relative;z-index:1}.profile-summary-avatar{flex:none}.profile-tabs{display:flex;gap:6px;padding:10px 0 0;border-bottom:1px solid var(--station-line)}
 .analytics-choice{display:flex;align-items:flex-start;gap:10px;max-width:650px;margin-top:16px;padding:12px;border:1px solid var(--station-line);border-radius:7px;background:var(--station-soft);cursor:pointer}.analytics-choice input{width:17px;height:17px;flex:none;margin:2px 0 0;accent-color:var(--station-accent)}.analytics-choice span{display:grid;gap:3px}.analytics-choice strong{color:var(--station-ink);font-size:11px}.analytics-choice small{color:#6a6371;font-size:10px;line-height:1.55}.legal-inline-link{display:inline-block;margin-top:10px;font-size:10px;font-weight:700}
 .legal-links{display:flex;align-items:center;flex-wrap:wrap;gap:13px}.legal-links a{color:var(--station-accent);font:600 9px var(--display);text-decoration:none}.legal-links a:hover{text-decoration:underline;text-underline-offset:3px}
@@ -1724,7 +1730,7 @@ html[data-theme="night-radio"] .node-journey:before{border-color:color-mix(in sr
 .feed-layout[data-profile-view="true"]{grid-template-columns:minmax(0,1fr);gap:0}
 .feed-layout[data-profile-view="true"]>.right-column{display:none}
 .feed-window[data-profile-view="true"]>.profile-summary{order:0;margin:12px 18px 0;padding:12px}
-.feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:190px;padding:clamp(22px,4vw,42px);display:flex;align-items:flex-end}
+.feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:224px;padding:clamp(24px,4vw,42px);display:flex;align-items:flex-end}
 .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-main{width:100%;grid-template-columns:72px minmax(0,1fr);gap:14px 18px;padding:18px}
 .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-avatar{width:72px;height:72px;border-radius:15px}
 .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-identity .profile-summary-bio{max-width:78ch;font-size:13px;line-height:1.65}
@@ -1737,7 +1743,7 @@ html[data-theme="night-radio"] .node-journey:before{border-color:color-mix(in sr
 .profile-timeline-controls .profile-pinned-slot{margin:10px 0 0}
 @media(max-width:760px){
   .feed-window[data-profile-view="true"]>.profile-summary{margin:9px 10px 0;padding:8px}
-  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:160px;padding:16px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:184px;padding:16px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-main{grid-template-columns:58px minmax(0,1fr);gap:10px 12px;padding:13px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-avatar{width:58px;height:58px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-actions{grid-column:1/-1}
@@ -1746,7 +1752,7 @@ html[data-theme="night-radio"] .node-journey:before{border-color:color-mix(in sr
 }
 @media(max-width:480px){
   .feed-window[data-profile-view="true"]>.profile-summary{margin:7px 5px 0;padding:6px}
-  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:145px;padding:10px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:166px;padding:10px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-main{grid-template-columns:48px minmax(0,1fr);gap:8px 10px;padding:10px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-avatar{width:48px;height:48px;border-radius:10px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-actions>.button,.feed-window[data-profile-view="true"]>.profile-summary .profile-more-options>summary{min-height:38px}
@@ -2466,6 +2472,7 @@ html[data-theme="night-radio"] .post-card{border-color:color-mix(in srgb,var(--s
 .profile-summary-main{gap:14px;padding:12px;border:1px solid color-mix(in srgb,var(--station-card) 70%,white);background:color-mix(in srgb,var(--station-card) 76%,transparent);box-shadow:0 2px 8px color-mix(in srgb,var(--station-ink) 5%,transparent)}
 .profile-summary-avatar{border-radius:10px;border:2px solid var(--station-card);box-shadow:0 1px 0 color-mix(in srgb,var(--station-ink) 20%,transparent)}
 .profile-summary-identity h3{font-size:18px}
+.profile-summary-kicker{display:block;margin-bottom:4px;color:var(--station-copy-muted);font:8px var(--mono);letter-spacing:.14em}
 .profile-summary-identity p{font-size:10px}
 .profile-summary-identity .profile-summary-bio{max-width:56ch;font-size:11px;line-height:1.55}
 .profile-summary-actions .button,.profile-more-options>summary{border-radius:4px;box-shadow:0 1px 0 color-mix(in srgb,var(--station-ink) 12%,transparent);font-size:10px}
@@ -3960,7 +3967,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 @media(max-width:620px){
   .feed-window[data-profile-view="true"]>.feed-quick-controls{display:none!important}
   .feed-window[data-profile-view="true"]>.profile-summary{margin:12px 4px 0;padding:9px;border-radius:12px}
-  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:0;padding:14px;border-radius:10px}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:176px;padding:14px;border-radius:10px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-main{grid-template-columns:56px minmax(0,1fr);align-items:center;gap:12px;padding:14px;border-radius:10px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-avatar{width:56px;height:56px;border-radius:12px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-identity{align-self:center;display:grid;gap:4px}
@@ -3971,7 +3978,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 }
 @media(max-width:380px){
   .feed-window[data-profile-view="true"]>.profile-summary{margin:10px 3px 0;padding:8px}
-  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:0;padding:11px;display:block}
+  .feed-window[data-profile-view="true"]>.profile-summary .profile-cover{min-height:164px;padding:11px;display:block}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-main{grid-template-columns:52px minmax(0,1fr);gap:10px;padding:12px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-avatar{width:52px;height:52px}
   .feed-window[data-profile-view="true"]>.profile-summary .profile-summary-identity h3{font-size:19px}
@@ -4014,10 +4021,6 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .feed-toolbar-actions>.feed-view-controls{grid-template-columns:minmax(0,1fr);width:auto}
   .feed-view-controls>.board-tab{min-height:32px;padding-inline:8px;font-size:9px}
 }
-
-/* Feed shortcuts stay in the phone dock; desktop already has the feed switcher. */
-.nav-mobile-feed-destination{display:none!important}
-@media(max-width:620px){.nav-mobile-feed-destination{display:flex!important}}
 
 /* Narrow-screen finish: keep status, shortcuts, and post controls within 320px. */
 @media(max-width:620px){

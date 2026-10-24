@@ -48,13 +48,13 @@
           <span><strong>castonaut</strong><small>FARCASTER · CLIENT</small></span>
         </a>
         <nav class="nav-list" aria-label="Castonaut destinations">
+          <a class="nav-item nav-destination nav-feed-destination" href="#feed" data-feed-destination="following" aria-label="Following"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span><small>Recent posts from follows</small></a>
+          <a class="nav-item nav-destination nav-feed-destination" href="#feed" data-feed-destination="friends" aria-label="Top people"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span><span class="nav-count" id="friend-count" hidden>0</span><small>Your handpicked circle</small></a>
+          <a class="nav-item nav-destination nav-feed-destination" href="#feed" data-feed-destination="discover" aria-label="Discover"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span><small>Find people through your graph</small></a>
           <p class="rail-label nav-section-label" aria-hidden="true">PERSONAL</p>
           <a class="nav-item" href="#my-desk" data-view="desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
           <a class="nav-item" href="#people-search" data-view="search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span><kbd id="search-shortcut-hint" aria-hidden="true">⌘K</kbd></a>
           <a class="nav-item" href="#profile" data-view="profile" aria-label="Your profile" title="Your profile and local appearance"><span class="nav-symbol" aria-hidden="true">◉</span><span>Profile</span></a>
-          <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="following" aria-label="Following"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span></a>
-          <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="friends" aria-label="Top people"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span></a>
-          <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="discover" aria-label="Discover"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span></a>
           <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><a class="nav-more-link nav-more-mobile" href="#my-desk" data-view="desk"><span>Desk</span><small>Your saved people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#people-search" data-view="search"><span>Search</span><small>Find people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#profile" data-view="profile"><span>Profile</span><small>Your profile and settings</small></a><a class="nav-more-link" href="#feed" data-saved-feed><span>Saved posts</span><small>Posts saved on this device</small></a><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>How Castonaut works</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Community notes</small></a><a class="nav-more-link" href="#about" data-view="node"><span>Node</span><small>Connection and setup</small></a><a class="nav-more-link nav-more-mobile" href="/privacy.html"><span>Privacy</span></a><a class="nav-more-link nav-more-mobile" href="/terms.html"><span>Terms</span></a><a class="nav-more-link nav-more-mobile" href="/tutorial.html#security"><span>Security</span></a></div></details>
         </nav>
       </aside>
@@ -179,7 +179,7 @@
                 <details class="portal-extras">
                   <summary>Account &amp; safety</summary>
                   <div class="portal-extras-content">
-                    <small>Use a linked wallet or sign in with your recovery phrase. Page code can read a phrase while you enter it, so use only a deployment and device you trust. The separate app key can post or delete casts, follow, react, and recast, but cannot move funds. Your Desk and saved posts stay in this browser.</small>
+                    <small>Sign in with your Farcaster recovery phrase to authorize a separate, limited app key. Page code can read the phrase while you enter it, so use only a deployment and device you trust. The key can post or delete casts, follow, react, and recast, but cannot move funds. Your Desk and saved posts stay in this browser.</small>
                     <div class="station-voice"><label for="voice-profile">Listen <span>·</span></label><select id="voice-profile" aria-label="Choose a station voice"><option value="navigator">Mae · Navigator</option><option value="radio">Quinn · Radio host</option><option value="archivist">Jules · Archivist</option></select><button type="button" id="voice-play" aria-label="Listen to the station introduction">▶</button><audio id="station-audio" preload="none"></audio></div>
                   </div>
                 </details>
@@ -253,7 +253,6 @@
                 <div class="feed-toolbar">
                   <div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
                   <div class="feed-toolbar-actions">
-                    <div class="board-switch" role="group" aria-label="Choose a feed"><button type="button" class="board-tab is-active" id="show-following" data-feed-tab="following" aria-pressed="true">Following</button><button type="button" class="board-tab" id="show-friends" data-feed-tab="friends" aria-pressed="false">Top people <span id="friend-count">0</span></button></div>
                     <div class="feed-view-controls" role="group" aria-label="Feed sorting"><button type="button" class="board-tab" id="show-popular" aria-pressed="false" aria-label="Show popular posts" title="Switch between newest and popular posts">Popular</button></div>
                     <span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button>
                   </div>
@@ -263,20 +262,8 @@
                   <span class="feed-status-network"><i class="feed-status-led" id="feed-status-led" aria-hidden="true"></i><strong id="feed-status-network">Checking node</strong></span>
                   <span class="feed-status-activity" id="feed-status-activity" role="status" aria-live="polite">Waiting for a feed check</span>
                 </div>
-                <details class="feed-quick-controls" id="feed-quick-controls">
-                  <summary><span aria-hidden="true">☷</span> Quick controls</summary>
-                  <div class="quick-control-list" aria-label="Quick feed settings">
-                    <label><input type="checkbox" data-quick-setting="compactMode" /><span>Compact layout</span></label>
-                    <label title="Loads images and GIFs from their original hosts, which can see your IP address."><input type="checkbox" data-quick-setting="remoteMediaEnabled" /><span>Post media</span></label>
-                    <label title="Limit this feed to replies."><input type="checkbox" data-quick-setting="repliesOnly" /><span>Replies only</span></label>
-                    <label title="Limit this feed to posts with images, GIFs, or video."><input type="checkbox" data-quick-setting="mediaOnly" /><span>Media only</span></label>
-                    <label title="Limit this feed to posts with app or website links."><input type="checkbox" data-quick-setting="appsOnly" /><span>Apps &amp; links only</span></label>
-                    <label><input type="checkbox" data-quick-setting="groupRepeats" /><span>Group repeated links</span></label>
-                  </div>
-                  <button type="button" class="quick-controls-more" id="quick-controls-more">All filters &amp; sources ↗</button>
-                </details>
                 <section class="suggested-panel" id="suggested-panel" aria-labelledby="suggested-title" hidden>
-                  <div class="suggested-panel-head"><div><span class="overline">FROM YOUR FOLLOW GRAPH</span><h3 id="suggested-title">People to discover</h3><p>Ranked by how many people you follow also follow them.</p></div><button type="button" class="icon-button" id="suggested-close" aria-label="Close suggestions">×</button></div>
+                  <div class="suggested-panel-head"><div><span class="overline">FROM YOUR FOLLOW GRAPH</span><h3 id="suggested-title">People to discover</h3><p>People your follows know. Follow them on Farcaster or add them to Top people on this device.</p></div><button type="button" class="icon-button" id="suggested-close" aria-label="Close suggestions">×</button></div>
                   <div class="suggested-list" id="suggested-list" aria-live="polite"></div>
                 </section>
                 <section class="profile-summary" id="profile-summary" aria-live="polite" tabindex="-1" hidden></section>
@@ -291,6 +278,8 @@
                   <div class="pulse-content"><div class="pulse-stats" id="pulse-stats"></div><p class="pulse-insight" id="pulse-insight"></p></div>
                 </details>
                 <form class="composer" id="composer" hidden>
+                  <button type="button" class="composer-toggle" id="composer-toggle" aria-expanded="false" aria-controls="composer-content"><span>Write a cast</span><span class="composer-toggle-mark" aria-hidden="true">＋</span></button>
+                  <div class="composer-content" id="composer-content">
                   <label class="composer-label" id="composer-label" for="composer-text">Write a cast</label>
                   <textarea id="composer-text" rows="3" placeholder="What’s on your mind?"></textarea>
                   <section class="composer-media" id="composer-media" hidden>
@@ -320,24 +309,26 @@
                   <div class="composer-bottom"><small id="draft-status" role="status" aria-live="polite"></small><div><details class="emoji-picker"><summary class="button button-outline" aria-label="Add emoji" aria-haspopup="dialog">Emoji</summary><div class="emoji-picker-popover" role="dialog" aria-label="Choose an emoji"><label class="sr-only" for="emoji-search">Search emoji</label><input id="emoji-search" class="emoji-search" type="search" placeholder="Search emoji…" autocomplete="off" /><div class="emoji-picker-grid" id="emoji-picker-grid" role="group" aria-label="Emoji results"></div><small class="emoji-search-status" id="emoji-search-status" aria-live="polite"></small></div></details><button type="button" class="button button-outline" id="composer-media-toggle" aria-label="GIFs and images" title="GIFs and images"><span class="composer-action-full">GIFs &amp; images</span><span class="composer-action-short" aria-hidden="true">GIF</span></button><button type="button" class="button button-outline thread-add" id="thread-add" aria-label="Add to thread" title="Add to thread"><span class="composer-action-full">Add to thread</span><span class="composer-action-short" aria-hidden="true">Thread</span></button><span id="char-count">0 / 969 bytes</span><button type="submit" class="button button-orange" id="composer-submit">Post</button></div></div>
                   <section class="thread-draft" id="thread-draft" aria-labelledby="thread-draft-title" hidden><div class="thread-draft-head"><strong id="thread-draft-title">Thread draft</strong><span id="thread-draft-count"></span></div><ol id="thread-draft-items"></ol><p id="thread-draft-status" role="status" aria-live="polite"></p><button type="button" class="button button-orange" id="thread-publish">Publish thread</button></section>
                   <button type="button" class="draft-discard" id="draft-discard" hidden>Discard this draft</button>
+                  </div>
                 </form>
                 <details class="feed-filters" id="feed-filters" hidden>
-                  <summary class="feed-filter-summary" id="feed-filter-summary">Filters</summary>
+                  <summary class="feed-filter-summary" id="feed-filter-summary">View &amp; filters</summary>
                   <div class="feed-filter-options">
                     <div class="feed-filter-section"><div class="feed-filter-section-head"><strong>Posts</strong><button type="button" class="filter-reset" id="clear-feed-filters">Clear filters</button></div>
                     <label class="source-control loaded-search-control" for="loaded-search"><span>Find in loaded posts</span><input id="loaded-search" type="search" maxlength="100" placeholder="Words, person, or link" autocomplete="off" /></label>
-                    <label class="feed-option-control"><input id="filter-replies" type="checkbox" /><span>Replies only</span></label>
-                    <label class="feed-option-control"><input id="filter-media" type="checkbox" /><span>Media only</span></label>
-                    <label class="feed-option-control" title="Mini Apps appear as URL embeds in cast data; regular website links may match too."><input id="filter-apps" type="checkbox" /><span>App &amp; link embeds</span></label>
-                    <label class="feed-option-control" id="orbit-only-control"><input id="orbit-only" type="checkbox" /><span>Pinned people only</span></label>
+                    <label class="feed-option-control"><input id="filter-replies" data-quick-setting="repliesOnly" type="checkbox" /><span>Replies only</span></label>
+                    <label class="feed-option-control"><input id="filter-media" data-quick-setting="mediaOnly" type="checkbox" /><span>Media only</span></label>
+                    <label class="feed-option-control" title="Mini Apps appear as URL embeds in cast data; regular website links may match too."><input id="filter-apps" data-quick-setting="appsOnly" type="checkbox" /><span>Apps &amp; links</span></label>
+                    <label class="feed-option-control" id="orbit-only-control"><input id="orbit-only" data-quick-setting="orbitOnly" type="checkbox" /><span>Pinned people only</span></label>
                     </div>
                     <fieldset class="feed-filter-section client-source-section"><legend>Client source</legend><p>Filter by the app that signed posts. Enter that app’s FID.</p>
                       <label class="source-control" for="source-fid"><span>App FID</span><input id="source-fid" type="number" min="1" placeholder="Any app" /></label>
                       <label class="source-control" for="source-mode"><span>Match</span><select id="source-mode" class="source-mode"><option value="include">Only this app</option><option value="exclude">Hide this app</option></select></label>
                     </fieldset>
                     <div class="feed-filter-section display-filter-section"><strong>Display</strong>
-                      <label class="feed-option-control"><input id="compact-mode" type="checkbox" /><span>Compact view</span></label>
-                      <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" type="checkbox" checked /><span>Group repeats</span></label>
+                      <label class="feed-option-control"><input id="compact-mode" data-quick-setting="compactMode" type="checkbox" /><span>Compact layout</span></label>
+                      <label class="feed-option-control" id="group-repeats-control"><input id="group-repeats" data-quick-setting="groupRepeats" type="checkbox" checked /><span>Group repeated links</span></label>
+                      <label class="feed-option-control" title="Media comes from original hosts, which can see your IP address."><input type="checkbox" data-quick-setting="remoteMediaEnabled" /><span>Load post media</span></label>
                     </div>
                     <div class="muted-manager" id="muted-manager" hidden><span>Hidden people &amp; topics</span><div id="muted-items"></div></div>
                     <p class="keyboard-help"><kbd>1</kbd> Following <kbd>2</kbd> Top people <kbd>3</kbd> Discover <kbd>4</kbd> Saved <kbd>J</kbd>/<kbd>K</kbd> Move <kbd>C</kbd> Compose <kbd>?</kbd> Help</p>
@@ -380,6 +371,12 @@
             <div class="node-journey-head"><div><span class="overline">OPTIONAL NODE</span><h2 id="node-journey-title">Connect your own.</h2><p>Check status, costs, and setup.</p></div><div class="node-journey-status"><span class="node-led" id="node-journey-led"></span><span><strong id="node-journey-state">Checking configured node…</strong><small id="node-journey-detail">Client feed node.</small></span></div></div>
               <div class="node-journey-steps"><article><span>01 / CHECK</span><h3>Readiness</h3><p>Version · shards · delay</p></article><article><span>02 / PREPARE</span><h3>Costs</h3><p>Compute · disk · cleanup</p></article><article><span>03 / CONNECT</span><h3>Your route</h3><p>Local requests show your IP.</p></article></div>
               <div class="node-journey-actions"><button type="button" class="button button-outline" id="node-journey-check">Check node</button><a class="button button-orange" href="/tutorial.html#quickstart">Open quickstart ↗</a></div>
+            </section>
+            <section class="node-chain-panel" aria-labelledby="node-chain-title">
+              <div class="node-chain-head"><div><span class="overline">LIVE SNAPCHAIN DATA</span><h2 id="node-chain-title">Chain status</h2><p>Shard heights and indexed message totals from the connected node.</p></div><span class="node-chain-updated" id="node-chain-updated" role="status">Waiting for a node check</span></div>
+              <div class="node-chain-summary" aria-label="Network summary"><div><span>NODE VERSION</span><strong id="chain-version">—</strong></div><div><span>SHARDS TRACKED</span><strong id="chain-shard-count">—</strong></div><div><span>MESSAGES INDEXED</span><strong id="chain-message-count">—</strong></div></div>
+              <div class="node-shard-list" id="shard-list" aria-live="polite"><p class="node-chain-empty">Check the node to load shard heights and message counts.</p></div>
+              <p class="node-chain-note">Block delay is the node’s reported freshness for each shard. Heights are per-shard and do not represent a single global block number.</p>
             </section>
             <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Follow everyone you care about, then keep your closest people within reach.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
             <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Your space stays yours.</h2><p>Desk, notes, and saves stay here. Remote images can reveal your IP. Analytics are optional.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share visit statistics</strong><small>Optional page views. Your choice stays on this device; URL details are removed.</small></span></label><a class="legal-inline-link" href="/privacy.html">Privacy details</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
