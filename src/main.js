@@ -116,7 +116,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, DESK_SORT_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 function loadDeskSortPreferences() {
   let stored = {};
   try { stored = JSON.parse(localStorage.getItem(DESK_SORT_STORAGE) || '{}'); } catch { /* Use the recent-first defaults. */ }
@@ -159,7 +159,7 @@ function setStationTone() {
   document.documentElement.dataset.stationTone = hour < 10 ? 'morning' : hour < 16 ? 'day' : hour < 20 ? 'evening' : 'night';
 }
 function setTheme(theme) {
-  const validThemes = ['atlas', 'soft-reset', 'night-radio'];
+  const validThemes = ['atlas', 'soft-reset', 'night-radio', 'cyberpunk', 'manga-ink'];
   const selected = validThemes.includes(theme) ? theme : 'atlas';
   if (theme === 'orbit-glass') {
     try { localStorage.setItem(THEME_STORAGE, 'atlas'); } catch { /* The default remains active for this visit. */ }
@@ -695,7 +695,7 @@ function validateLocalBackup(value) {
     let parsed;
     if ([THEME_STORAGE, VOICE_STORAGE, CREW_NAME_STORAGE, DESK_NOTEPAD_STORAGE].includes(key)) parsed = raw;
     else try { parsed = JSON.parse(raw); } catch { throw new Error(`The backup has invalid data for ${key.replace(/^castonaut\./, '')}.`); }
-    if (key === THEME_STORAGE && !['atlas', 'soft-reset', 'night-radio', 'orbit-glass'].includes(raw)) throw new Error('The backup has an unsupported theme setting.');
+    if (key === THEME_STORAGE && !['atlas', 'soft-reset', 'night-radio', 'cyberpunk', 'manga-ink', 'orbit-glass'].includes(raw)) throw new Error('The backup has an unsupported theme setting.');
     if (key === DESK_SORT_STORAGE && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || Object.entries(parsed).some(([stack, sort]) => !DESK_SORT_VALUES[stack]?.includes(sort)))) throw new Error('The backup has an invalid Desk sort preference.');
     if (key.startsWith(`${TIME_CAPSULES_STORAGE}:`)) {
       if (!Array.isArray(parsed) || parsed.length > 14 || parseTimeCapsules(raw).length !== parsed.length) throw new Error('The backup contains an invalid Time Capsule archive.');
@@ -758,6 +758,11 @@ function formatNodeDelay(seconds) {
   if (value >= 3_600) return `${Math.floor(value / 3_600)} hours`;
   if (value >= 60) return `${Math.floor(value / 60)} minutes`;
   return `${value} seconds`;
+}
+
+function maxNodeDelay() {
+  const delays = (state.nodeInfo?.shardInfos || []).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
+  return delays.length ? Math.max(...delays) : null;
 }
 
 async function checkNode() {
@@ -853,8 +858,9 @@ function renderEmpty(title, copy, action = null) {
       else if (item.type === 'search') button.addEventListener('click', () => { navigate('search'); requestAnimationFrame(() => $('#people-query').focus()); });
       else if (item.type === 'clear-source') button.addEventListener('click', () => { $('#source-fid').value = ''; $('#source-mode').value = 'include'; renderFeed(); });
       else if (item.type === 'clear-feed-filters') button.addEventListener('click', clearFeedFilters);
-      else if (item.type === 'feed') button.addEventListener('click', () => loadFeed(state.fid, item.mode));
+      else if (item.type === 'feed') button.addEventListener('click', () => setFeedTab(item.mode));
       else if (item.type === 'discover') button.addEventListener('click', toggleSuggestedPeople);
+      else if (item.type === 'node') button.addEventListener('click', () => { navigate('node'); void checkNode(); });
       else if (item.type === 'more-following') button.addEventListener('click', async () => {
         button.disabled = true;
         button.textContent = 'Checking more accounts…';
@@ -976,15 +982,19 @@ function renderFeedStatusbar() {
   account.title = state.signerReady ? `Active Farcaster account${state.fid ? ` · FID ${Number(state.fid)}` : ''}. Castonaut’s limited social key has no funds access.`
     : state.fid ? 'Account identified; social actions are paused until the signer is confirmed.' : 'Connect an account to post or react. Browsing is read-only.';
 
-  const delays = (state.nodeInfo?.shardInfos || []).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
-  const maxDelay = delays.length ? Math.max(...delays) : null;
+  const maxDelay = maxNodeDelay();
   const nodeKind = document.body.dataset.nodeState || '';
   const network = $('#feed-status-network');
   const led = $('#feed-status-led');
   const networkState = nodeKind === 'bad' ? 'unavailable' : maxDelay === null ? (state.nodeInfo ? 'unknown' : nodeKind === '' ? 'checking' : 'unknown') : maxDelay <= 10 ? 'current' : 'behind';
-  setText(network, networkState === 'current' ? 'Node current' : networkState === 'behind' ? 'Node catching up' : networkState === 'unavailable' ? 'Node unavailable' : networkState === 'checking' ? 'Checking node' : 'Freshness unknown');
+  setText(network, networkState === 'current' ? 'Node current' : networkState === 'behind' ? 'Node behind' : networkState === 'unavailable' ? 'Node unavailable' : networkState === 'checking' ? 'Checking node' : 'Freshness unknown');
   led.dataset.state = networkState;
   bar.dataset.network = networkState;
+  network.title = networkState === 'behind'
+    ? `Node data is ${formatNodeDelay(maxDelay)} behind. Posts and follow status may be out of date; follow changes are checked before signing.`
+    : networkState === 'current' ? 'The node is current. Follow changes are checked before signing.'
+      : networkState === 'unavailable' ? 'The node could not be reached. Follow status cannot be checked right now.'
+        : 'The node freshness and follow status have not been confirmed.';
 
   const activity = $('#feed-status-activity');
   setText(activity, state.feedMoreBusy ? 'Checking more followed accounts…'
@@ -993,7 +1003,10 @@ function renderFeedStatusbar() {
       : !state.nodeInfo && nodeKind === 'bad' ? 'Waiting for the node'
         : state.casts.length ? `${state.casts.length} recent ${state.casts.length === 1 ? 'post' : 'posts'} loaded`
           : 'No recent posts loaded');
-  activity.title = maxDelay !== null && maxDelay > 10 ? `The node is ${formatNodeDelay(maxDelay)} behind; new posts may be missing.` : 'Timeline loads newest first when using Recent.';
+  activity.title = maxDelay !== null && maxDelay > 10
+    ? `Node data is ${formatNodeDelay(maxDelay)} behind; feed posts and follow relationships may be incomplete.`
+    : 'Posts are newest first by default. Popular sorts the loaded posts by reactions.';
+  document.querySelectorAll('[data-action="follow"][data-fid]').forEach((button) => updateFollowButton(button, button.dataset.fid));
 }
 
 function feedWindowTitle() {
@@ -1302,6 +1315,20 @@ function renderCast(message, { priority = false } = {}) {
   const personPinned = state.deskPins.includes(fid);
   const pinAuthor = menuAction(personPinned ? '✓ Author pinned to Desk' : '⌖ Pin author to Desk', personPinned ? 'unpin-person' : 'pin-person', fid); pinAuthor.dataset.deskPrimary = 'pin'; pinAuthor.setAttribute('aria-pressed', String(personPinned)); primary.append(pinAuthor);
   const followAuthor = menuAction(state.following.get(fid) ? `✓ Following @${profile.username || `fid-${fid}`}` : `＋ Follow @${profile.username || `fid-${fid}`}`, 'follow', fid, { hash: postHash(message) }); followAuthor.dataset.deskPrimary = 'follow'; followAuthor.setAttribute('aria-pressed', String(!!state.following.get(fid))); primary.append(followAuthor);
+  more.addEventListener('toggle', () => {
+    if (!more.open || !state.fid || fid === Number(state.fid)) return;
+    const delay = maxNodeDelay();
+    if (state.following.has(fid) && !state.followStatusUnknown.has(fid) && delay !== null && delay <= 10) return;
+    followAuthor.textContent = 'Checking…';
+    followAuthor.setAttribute('aria-label', `Checking follow status for @${profile.username || `fid-${fid}`}`);
+    followAuthor.setAttribute('aria-busy', 'true');
+    followAuthor.disabled = true;
+    void refreshFollowState(fid).finally(() => {
+      if (!followAuthor.isConnected) return;
+      followAuthor.removeAttribute('aria-busy');
+      updateFollowButton(followAuthor, fid);
+    });
+  });
   menu.append(primary);
 
   const secondary = document.createElement('details'); secondary.className = 'post-more-secondary';
@@ -1588,23 +1615,43 @@ function updateFeedFilterSummary() {
 function renderSuggestedPeople() {
   const lists = [$('#suggested-list'), $('#search-network-list')].filter(Boolean);
   if (!lists.length) return;
+  const showEmpty = (message, actionLabel, action) => {
+    for (const list of lists) {
+      const empty = document.createElement('div'); empty.className = 'suggested-empty';
+      const copy = document.createElement('p'); copy.textContent = message; empty.append(copy);
+      if (actionLabel && action) {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = actionLabel;
+        button.addEventListener('click', action);
+        empty.append(button);
+      }
+      list.replaceChildren(empty);
+    }
+  };
   if (state.suggestionsBusy) {
     for (const list of lists) { const loading = document.createElement('p'); loading.className = 'suggested-empty'; loading.textContent = 'Finding people through your follows…'; list.replaceChildren(loading); }
     return;
   }
   if (!state.signerReady) {
-    for (const list of lists) { const empty = document.createElement('p'); empty.className = 'suggested-empty'; empty.textContent = 'Sign in to get recommendations from your follows.'; list.replaceChildren(empty); }
+    showEmpty('Connect your Farcaster account to check your follow graph for recommendations.');
     return;
   }
   const visibleSuggestions = state.suggestedPeople.filter((person) => !state.following.get(Number(person.fid)));
   if (!visibleSuggestions.length) {
-    const empty = document.createElement('p'); empty.className = 'suggested-empty';
-    empty.textContent = state.suggestionsError
-      ? 'Could not reach your node. Try refreshing Discover.'
-      : !state.following.size && !state.feedSources.length
-        ? 'Follow a few people first. Discover uses their public follow graphs.'
-        : 'No matches yet. Discover improves as your follow graph grows.';
-    for (const list of lists) list.replaceChildren(empty.cloneNode(true));
+    const nodeDelay = maxNodeDelay();
+    const nodeBehind = nodeDelay !== null && nodeDelay > 10;
+    if (state.suggestionsError) {
+      showEmpty(nodeBehind
+        ? `The node is ${formatNodeDelay(nodeDelay)} behind, so it could not confirm your follow graph. Suggestions may be incomplete.`
+        : 'The node could not confirm your follow graph. Your follow status was left unchanged.',
+      nodeBehind ? 'Check node status' : 'Retry suggestions',
+      nodeBehind ? () => { navigate('node'); void checkNode(); } : () => { state.suggestionsLoadedFor = 0; void loadSuggestedPeople(); });
+    } else if (!state.following.size && !state.feedSources.length) {
+      showEmpty('Discover reads the public follow graphs of people you follow. Search for an account to follow first.', 'Search people', () => { navigate('search'); requestAnimationFrame(() => $('#people-query')?.focus({ preventScroll: true })); });
+    } else if (nodeBehind) {
+      showEmpty(`No new people were confirmed in the loaded graph. The node is ${formatNodeDelay(nodeDelay)} behind, so suggestions may be incomplete.`, 'Check node status', () => { navigate('node'); void checkNode(); });
+    } else {
+      showEmpty('No new people were found in the loaded follow graph.', 'Search people', () => { navigate('search'); requestAnimationFrame(() => $('#people-query')?.focus({ preventScroll: true })); });
+    }
     return;
   }
   const fragment = document.createDocumentFragment();
@@ -1635,7 +1682,8 @@ async function loadSuggestedPeople() {
       const graph = await fetchFollowGraph(state.fid, { maxPages: 4, maxFollows: 400 });
       followed = graph.fids;
       state.following.clear();
-      for (const target of followed) state.following.set(target, true);
+      state.followStatusUnknown.clear();
+      for (const target of followed) setFollowState(target, true);
     }
     const sources = (followed.length ? followed : state.feedSources).slice(0, 4).filter((fid) => fid !== Number(state.fid));
     const groups = await mapLimit(sources, 2, async (sourceFid) => {
@@ -1647,15 +1695,22 @@ async function loadSuggestedPeople() {
     const ranked = rankFollowRecommendations(groups.filter(Boolean), { ownFid: state.fid, followingFids: alreadyKnown, limit: 5 });
     // The feed may only have loaded the first page of follows. Confirm each
     // suggestion against our node so accounts from later pages are excluded too.
+    const nodeDelay = maxNodeDelay();
+    const nodeCurrent = nodeDelay !== null && nodeDelay <= 10;
     let verificationFailed = false;
     const checked = await mapLimit(ranked, 3, async (person) => {
       try {
         await nodeRequest('linkById', { fid: state.fid, target_fid: person.fid, link_type: 'follow' }, { fresh: true });
-        state.following.set(Number(person.fid), true);
+        setFollowState(person.fid, true);
         return null;
       } catch (error) {
         if (isNotFound(error)) {
-          state.following.set(Number(person.fid), false);
+          if (!nodeCurrent) {
+            state.followStatusUnknown.add(Number(person.fid));
+            verificationFailed = true;
+            return null;
+          }
+          setFollowState(person.fid, false);
           return person;
         }
         // When relationship state is unavailable, don't guess and recommend
@@ -1732,6 +1787,10 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   if (previousFeed.mode !== state.feedMode || state.feedMode === 'profile') state.feedSort = 'recent';
   if (state.feedMode === 'profile' && (previousFeed.mode !== 'profile' || Number(previousFeed.targetFid) !== Number(fid))) state.profileTab = 'posts';
   state.feedTargetFid = state.feedMode === 'profile' ? fid : Number(state.fid);
+  const retainExistingPosts = state.boardMode === 'signals'
+    && previousFeed.mode === state.feedMode
+    && previousFeed.targetFid === Number(state.feedTargetFid)
+    && previousFeed.casts.length > 0;
   if (currentArea === 'feed') updatePrimaryNav();
   if (state.feedMode === 'following') { state.suggestedPeople = []; state.suggestionsLoadedFor = 0; $('#suggested-panel').hidden = true; $('#show-suggested')?.setAttribute('aria-expanded', 'false'); }
   state.feedSources = [];
@@ -1754,7 +1813,10 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   $('#page-label').textContent = state.feedMode === 'profile' ? 'PROFILE' : state.feedMode.toUpperCase();
   $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log' || (state.feedMode === 'profile' && !state.parent);
   const requestId = ++state.feedRequest;
-  state.casts = [];
+  // Keep the last successful timeline visible while the same feed refreshes.
+  // A slow node can take several seconds to answer, and replacing real posts
+  // with an empty loading card makes Following look broken in the meantime.
+  state.casts = retainExistingPosts ? previousFeed.casts : [];
   $('#feed-pulse').hidden = true;
   renderProfileSummary();
   state.feedBusy = true;
@@ -1767,7 +1829,9 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     $('#feed-title').textContent = feedWindowTitle();
     $('#feed-caption').textContent = state.feedMode === 'profile' ? 'Last 30 days · newest first.' : feedDescription(state.feedMode);
   }
-  renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Checking followed people in small groups for recent posts.');
+  if (!retainExistingPosts) {
+    renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Checking followed people in small groups for recent posts.');
+  }
   try {
     if (!state.nodeInfo) checkNode();
     const [followGraph, profile] = await Promise.all([
@@ -1777,7 +1841,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     const followFids = followGraph.fids;
     if (state.feedMode === 'following') {
       state.following.clear();
-      for (const target of followFids) state.following.set(target, true);
+      state.followStatusUnknown.clear();
+      for (const target of followFids) setFollowState(target, true);
       state.feedFollowComplete = followGraph.complete;
       state.feedFollowNextPageToken = followGraph.nextPageToken || '';
     }
@@ -1839,7 +1904,14 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
         return true;
       })
       .sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
-    const messages = state.feedMode === 'profile' ? newestFirst : newestFirst.slice(0, 30);
+    const fetchedMessages = state.feedMode === 'profile' ? newestFirst : newestFirst.slice(0, 30);
+    // A caught-up cache may be more useful than a successful but empty reply
+    // from a node that is still behind. Keep it until the node can return posts.
+    const keepPreviousWhileNodeCatchesUp = state.feedMode === 'following'
+      && retainExistingPosts
+      && fetchedMessages.length === 0
+      && (maxNodeDelay() ?? 0) > 10;
+    const messages = keepPreviousWhileNodeCatchesUp ? previousFeed.casts : fetchedMessages;
     state.casts = messages;
     if (state.feedSort === 'popular' && state.feedMode !== 'profile') await loadPopularScores(messages);
     if (requestId !== state.feedRequest) return false;
@@ -1857,6 +1929,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     renderFeedMore();
     updateFollowingCoverage();
     if (partialLoadFailures) setNotice(`Loaded what was available. ${partialLoadFailures} followed ${partialLoadFailures === 1 ? 'account could' : 'accounts could'} not be checked; use refresh to retry.`, 'error');
+    else if (keepPreviousWhileNodeCatchesUp) setNotice(`The node returned no recent posts. Keeping the ${messages.length} posts already loaded while it catches up.`, 'info');
     restoreFeedScroll();
     // Show posts as soon as the cast requests finish. Hydrate names and avatars
     // afterward so slower profile lookups do not hold the whole feed hostage.
@@ -1981,8 +2054,7 @@ function updateFollowingCoverage() {
   const summary = state.feedSort === 'popular'
     ? 'Popular · most liked and recast among loaded posts from your follows · last 30 days.'
     : 'Newest first · last 30 days · checking followed accounts in small groups.';
-  const delays = (state.nodeInfo?.shardInfos || []).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
-  const maxDelay = delays.length ? Math.max(...delays) : null;
+  const maxDelay = maxNodeDelay();
   caption.textContent = maxDelay !== null && maxDelay > 10
     ? `${summary} Node data is ${formatNodeDelay(maxDelay)} behind; recent posts may be missing.`
     : summary;
@@ -2004,7 +2076,7 @@ async function loadMoreFollowed() {
         state.feedFollowComplete = page.complete;
         for (const target of page.fids) {
           if (state.following.has(target)) continue;
-          state.following.set(target, true);
+          setFollowState(target, true);
           state.feedSources.push(target);
         }
         state.feedFollowTotal = state.following.size;
@@ -2109,18 +2181,27 @@ function renderFeed() {
   renderFeedPulse(messages);
   renderProfileSummary();
   renderMutedManager();
+  const nodeDelay = maxNodeDelay();
+  const nodeBehind = nodeDelay !== null && nodeDelay > 10;
   if (!messages.length) {
     const sourceFilter = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
     if (state.boardMode === 'flight-log') {
-      renderEmpty('Nothing saved yet.', 'Save a post from any feed to keep it here.');
+      renderEmpty('Nothing saved yet.', 'Save a post from any feed to keep it here.', { type: 'feed', mode: 'following', label: 'Open Following' });
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedFailedSources) {
-      renderEmpty('The node could not check your Following feed.', `${state.feedFailedSources} followed ${state.feedFailedSources === 1 ? 'account was' : 'accounts were'} unavailable. Refresh to retry or check another part of your network.`, [
-        { type: 'retry', label: 'Retry Following' }, { type: 'discover', label: 'Discover people' },
-      ]);
+      const detail = `${state.feedFailedSources} followed ${state.feedFailedSources === 1 ? 'account was' : 'accounts were'} unavailable.${nodeBehind ? ` Node data is ${formatNodeDelay(nodeDelay)} behind, so feed and relationship results may be incomplete.` : ' The node could not return their posts.'}`;
+      renderEmpty('The node could not check your Following feed.', detail, nodeBehind ? { type: 'node', label: 'Check node status' } : { type: 'retry', label: 'Retry Following' });
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedSourceOffset < state.feedSources.length) {
-      renderEmpty('Your first group is quiet.', 'Check the next people you follow. Recent posts will be mixed together by time.', { type: 'more-following', label: `Check the next ${Math.min(6, state.feedSources.length - state.feedSourceOffset)} people` });
+      if (nodeBehind) renderEmpty('The node is still catching up.', `Node data is ${formatNodeDelay(nodeDelay)} behind, so recent posts and follow relationships may be missing.`, [
+        { type: 'node', label: 'Check node status' },
+        { type: 'retry', label: 'Retry Following' },
+      ]);
+      else renderEmpty('Your first group is quiet.', 'Check the next people you follow. Recent posts will be mixed together by time.', { type: 'more-following', label: `Check the next ${Math.min(6, state.feedSources.length - state.feedSourceOffset)} people` });
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedFollowNextPageToken) {
-      renderEmpty('Your Following list continues.', 'No recent posts on this page. Check more followed accounts to keep the timeline moving.', { type: 'more-following', label: 'Check more followed accounts' });
+      if (nodeBehind) renderEmpty('The node is still catching up.', `Node data is ${formatNodeDelay(nodeDelay)} behind, so recent posts and follow relationships may be missing.`, [
+        { type: 'node', label: 'Check node status' },
+        { type: 'retry', label: 'Retry Following' },
+      ]);
+      else renderEmpty('Your Following list continues.', 'No recent posts on this page. Check more followed accounts to keep the timeline moving.', { type: 'more-following', label: 'Check more followed accounts' });
     } else if (state.feedMode === 'following' && state.casts.length && (
       state.orbitOnly || state.repliesOnly || state.mediaOnly || state.appsOnly ||
       state.activeDeskTopic || query || sourceFilter
@@ -2137,21 +2218,31 @@ function renderFeed() {
       const handle = profile?.username ? `@${profile.username}` : 'this profile';
       renderEmpty(isMediaTab ? 'No media yet.' : isRepliesTab ? 'No replies yet.' : 'No original posts yet.', `Nothing to show for ${handle}.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
     } else if (state.feedMode === 'friends' && !state.friendFids.length) {
-      renderEmpty('Your Top people list is empty.', 'Add people from a post menu or find someone to start your shortlist.', [
-        { type: 'discover', label: 'Discover people' }, { type: 'search', label: 'Search people' },
-      ]);
+      renderEmpty('Your Top people list is empty.', 'Find someone by name, then add them to this on-device shortlist.', { type: 'search', label: 'Search people' });
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedSources.length) {
       const checked = Math.max(state.feedSourceOffset, Math.min(state.feedSources.length, state.feedFollowTotal || state.feedSources.length));
-      renderEmpty('No recent posts from people you follow.', `Checked ${checked} followed accounts. Try Discover, browse your Top people, or search for an account.`, [
-        { type: 'discover', label: 'Discover people' }, { type: 'feed', mode: 'friends', label: 'Top people' }, { type: 'search', label: 'Search people' },
+      if (nodeBehind) renderEmpty('No recent posts are visible yet.', `Checked ${checked} followed accounts, but node data is ${formatNodeDelay(nodeDelay)} behind. New posts may be missing.`, [
+        { type: 'node', label: 'Check node status' },
+        { type: 'retry', label: 'Retry Following' },
+      ]);
+      else renderEmpty('No recent posts from people you follow.', `Checked ${checked} followed accounts. Discover can help you find more people to follow.`, { type: 'discover', label: 'Discover people' });
+    } else if (state.feedMode === 'following' && !state.casts.length && nodeBehind) {
+      renderEmpty('Your Following list may be incomplete.', `Node data is ${formatNodeDelay(nodeDelay)} behind, so the people and posts in this feed may be missing.`, [
+        { type: 'node', label: 'Check node status' },
+        { type: 'retry', label: 'Retry Following' },
+        { type: 'search', label: 'Find people' },
       ]);
     } else if (state.feedMode === 'following' && !state.casts.length) {
-      renderEmpty('Follow people to start your timeline.', 'Discover accounts through your network or search for someone by name.', [
-        { type: 'discover', label: 'Discover people' }, { type: 'search', label: 'Search people' },
-      ]);
+      renderEmpty('Follow people to start your timeline.', 'Search for someone by name. Once you follow them, their recent posts will appear here.', { type: 'search', label: 'Search people' });
     } else if (state.feedMode === 'friends' && !state.casts.length) {
-      renderEmpty('No recent posts from your Top people.', 'Add a few more people or look through your Following timeline.', [
-        { type: 'feed', mode: 'following', label: 'Following' }, { type: 'search', label: 'Search people' },
+      if (nodeBehind) renderEmpty('No recent posts are visible yet.', `Node data is ${formatNodeDelay(nodeDelay)} behind, so some posts from your Top people may be missing.`, [
+        { type: 'node', label: 'Check node status' },
+        { type: 'feed', mode: 'following', label: 'Open Following' },
+      ]);
+      else renderEmpty('No recent posts from your Top people.', 'Your Following timeline may have newer activity. Discover more people or open Following.', [
+        { type: 'feed', mode: 'following', label: 'Open Following' },
+        { type: 'discover', label: 'Discover people' },
+        { type: 'search', label: 'Search people' },
       ]);
     } else if (state.orbitOnly && !state.deskPins.length) {
       renderEmpty('No pinned people yet.', 'Pin someone to your Desk to use this filter.');
@@ -2223,18 +2314,47 @@ function relationshipTitle(label) {
   return 'This profile is in your feed.';
 }
 
+function setFollowState(fid, following) {
+  const targetFid = Number(fid);
+  if (!Number.isSafeInteger(targetFid) || targetFid <= 0) return;
+  state.following.set(targetFid, Boolean(following));
+  state.followStatusUnknown.delete(targetFid);
+}
+
 function updateFollowButton(button, fid) {
   const targetFid = Number(fid);
   const profile = state.people.get(targetFid);
   const following = !!state.following.get(targetFid);
   const isSelf = targetFid === Number(state.fid);
   const action = following ? 'Unfollow' : 'Follow';
-  button.textContent = button.dataset.deskPrimary === 'follow'
+  const delay = maxNodeDelay();
+  const stale = delay !== null && delay > 10;
+  const freshnessUnknown = delay === null;
+  const statusUnknown = !state.following.has(targetFid) || state.followStatusUnknown.has(targetFid);
+  const unknown = statusUnknown || freshnessUnknown;
+  const confidence = unknown ? 'unknown' : stale ? 'stale' : 'confirmed';
+  const confidenceNote = state.followStatusUnknown.has(targetFid)
+    ? 'The node could not confirm this follow status. Try again when the node is reachable; Castonaut checks before signing.'
+    : !state.following.has(targetFid)
+      ? 'Follow status has not been checked. Castonaut checks your node before signing a follow change.'
+      : freshnessUnknown
+        ? 'Follow status was loaded, but node freshness is unknown. Castonaut checks before signing.'
+    : stale ? `Follow status may be out of date because the node is ${formatNodeDelay(delay)} behind. Castonaut checks before signing.`
+      : `${action} status confirmed by your node.`;
+  const label = button.dataset.deskPrimary === 'follow'
     ? (isSelf ? 'Your account' : `${following ? '✓ Following' : '＋ Follow'} @${profile?.username || `fid-${targetFid}`}`)
-    : isSelf ? 'You' : action;
+    : isSelf ? 'You' : button.classList.contains('post-action') ? (following ? '✓' : '＋') : action;
+  button.replaceChildren(document.createTextNode(label));
+  if (!isSelf && (unknown || stale)) {
+    const marker = document.createElement('span'); marker.className = 'follow-confidence-mark'; marker.setAttribute('aria-hidden', 'true'); marker.textContent = '?';
+    button.append(marker);
+  }
   button.setAttribute('aria-label', isSelf ? 'This is your account' : `${action} @${profile?.username || `fid-${targetFid}`}`);
+  button.setAttribute('aria-description', isSelf ? 'This is your active account.' : confidenceNote);
+  button.dataset.followConfidence = confidence;
+  button.title = isSelf ? 'This is your active account.' : confidenceNote;
   button.setAttribute('aria-pressed', String(following));
-  button.disabled = isSelf || !state.signerReady;
+  button.disabled = isSelf || !state.signerReady || button.hasAttribute('aria-busy');
 }
 
 function updateCastRelationship(fid) {
@@ -2372,10 +2492,10 @@ function renderProfileSummary() {
 
 async function refreshFollowState(fid) {
   if (!state.fid || Number(fid) === Number(state.fid)) return;
-  try { await nodeRequest('linkById', { fid: state.fid, target_fid: fid, link_type: 'follow' }); state.following.set(Number(fid), true); }
+  try { await nodeRequest('linkById', { fid: state.fid, target_fid: fid, link_type: 'follow' }, { fresh: true }); setFollowState(fid, true); }
   catch (error) {
-    if (isNotFound(error)) state.following.set(Number(fid), false);
-    else return;
+    if (isNotFound(error)) setFollowState(fid, false);
+    else { state.followStatusUnknown.add(Number(fid)); }
   }
   updateCastRelationship(fid);
   if (state.feedMode === 'profile' && Number(state.feedTargetFid) === Number(fid)) renderProfileSummary();
@@ -2706,8 +2826,7 @@ function renderDeskAtlas() {
 function renderDeskStatus() {
   const strip = $('#desk-status');
   if (!strip) return;
-  const delays = (state.nodeInfo?.shardInfos || []).map((shard) => Number(shard.blockDelay)).filter(Number.isFinite);
-  const maxDelay = delays.length ? Math.max(...delays) : null;
+  const maxDelay = maxNodeDelay();
   const networkLabel = maxDelay === null ? 'Checking' : maxDelay <= 10 ? 'Synced' : 'Catching up';
   const rows = [
     ['ACCOUNT', state.fid ? `FID ${Number(state.fid).toLocaleString()}` : 'Not connected'],
@@ -2914,10 +3033,18 @@ function renderDeskShortcuts() {
   if (postsSort) postsSort.value = state.deskSort.posts;
   if (topicsSort) topicsSort.value = state.deskSort.topics;
   if (!state.deskCasts.length) {
-    const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'No saved posts yet.'; casts.append(empty);
+    const empty = document.createElement('div'); empty.className = 'desk-shortcut-empty';
+    const message = document.createElement('p'); message.textContent = 'No saved posts yet. Save a post from its action menu to keep it here.';
+    const browse = document.createElement('button'); browse.type = 'button'; browse.className = 'button button-outline'; browse.textContent = 'Browse Following';
+    browse.addEventListener('click', () => { navigate('feed'); setFeedTab('following'); });
+    empty.append(message, browse); casts.append(empty);
   }
   if (!state.deskTopics.length) {
-    const empty = document.createElement('p'); empty.className = 'desk-shortcut-empty'; empty.textContent = 'No pinned topics.'; topics.append(empty);
+    const empty = document.createElement('div'); empty.className = 'desk-shortcut-empty';
+    const message = document.createElement('p'); message.textContent = 'No pinned topics yet. Pin a topic from a post menu to make a quick feed shortcut.';
+    const browse = document.createElement('button'); browse.type = 'button'; browse.className = 'button button-outline'; browse.textContent = 'Open Following';
+    browse.addEventListener('click', () => { navigate('feed'); setFeedTab('following'); });
+    empty.append(message, browse); topics.append(empty);
   }
   for (const saved of deskSortedPosts()) {
     const item = document.createElement('article'); item.className = 'desk-signal';
@@ -3396,6 +3523,7 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     state.hasPendingKeyAdd = true;
     setConnectionStatus(`Castonaut authorization signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'], busy: true });
     state.following.clear();
+    state.followStatusUnknown.clear();
     state.fid = fid;
     state.suggestedPeople = [];
     state.suggestionsLoadedFor = 0;
@@ -3664,6 +3792,7 @@ async function restoreSession() {
     if (!/^[0-9a-f]{64}$/i.test(publicKeyHex) || !saved.privateKey.usages?.includes('sign')) throw new Error('Stored app key has an invalid format.');
     const publicKey = Uint8Array.from(publicKeyHex.match(/.{2}/g).map((byte) => Number.parseInt(byte, 16)));
     state.following.clear();
+    state.followStatusUnknown.clear();
     state.fid = Number(saved.fid);
     loadFlightLog(state.fid);
     loadTimeCapsules(state.fid);
@@ -3698,7 +3827,7 @@ async function clearLocalSigner() {
   refreshSignerFlow = false;
   try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* Continue clearing the current session. */ }
   const cleared = await removeStoredSigner();
-  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.hasPendingKeyAdd = false; state.custodyAddress = ''; state.boardMode = 'signals'; state.following.clear();
+  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.hasPendingKeyAdd = false; state.custodyAddress = ''; state.boardMode = 'signals'; state.following.clear(); state.followStatusUnknown.clear();
   state.suggestedPeople = []; state.suggestionsLoadedFor = 0; state.suggestionsError = false; state.suggestionsBusy = false; renderSuggestedPeople();
   state.feedRequest += 1; state.feedPending = null; state.casts = []; state.feedTargetFid = null; state.feedMode = 'following';
   state.savedCasts = []; renderFlightLogCount();
@@ -4419,17 +4548,22 @@ commandPalette.addEventListener('close', () => {
 });
 commandQuery.addEventListener('input', (event) => filterCommandItems(event.currentTarget.value));
 commandQuery.addEventListener('keydown', (event) => {
-  if (event.key !== 'ArrowDown') return;
+  if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+  const items = [...document.querySelectorAll('.command-item:not([hidden])')];
+  if (!items.length) return;
   event.preventDefault();
-  document.querySelector('.command-item:not([hidden])')?.focus();
+  (event.key === 'ArrowDown' ? items[0] : items.at(-1))?.focus();
 });
 $('#command-items').addEventListener('keydown', (event) => {
   if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
   const items = [...document.querySelectorAll('.command-item:not([hidden])')];
+  if (!items.length) return;
   const index = items.indexOf(event.target.closest('.command-item'));
-  const next = event.key === 'ArrowDown' ? Math.min(items.length - 1, index + 1) : index <= 0 ? -1 : index - 1;
+  const next = event.key === 'ArrowDown'
+    ? (index + 1) % items.length
+    : index <= 0 ? items.length - 1 : index - 1;
   event.preventDefault();
-  if (next < 0) commandQuery.focus(); else items[next]?.focus();
+  items[next]?.focus();
 });
 $('#command-search-form').addEventListener('submit', (event) => {
   event.preventDefault();
@@ -5037,20 +5171,36 @@ document.addEventListener('click', async (event) => {
     if (button.dataset.action === 'follow') {
       const params = { fid: state.fid, target_fid: targetFid, link_type: 'follow' };
       let following = false;
-      try { await nodeRequest('linkById', params, { fresh: true }); following = true; }
-      catch (error) { if (!isNotFound(error)) throw error; }
+      button.setAttribute('aria-busy', 'true');
+      if (maxNodeDelay() === null) await checkNode();
+      const nodeDelay = maxNodeDelay();
+      if (nodeDelay === null || nodeDelay > 10) {
+        state.followStatusUnknown.add(targetFid);
+        document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => updateFollowButton(item, targetFid));
+        throw new Error(`${nodeDelay === null ? 'Node freshness could not be confirmed' : `The node is ${formatNodeDelay(nodeDelay)} behind`}. Follow status may be stale, so no change was signed. Check node status and retry when the node is current.`);
+      }
+      try { await nodeRequest('linkById', params, { fresh: true }); following = true; setFollowState(targetFid, true); }
+      catch (error) {
+        if (isNotFound(error)) setFollowState(targetFid, false);
+        else {
+          state.followStatusUnknown.add(targetFid);
+          document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => updateFollowButton(item, targetFid));
+          throw new Error(`Could not confirm your follow status with the node. No follow change was signed. ${clientErrorText(error)}`);
+        }
+      }
       const message = following
         ? await protocol.makeLinkRemove({ type: 'follow', targetFid }, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner())
         : await protocol.makeLinkAdd({ type: 'follow', targetFid }, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner());
       if (following) await signAndRelayRemoval(message, 'linkById', params, `Unfollow of FID ${targetFid} confirmed.`);
       else await signAndRelay(message, 'linkById', params, `Follow of FID ${targetFid} confirmed.`);
-      state.following.set(targetFid, !following);
+      setFollowState(targetFid, following ? false : true);
       state.suggestionsLoadedFor = 0;
       updateCastRelationship(targetFid);
       if (!following) { state.suggestedPeople = state.suggestedPeople.filter((person) => person.fid !== targetFid); renderSuggestedPeople(); }
       document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => {
         updateFollowButton(item, targetFid);
       });
+      button.removeAttribute('aria-busy');
     } else {
       const reactionType = button.dataset.action === 'like' ? protocol.ReactionType.LIKE : protocol.ReactionType.RECAST;
       const routeType = button.dataset.action === 'like' ? 'Like' : 'Recast';
@@ -5070,7 +5220,7 @@ document.addEventListener('click', async (event) => {
       refreshCastEngagement(targetFid, hash);
     }
     button.disabled = false;
-  } catch (error) { setNotice(error.message, 'error'); button.disabled = !state.signerReady; }
+  } catch (error) { button.removeAttribute('aria-busy'); setNotice(error.message, 'error'); button.disabled = !state.signerReady; }
 });
 $('#profile-edit-form').addEventListener('submit', (event) => {
   event.preventDefault();
