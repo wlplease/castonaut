@@ -25,9 +25,10 @@ test('replying from a profile opens the addressed reply composer and retains the
   assert.match(source, /if \(parent\) body\.parentCastId = \{ fid: Number\(parent\.fid\), hash:/);
 });
 
-test('profile photos offer an explicit opt-in with the IP privacy tradeoff', async () => {
+test('profile photos load automatically with the IP privacy tradeoff disclosed', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.match(source, /showPhoto\.textContent = 'Show profile photo'/);
-  assert.match(source, /profile image host, which can see your IP address/);
-  assert.match(source, /control\.checked = true;\s+control\.dispatchEvent\(new Event\('change', \{ bubbles: true \}\)\)/);
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(source, /const avatarUrl = safeImageUrl\(profile\.avatar\)/);
+  assert.doesNotMatch(source, /Show profile photo|data-enable-remote-media/);
+  assert.match(html, /Profile photos load automatically · hosts can see your IP/);
 });

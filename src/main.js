@@ -1180,7 +1180,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     }
     const firstPageFids = state.feedMode === 'following' ? limitedFids.slice(0, 6) : limitedFids;
     const castGroups = await mapLimit(firstPageFids, 6, async (target) => {
-      const pageSize = state.feedMode === 'profile' ? 20 : 10;
+      const pageSize = state.feedMode === 'profile' ? 100 : 10;
       const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize, reverse: true }), fetchProfile(target)]);
       return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '' };
     });
@@ -1190,7 +1190,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
       if (state.profileNextPageToken) state.profileSeenPageTokens.add(state.profileNextPageToken);
     }
     const newestFirst = castGroups.flatMap((group) => group.messages).sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
-    const messages = (state.feedMode === 'profile' ? newestFirst : paceByAuthor(newestFirst)).slice(0, state.feedMode === 'profile' ? 60 : 30);
+    const messages = state.feedMode === 'profile' ? newestFirst : paceByAuthor(newestFirst).slice(0, 30);
     state.casts = messages;
     if (Number($('#source-fid').value) > 0) await loadSignerSources(messages);
     const profileFids = [...new Set(messages.flatMap((message) => [
@@ -3014,12 +3014,6 @@ document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventLis
 window.addEventListener('hashchange', applyLocationRoute);
 window.addEventListener('popstate', applyLocationRoute);
 document.addEventListener('click', async (event) => {
-  if (event.target.closest('[data-enable-remote-media]')) {
-    const control = $('#external-images');
-    control.checked = true;
-    control.dispatchEvent(new Event('change', { bubbles: true }));
-    return;
-  }
   const composeButton = event.target.closest('[data-compose-cast]');
   if (composeButton) {
     if (!state.signerReady) { openConnectDialog(); return; }
@@ -3085,9 +3079,9 @@ function syncRemoteMediaToggle() {
   const button = $('#media-toggle');
   if (!button) return;
   button.setAttribute('aria-pressed', String(state.remoteMediaEnabled));
-  button.setAttribute('aria-label', state.remoteMediaEnabled ? 'Remote media on. Media hosts can see your IP. Click to turn off.' : 'Remote media off. Click to load images and GIFs; media hosts can see your IP.');
-  button.title = state.remoteMediaEnabled ? 'Remote media on · hosts can see your IP' : 'Load images and GIFs · hosts can see your IP';
-  button.querySelector('span').textContent = state.remoteMediaEnabled ? 'Media on' : 'Media off';
+  button.setAttribute('aria-label', state.remoteMediaEnabled ? 'Post media on. Profile photos always load. Media hosts can see your IP. Click to turn off.' : 'Post media off. Profile photos always load. Media hosts can see your IP. Click to load cast images and video.');
+  button.title = state.remoteMediaEnabled ? 'Post media on · hosts can see your IP' : 'Load cast images and video · hosts can see your IP';
+  button.querySelector('span').textContent = state.remoteMediaEnabled ? 'Posts on' : 'Posts off';
   button.classList.toggle('is-on', state.remoteMediaEnabled);
 }
 syncRemoteMediaToggle();
@@ -3109,7 +3103,7 @@ $('#external-images').addEventListener('change', (event) => {
     document.querySelectorAll('img.remote-image').forEach((image) => image.removeAttribute('src'));
   }
   renderFeed(); renderDesk(); renderProfileSummary(); renderIdentity(); renderSuggestedPeople();
-  setNotice(state.remoteMediaEnabled ? 'Remote media is on. Image and video hosts can see your IP address.' : 'Remote media is off. Active video playback stopped; profile and cast media are hidden.', state.remoteMediaEnabled ? 'pending' : 'success');
+  setNotice(state.remoteMediaEnabled ? 'Post images and video are on. Their hosts can see your IP address.' : 'Post images and video are off. Profile photos still load automatically.', state.remoteMediaEnabled ? 'pending' : 'success');
 });
 const commandPalette = $('#command-palette');
 const commandQuery = $('#command-query');

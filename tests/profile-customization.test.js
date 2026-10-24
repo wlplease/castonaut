@@ -17,9 +17,10 @@ test('profile links are restricted to valid handles and opened without opener ac
   assert.match(source, /openOriginal\.rel = 'noopener noreferrer'/);
 });
 
-test('profile timelines start newest-first and offer guarded cursor paging for older casts', async () => {
+test('profile timelines load a full recent page newest-first and offer guarded cursor paging for older casts', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.match(source, /state\.feedMode === 'profile' \? 20 : 10/);
+  assert.match(source, /state\.feedMode === 'profile' \? 100 : 10/);
+  assert.match(source, /const messages = state\.feedMode === 'profile' \? newestFirst : paceByAuthor\(newestFirst\)\.slice\(0, 30\)/);
   assert.match(source, /state\.profileNextPageToken = castGroups\[0\]\?\.nextPageToken \|\| ''/);
   assert.match(source, /pageSize: 30, reverse: true, pageToken/);
   assert.match(source, /state\.profileSeenPageTokens\.has\(nextPageToken\)/);
