@@ -9,9 +9,12 @@ import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSuppo
 import { resultOrThrow } from './hub-result.js';
 import { BrowserEd25519Signer } from './browser-signer.js';
 import { CAST_EMBED_LIMIT, CAST_EMBED_URL_LIMIT, CAST_LIMIT, CAST_USER_LIMIT, castTypeForText, truncateUtf8, utf8ByteLength, withCastonautAttribution } from './cast-attribution.js';
+import { castEmbedUrls } from './cast-links.js';
+import { profileRecentStartTimestamp } from './profile-feed.js';
 import { isNotFound } from './snapchain-errors.js';
 import { normalizeProfileSearch } from './profile-search.js';
 import { isVideoAvatarUrl } from './avatar-media.js';
+import { ReadCache } from './read-cache.js';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
 let analyticsEnabled = false;
@@ -47,6 +50,11 @@ function trackPageview(route) {
 try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) === 'yes') enableAnalytics(); } catch { /* Analytics stays off when consent cannot be read. */ }
 
 const $ = (selector) => document.querySelector(selector);
+const snapchainReadCache = new ReadCache({ maxEntries: 36, maxBytes: 2_000_000 });
+const snapchainReadRequests = new Map();
+const READ_CACHE_TTL = { info: 10_000, casts: 8_000, replies: 8_000, castById: 30_000, userData: 60_000, username: 60_000 };
+let snapchainReadCacheVersion = 0;
+function clearSnapchainReadCache() { snapchainReadCacheVersion += 1; snapchainReadCache.clear(); }
 function isAddress(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value); }
 const FARCASTER_EPOCH_MS = Date.UTC(2021, 0, 1);
 const KEY_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -77,7 +85,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_TOPICS_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], crewFids: [], crewName: 'My Group', mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 let pendingWalletAccount = null;
 let pendingRecoveryAccount = null;
 let refreshSignerFlow = false;
@@ -313,7 +321,17 @@ async function nodeRequest(route, params = {}, options = {}) {
   const url = new URL('/api/snapchain', window.location.origin);
   url.searchParams.set('route', route);
   for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
-  const { timeoutMs = 18_000, ...fetchOptions } = options;
+  const { timeoutMs = 18_000, fresh = false, ...fetchOptions } = options;
+  const method = String(fetchOptions.method || 'GET').toUpperCase();
+  const cacheKey = method === 'GET' && READ_CACHE_TTL[route] ? url.href : '';
+  const cacheVersion = snapchainReadCacheVersion;
+  if (cacheKey && !fresh) {
+    const cached = snapchainReadCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    const pending = snapchainReadRequests.get(cacheKey);
+    if (pending) return pending;
+  }
+  const request = (async () => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const signal = fetchOptions.signal
@@ -327,6 +345,8 @@ async function nodeRequest(route, params = {}, options = {}) {
       error.status = response.status;
       throw error;
     }
+    if (cacheKey && cacheVersion === snapchainReadCacheVersion) snapchainReadCache.set(cacheKey, body, READ_CACHE_TTL[route]);
+    else if (method !== 'GET') clearSnapchainReadCache();
     return body;
   } catch (error) {
     if (controller.signal.aborted && !fetchOptions.signal?.aborted) {
@@ -336,6 +356,11 @@ async function nodeRequest(route, params = {}, options = {}) {
   } finally {
     clearTimeout(timeout);
   }
+  })();
+  if (!cacheKey) return request;
+  snapchainReadRequests.set(cacheKey, request);
+  try { return await request; }
+  finally { if (snapchainReadRequests.get(cacheKey) === request) snapchainReadRequests.delete(cacheKey); }
 }
 
 async function fetchFollowGraph(fid, limits = {}) {
@@ -462,14 +487,19 @@ async function mapLimit(items, limit, callback) {
   return result;
 }
 
-async function fetchProfile(fid) {
+async function fetchProfile(fid, { fresh = false } = {}) {
   fid = Number(fid);
-  if (state.people.has(fid)) return state.people.get(fid);
+  const existing = state.people.get(fid);
+  if (existing?.profileLoaded && !fresh) return existing;
   if (profileRequests.has(fid)) return profileRequests.get(fid);
   const request = (async () => {
-  const userData = await nodeRequest('userData', { fid, pageSize: 20, reverse: true }).catch(() => ({ messages: [] }));
-  const fields = latestUserData(unwrapMessages(userData));
-  const profile = { fid, name: fields.display || fields.username || `Farcaster ${fid}`, username: fields.username || `fid-${fid}`, avatar: fields.pfp || '', bio: fields.bio || '' };
+  let userData;
+  try { userData = await nodeRequest('userData', { fid, pageSize: 20, reverse: true }, { fresh }); }
+  catch { return existing || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '', bio: '' }; }
+  const messages = unwrapMessages(userData);
+  if (!messages.length) return existing || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '', bio: '' };
+  const fields = latestUserData(messages);
+  const profile = { fid, name: fields.display || fields.username || existing?.name || `Farcaster ${fid}`, username: fields.username || existing?.username || `fid-${fid}`, avatar: fields.pfp || '', bio: fields.bio || '', banner: fields.banner || '', profileLoaded: true };
   state.people.set(fid, profile);
   return profile;
   })();
@@ -692,14 +722,14 @@ function renderEmpty(title, copy, action = null) {
   box.append(strong, p);
   if (action?.type === 'retry') {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
-    button.addEventListener('click', () => loadFeed(state.feedTargetFid || state.fid, state.feedMode));
+    button.addEventListener('click', () => loadFeed(state.feedTargetFid || state.fid, state.feedMode, { fresh: true }));
     box.append(button);
   } else if (action?.type === 'guide') {
     const link = document.createElement('a'); link.className = 'button button-outline'; link.href = '/tutorial.html'; link.textContent = action.label;
     box.append(link);
   } else if (action?.type === 'profile') {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
-    button.addEventListener('click', () => loadFeed(state.feedTargetFid || state.fid, 'profile'));
+    button.addEventListener('click', () => loadFeed(state.feedTargetFid || state.fid, 'profile', { fresh: true }));
     box.append(button);
   } else if (action?.type === 'search') {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'button button-outline'; button.textContent = action.label;
@@ -1086,7 +1116,11 @@ function toggleSuggestedPeople() {
   if (opening) { loadSuggestedPeople(); panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
-async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
+async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = false } = {}) {
+  if (fresh) {
+    clearSnapchainReadCache();
+    if (mode === 'profile') state.people.delete(Number(fidValue));
+  }
   state.conversation = null;
   $('#conversation-view').hidden = true;
   $('#feed-list').hidden = false;
@@ -1116,10 +1150,13 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
   state.feedMode = ['profile', 'friends', 'crew'].includes(mode) ? mode : 'following';
   if (state.feedMode === 'profile' && (previousFeed.mode !== 'profile' || Number(previousFeed.targetFid) !== Number(fid))) state.profileTab = 'posts';
   state.feedTargetFid = state.feedMode === 'profile' ? fid : Number(state.fid);
+  if (currentArea === 'feed') updatePrimaryNav();
   if (state.feedMode === 'following') { state.suggestedPeople = []; state.suggestionsLoadedFor = 0; $('#suggested-panel').hidden = true; $('#show-suggested')?.setAttribute('aria-expanded', 'false'); }
   state.feedSources = [];
   state.feedSourceOffset = 0;
   state.profileNextPageToken = '';
+  state.profileWindowStart = state.feedMode === 'profile' ? profileRecentStartTimestamp() : 0;
+  state.profileArchiveMode = false;
   state.profileSeenPageTokens.clear();
   state.feedQuery = '';
   const loadedSearch = $('#loaded-search');
@@ -1148,7 +1185,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     if (!state.nodeInfo) checkNode();
     const [followGraph, profile] = await Promise.all([
       state.feedMode === 'following' ? fetchFollowGraph(fid) : Promise.resolve({ fids: [], complete: true }),
-      fetchProfile(state.feedMode === 'profile' ? fid : Number(state.fid)),
+      fetchProfile(state.feedMode === 'profile' ? fid : Number(state.fid), { fresh }),
     ]);
     const followFids = followGraph.fids;
     if (state.feedMode === 'following') {
@@ -1181,7 +1218,8 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode) {
     const firstPageFids = state.feedMode === 'following' ? limitedFids.slice(0, 6) : limitedFids;
     const castGroups = await mapLimit(firstPageFids, 6, async (target) => {
       const pageSize = state.feedMode === 'profile' ? 100 : 10;
-      const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize, reverse: true }), fetchProfile(target)]);
+      const profileTimeRange = state.feedMode === 'profile' ? { startTimestamp: state.profileWindowStart } : {};
+      const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize, reverse: true, ...profileTimeRange }, { fresh }), fetchProfile(target, { fresh })]);
       return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '' };
     });
     if (requestId !== state.feedRequest) return false;
@@ -1251,17 +1289,18 @@ function renderFeedMore() {
   const button = $('#feed-more');
   const label = $('.feed-end-label');
   if (!footer || !button) return false;
-  const hasProfileMore = state.boardMode === 'signals' && state.feedMode === 'profile' && !!state.profileNextPageToken;
+  const hasProfileMore = state.boardMode === 'signals' && state.feedMode === 'profile'
+    && (!!state.profileNextPageToken || !state.profileArchiveMode);
   const hasMore = state.boardMode === 'signals' && ((state.feedMode === 'following' && state.feedSourceOffset < state.feedSources.length) || hasProfileMore);
   button.hidden = !hasMore;
   button.disabled = state.feedMoreBusy;
   const moreCount = Math.min(6, state.feedSources.length - state.feedSourceOffset);
   button.textContent = state.feedMoreBusy
     ? (state.feedMode === 'profile' ? 'Loading older posts…' : 'Loading more people…')
-    : hasProfileMore ? 'Load older posts' : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
+    : hasProfileMore ? (state.profileArchiveMode ? 'Load older posts' : state.profileNextPageToken ? 'More from this week' : 'Load earlier posts') : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
   if (label) {
     label.hidden = hasMore;
-    label.textContent = hasProfileMore ? 'MORE POSTS BELOW' : state.feedMode === 'following' && state.feedFollowTotal > state.feedSources.length
+    label.textContent = hasProfileMore ? (state.profileArchiveMode ? 'MORE POSTS BELOW' : 'THIS WEEK · MORE BELOW') : state.feedMode === 'following' && state.feedFollowTotal > state.feedSources.length
       ? `FIRST ${state.feedSources.length} OF ${state.feedFollowTotal} FOLLOWED ACCOUNTS CHECKED`
       : state.feedMode === 'profile' ? 'END OF PROFILE' : 'END OF TRANSMISSION';
   }
@@ -1270,14 +1309,19 @@ function renderFeedMore() {
 }
 
 async function loadOlderProfilePosts() {
-  if (state.feedMoreBusy || state.feedMode !== 'profile' || !state.profileNextPageToken) return;
+  if (state.feedMoreBusy || state.feedMode !== 'profile' || (state.profileArchiveMode && !state.profileNextPageToken)) return;
   const requestId = state.feedRequest;
   const pageToken = state.profileNextPageToken;
+  const enteringArchive = !state.profileArchiveMode && !pageToken;
   const targetFid = Number(state.feedTargetFid);
   state.feedMoreBusy = true;
   renderFeedMore();
   try {
-    const response = await nodeRequest('casts', { fid: targetFid, pageSize: 30, reverse: true, pageToken });
+    const pageParams = state.profileArchiveMode || enteringArchive
+      ? { stopTimestamp: state.profileWindowStart }
+      : { startTimestamp: state.profileWindowStart };
+    if (pageToken) pageParams.pageToken = pageToken;
+    const response = await nodeRequest('casts', { fid: targetFid, pageSize: 100, reverse: true, ...pageParams });
     if (requestId !== state.feedRequest || state.feedMode !== 'profile' || targetFid !== Number(state.feedTargetFid)) return;
     const existing = new Set(state.casts.map((message) => `${Number(message?.data?.fid)}:${postHash(message)}`));
     for (const message of unwrapMessages(response).filter((item) => item?.data?.castAddBody)) {
@@ -1286,6 +1330,7 @@ async function loadOlderProfilePosts() {
     }
     state.casts.sort((a, b) => Number(b?.data?.timestamp || 0) - Number(a?.data?.timestamp || 0));
     const nextPageToken = response?.nextPageToken || '';
+    if (enteringArchive) state.profileArchiveMode = true;
     state.profileNextPageToken = nextPageToken && !state.profileSeenPageTokens.has(nextPageToken) ? nextPageToken : '';
     if (state.profileNextPageToken) state.profileSeenPageTokens.add(state.profileNextPageToken);
     const relatedFids = [...new Set(state.casts.flatMap((message) => [
@@ -1294,7 +1339,7 @@ async function loadOlderProfilePosts() {
     await mapLimit(relatedFids, 6, fetchProfile);
     if (requestId !== state.feedRequest) return;
     renderFeed();
-    setNotice(`Loaded ${unwrapMessages(response).length} older posts.`, 'success');
+    setNotice(enteringArchive ? 'Showing posts from before this week.' : state.profileArchiveMode ? `Loaded ${unwrapMessages(response).length} earlier posts.` : `Loaded ${unwrapMessages(response).length} more from this week.`, 'success');
   } catch (error) {
     if (requestId === state.feedRequest) setNotice(`Could not load older posts. ${clientErrorText(error)}`, 'error');
   } finally {
@@ -1504,6 +1549,7 @@ function renderProfileSummary() {
   card.hidden = !isProfile;
   if (!isProfile) return;
   const profile = state.people.get(state.feedTargetFid) || { fid: state.feedTargetFid, name: `Farcaster ${state.feedTargetFid}`, username: `fid-${state.feedTargetFid}`, avatar: '', bio: '' };
+  const isOwnProfile = !!state.signerReady && Number(profile.fid) === Number(state.fid);
   const local = state.profileNotes[profile.fid] || {};
   const shell = document.createElement('div'); shell.className = 'profile-summary-main';
   const cover = document.createElement('div');
@@ -1525,16 +1571,16 @@ function renderProfileSummary() {
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'button button-outline'; pin.dataset.profilePin = String(profile.fid); pin.textContent = state.deskPins.includes(profile.fid) ? 'On your Desk ✓' : 'Pin to Desk';
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline'; follow.dataset.action = 'follow'; follow.dataset.fid = String(profile.fid); follow.textContent = Number(profile.fid) === Number(state.fid) ? 'This is you' : state.following.get(Number(profile.fid)) ? '✓ Following' : '＋ Follow'; follow.disabled = Number(profile.fid) === Number(state.fid) || !state.signerReady; follow.setAttribute('aria-pressed', String(!!state.following.get(Number(profile.fid))));
   const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Circle' : '＋ Add to Circle'; friend.disabled = Number(profile.fid) === Number(state.fid);
-  const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button button-outline'; edit.dataset.editProfile = String(profile.fid); edit.textContent = 'Personalize';
+  const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button button-outline'; edit.dataset.editProfile = String(profile.fid); edit.textContent = isOwnProfile ? 'Local name & note' : 'Personalize';
   const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.copyProfile = String(profile.fid); share.textContent = 'Share profile';
-  const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = 'Local cover';
+  const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = isOwnProfile ? 'Your page cover' : 'Local cover';
   const coverSelect = document.createElement('select'); coverSelect.dataset.coverFid = String(profile.fid); coverSelect.setAttribute('aria-label', 'Choose a profile cover shown only on this device');
   for (const [value, label] of [['atlas', 'Default'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk'], ['platinum', 'Platinum Mac']]) {
     const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = coverTone === value; coverSelect.append(option);
   }
   coverLabel.append(coverSelect);
   const more = document.createElement('details'); more.className = 'profile-more-options';
-  const moreLabel = document.createElement('summary'); moreLabel.textContent = 'Customize';
+  const moreLabel = document.createElement('summary'); moreLabel.textContent = isOwnProfile ? 'Customize' : 'Personalize';
   const morePanel = document.createElement('div'); morePanel.className = 'profile-more-panel';
   morePanel.append(coverLabel, edit, share);
   const profileUrl = originalProfileUrl(profile);
@@ -1542,11 +1588,14 @@ function renderProfileSummary() {
     const openOriginal = document.createElement('a'); openOriginal.className = 'button button-outline'; openOriginal.href = profileUrl; openOriginal.target = '_blank'; openOriginal.rel = 'noopener noreferrer'; openOriginal.textContent = 'Open on Farcaster ↗';
     morePanel.append(openOriginal);
   }
+  more.open = false;
   more.append(moreLabel, morePanel);
   morePanel.addEventListener('click', (event) => {
     if (event.target.closest('button, a')) queueMicrotask(() => { more.open = false; });
   });
-  actions.append(compose, pin, follow, friend, more); shell.append(avatar, identity, actions);
+  if (isOwnProfile) actions.append(compose, more);
+  else actions.append(compose, pin, follow, friend, more);
+  shell.append(avatar, identity, actions);
   const tabs = document.createElement('div'); tabs.className = 'profile-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Profile posts');
   const postCount = state.casts.filter((message) => !isReply(message)).length;
   const replyCount = state.casts.filter(isReply).length;
@@ -1689,7 +1738,7 @@ async function searchLoadedFeed(rawQuery) {
   requestAnimationFrame(() => { field.focus({ preventScroll: true }); field.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 }
 
-async function openConversation(fidValue, hashValue, { updateRoute = true } = {}) {
+async function openConversation(fidValue, hashValue, { updateRoute = true, fresh = false } = {}) {
   const fid = asFid(fidValue);
   const hash = hashText(hashValue);
   if (!/^0x[\da-f]{40,64}$/i.test(hash)) { setNotice('This post has an invalid cast link.', 'error'); return; }
@@ -1712,7 +1761,7 @@ async function openConversation(fidValue, hashValue, { updateRoute = true } = {}
     let original = state.casts.find((message) => Number(message?.data?.fid) === fid && postHash(message) === hash)
       || state.savedCasts.find((message) => Number(message.fid) === fid && message.hash === hash);
     if (original && !original.data) original = savedCastMessage(original);
-    if (!original) original = await nodeRequest('castById', { fid, hash });
+    if (!original) original = await nodeRequest('castById', { fid, hash }, { fresh });
     const parent = original?.data?.castAddBody?.parentCastId;
     if (parent?.fid && parent?.hash) {
       try { original = await nodeRequest('castById', { fid: Number(parent.fid), hash: hashText(parent.hash) }); }
@@ -1720,7 +1769,7 @@ async function openConversation(fidValue, hashValue, { updateRoute = true } = {}
     }
     const rootFid = Number(original?.data?.fid) || fid;
     const rootHash = postHash(original) || hash;
-    const response = await nodeRequest('replies', { fid: rootFid, hash: rootHash, pageSize: 100, reverse: true });
+    const response = await nodeRequest('replies', { fid: rootFid, hash: rootHash, pageSize: 100, reverse: true }, { fresh });
     const messages = unwrapMessages(response).filter((message) => message?.data?.castAddBody).sort((a, b) => Number(a.data.timestamp || 0) - Number(b.data.timestamp || 0));
     const profiles = [...new Set([rootFid, ...messages.map((message) => Number(message?.data?.fid)).filter(Boolean)])];
     await mapLimit(profiles, 6, fetchProfile);
@@ -1746,8 +1795,14 @@ function closeConversation() {
 
 function openProfileEditor(fid) {
   const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}` };
+  const isOwnProfile = !!state.signerReady && Number(fid) === Number(state.fid);
   const local = state.profileNotes[fid] || {};
-  $('#profile-edit-title').textContent = `Your notes for ${localProfileName(profile)}.`;
+  $('#profile-edit-title').textContent = isOwnProfile ? 'Your Castonaut profile details.' : `Your notes for ${localProfileName(profile)}.`;
+  $('#profile-edit-hint').textContent = isOwnProfile
+    ? 'Your display name and note change how this profile appears in Castonaut on this device. Your public Farcaster profile stays the same.'
+    : 'These details stay in this browser. They don’t edit or publish the person’s Farcaster profile.';
+  $('#profile-nickname-label').textContent = isOwnProfile ? 'Display name on this device' : 'Your nickname for them';
+  $('#profile-nickname').placeholder = isOwnProfile ? (profile.name || 'Your Farcaster name') : 'Use their profile name';
   $('#profile-nickname').value = local.nickname || '';
   $('#profile-note').value = local.note || '';
   $('#profile-edit-status').textContent = '';
@@ -1900,7 +1955,10 @@ function renderDeskShortcuts() {
     const profile = state.people.get(Number(saved.fid)) || { username: saved.username || `fid-${saved.fid}` };
     const original = originalCastUrl(profile, { hash: saved.hash });
     item.append(meta, text);
-    if (original) { const link = document.createElement('a'); link.href = original; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Open cast ↗'; item.append(link); }
+    const open = document.createElement('button'); open.type = 'button'; open.className = 'desk-signal-open';
+    open.dataset.openDeskCast = 'true'; open.dataset.fid = String(saved.fid); open.dataset.hash = saved.hash;
+    open.textContent = 'Read in Castonaut'; item.append(open);
+    if (original) { const link = document.createElement('a'); link.href = original; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Original ↗'; item.append(link); }
     item.append(remove); casts.append(item);
   }
   for (const topic of state.deskTopics) {
@@ -2550,7 +2608,6 @@ function renderIdentity() {
   const avatarUrl = safeImageUrl(profile.avatar);
   if (avatarUrl) setRemoteAvatar($('#profile-avatar'), avatarUrl);
   $('#composer').hidden = !ready || state.boardMode === 'flight-log' || (state.feedMode === 'profile' && !state.parent);
-  $('#composer-context').textContent = state.signerReady ? 'Scoped key · stored in this browser' : 'App key is awaiting merge confirmation';
   $('#composer-text').disabled = !ready;
   $('#composer button[type="submit"]').disabled = !ready;
   document.querySelectorAll('.post-action:not(.pin-action)').forEach((button) => { button.disabled = !state.signerReady; });
@@ -2627,7 +2684,18 @@ async function clearLocalSigner() {
   setNotice('This browser forgot its signing key. The Farcaster signer remains active until you revoke it from account settings or it expires.', 'pending');
 }
 
+function updatePrimaryNav(selection = '') {
+  const ownProfile = !!state.signerReady && state.feedMode === 'profile' && Number(state.feedTargetFid) === Number(state.fid);
+  const activeView = selection || (ownProfile ? 'profile' : currentArea);
+  document.querySelectorAll('[data-view]').forEach((link) => {
+    const active = link.dataset.view === activeView;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+  });
+}
+
 function navigate(view, { preserveHash = false, restoreScroll = true } = {}) {
+  const profileView = view === 'profile';
   const area = view === 'node' ? 'node' : ['desk', 'search'].includes(view) ? view : 'feed';
   const target = area === 'node' ? 'node' : 'desk';
   if (area !== currentArea && currentArea !== 'node') areaScroll.set(currentArea, window.scrollY);
@@ -2636,19 +2704,15 @@ function navigate(view, { preserveHash = false, restoreScroll = true } = {}) {
   document.querySelectorAll('[data-area]').forEach((panel) => { panel.hidden = panel.dataset.area !== area; });
   const deskGate = $('#desk-guest-gate');
   if (deskGate) deskGate.hidden = area !== 'desk' || (!!state.fid && !!state.signerReady);
-  document.querySelectorAll('[data-view]').forEach((link) => {
-    const active = link.dataset.view === area;
-    link.classList.toggle('active', active);
-    if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
-  });
+  updatePrimaryNav(profileView ? 'profile' : area);
   if (area === 'search') {
     renderSuggestedPeople();
     if (state.signerReady) loadSuggestedPeople();
   }
-  $('#page-label').textContent = area === 'node' ? 'NODE' : area === 'desk' ? 'DESK' : area === 'search' ? 'SEARCH' : state.boardMode === 'flight-log' ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
-  const expectedHash = area === 'node' ? '#about' : area === 'desk' ? '#my-desk' : area === 'search' ? '#people-search' : '#feed';
+  $('#page-label').textContent = area === 'node' ? 'NODE' : area === 'desk' ? 'DESK' : area === 'search' ? 'SEARCH' : profileView || state.feedMode === 'profile' ? 'PROFILE' : state.boardMode === 'flight-log' ? 'SAVED' : 'FEED';
+  const expectedHash = profileView && state.fid ? `#profile=${Number(state.fid)}` : area === 'node' ? '#about' : area === 'desk' ? '#my-desk' : area === 'search' ? '#people-search' : '#feed';
   if (!preserveHash && location.hash !== expectedHash) history.pushState(null, '', expectedHash);
-  trackPageview(area);
+  trackPageview(profileView ? 'profile' : area);
   if (area === 'node') {
     if (!state.nodeInfo) checkNode();
     $('#node-view').scrollIntoView({ block: 'start' });
@@ -2664,9 +2728,16 @@ function applyLocationRoute() {
     requestAnimationFrame(() => $('#people-query')?.focus({ preventScroll: true }));
     return;
   }
-  navigate('feed', { preserveHash: true });
   const profile = location.hash.match(/^#profile=(\d{1,15})$/);
-  if (profile) { if (state.boardMode !== 'signals') setBoardMode('signals'); loadFeed(Number(profile[1]), 'profile'); return; }
+  if (profile) {
+    const fid = Number(profile[1]);
+    const isOwnProfile = !!state.signerReady && fid === Number(state.fid);
+    navigate(isOwnProfile ? 'profile' : 'feed', { preserveHash: true });
+    if (state.boardMode !== 'signals') setBoardMode('signals');
+    loadFeed(fid, 'profile');
+    return;
+  }
+  navigate('feed', { preserveHash: true });
   const cast = location.hash.match(/^#cast=(\d{1,15})\/(0x[\da-f]{40,64})$/i);
   if (cast && state.signerReady) openConversation(Number(cast[1]), cast[2], { updateRoute: false });
   else if ((!location.hash || location.hash === '#desk') && state.signerReady && (state.feedMode !== 'following' || state.boardMode !== 'signals')) {
@@ -2675,12 +2746,13 @@ function applyLocationRoute() {
   }
 }
 
-function castBody(text, parent, protocol, embeds = []) {
+function castBody(text, parent, protocol, embeds = [], linkText = text) {
   if (utf8ByteLength(text) > CAST_LIMIT) throw new Error(`This cast is over Farcaster’s ${CAST_LIMIT}-byte limit.`);
+  const embedUrls = castEmbedUrls(linkText, embeds, { limit: CAST_EMBED_LIMIT, maxUrlBytes: CAST_EMBED_URL_LIMIT });
   if (embeds.length > CAST_EMBED_LIMIT || embeds.some((url) => utf8ByteLength(url) > CAST_EMBED_URL_LIMIT)) {
     throw new Error(`Farcaster allows up to ${CAST_EMBED_LIMIT} embeds, each no longer than ${CAST_EMBED_URL_LIMIT} UTF-8 bytes.`);
   }
-  const body = { text, type: castTypeForText(text, protocol.CastType), embeds: embeds.map((url) => ({ url })), embedsDeprecated: [], mentions: [], mentionsPositions: [] };
+  const body = { text, type: castTypeForText(text, protocol.CastType), embeds: embedUrls.map((url) => ({ url })), embedsDeprecated: [], mentions: [], mentionsPositions: [] };
   if (parent) body.parentCastId = { fid: Number(parent.fid), hash: resultOrThrow(protocol.hexStringToBytes(parent.hash), 'Could not read the reply cast hash') };
   return body;
 }
@@ -2863,9 +2935,10 @@ async function publishThread() {
 $('#feed-refresh').addEventListener('click', () => {
   const button = $('#feed-refresh');
   button.disabled = true;
+  clearSnapchainReadCache();
   const task = state.conversation
-    ? openConversation(state.conversation.fid, state.conversation.hash, { updateRoute: false })
-    : state.boardMode === 'flight-log' ? Promise.resolve(renderFeed()) : loadFeed(state.feedTargetFid || state.fid);
+    ? openConversation(state.conversation.fid, state.conversation.hash, { updateRoute: false, fresh: true })
+    : state.boardMode === 'flight-log' ? Promise.resolve(renderFeed()) : loadFeed(state.feedTargetFid || state.fid, state.feedMode, { fresh: true });
   Promise.resolve(task).finally(() => { button.disabled = false; });
 });
 $('#feed-more')?.addEventListener('click', () => state.feedMode === 'profile' ? loadOlderProfilePosts() : loadMoreFollowed());
@@ -2984,6 +3057,14 @@ $('#node-journey-check')?.addEventListener('click', async (event) => {
 });
 document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener('click', (event) => {
   event.preventDefault();
+  if (link.dataset.view === 'profile') {
+    if (!state.signerReady || !state.fid) { openConnectDialog(); return; }
+    state.parent = null;
+    if (state.boardMode !== 'signals') setBoardMode('signals');
+    navigate('profile', { restoreScroll: false });
+    loadFeed(state.fid, 'profile');
+    return;
+  }
   navigate(link.dataset.view);
   if (link.dataset.view === 'search') requestAnimationFrame(() => $('#people-query')?.focus({ preventScroll: true }));
   if (link.dataset.view === 'feed' && state.signerReady && (state.feedMode !== 'following' || state.boardMode !== 'signals')) {
@@ -3531,7 +3612,7 @@ $('#composer').addEventListener('submit', async (event) => {
       const protocol = await import('./protocol.js');
       const signer = await getActiveSigner();
       const attributedText = withCastonautAttribution(text);
-      const message = await protocol.makeCastAdd(castBody(attributedText, state.parent, protocol, mediaUrl ? [mediaUrl.href] : []), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
+      const message = await protocol.makeCastAdd(castBody(attributedText, state.parent, protocol, mediaUrl ? [mediaUrl.href] : [], text), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
       const signedMessage = resultOrThrow(message, 'Could not sign cast');
       const hash = postHash(signedMessage);
       if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. Your draft remains saved.');
@@ -3558,6 +3639,12 @@ $('#composer').addEventListener('submit', async (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  const savedCast = event.target.closest('[data-open-desk-cast]');
+  if (savedCast) {
+    navigate('feed');
+    await openConversation(savedCast.dataset.fid, savedCast.dataset.hash);
+    return;
+  }
   const conversationButton = event.target.closest('[data-open-conversation]');
   if (conversationButton) { await openConversation(conversationButton.dataset.fid, conversationButton.dataset.hash); return; }
   const shareCast = event.target.closest('[data-share-cast]');
@@ -3578,6 +3665,7 @@ document.addEventListener('click', async (event) => {
   const deskTopic = event.target.closest('[data-desk-topic]');
   if (deskTopic) {
     state.activeDeskTopic = state.activeDeskTopic === deskTopic.dataset.deskTopic ? '' : deskTopic.dataset.deskTopic;
+    navigate('feed');
     if (state.boardMode !== 'signals') { setBoardMode('signals'); return; }
     updateFeedTabs(); renderDeskShortcuts(); renderFeed();
     return;

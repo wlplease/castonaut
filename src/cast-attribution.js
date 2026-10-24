@@ -1,6 +1,6 @@
 export const CAST_SHORT_LIMIT = 320;
 export const CAST_LIMIT = 1024;
-export const CAST_EMBED_LIMIT = 2;
+export const CAST_EMBED_LIMIT = 4;
 export const CAST_EMBED_URL_LIMIT = 256;
 export const CAST_ATTRIBUTION = '\n\nCasted from Castonaut · https://castonaut.vercel.app';
 

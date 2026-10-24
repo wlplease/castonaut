@@ -18,6 +18,20 @@ test('a profile page offers a clear path to compose a standalone cast', async ()
   assert.match(source, /composer\?\.focus\(\{ preventScroll: true \}\)/);
 });
 
+test('the sidebar Profile tab opens the signed-in user profile with appearance options available on demand', async () => {
+  const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
+  assert.match(html, /href="#profile" data-view="profile" aria-label="Your profile"/);
+  assert.match(source, /if \(link\.dataset\.view === 'profile'\) \{[\s\S]{0,220}openConnectDialog\(\)[\s\S]{0,220}navigate\('profile'/);
+  assert.match(source, /loadFeed\(state\.fid, 'profile'\)/);
+  assert.match(source, /more\.open = false/);
+  assert.match(source, /Your page cover/);
+  assert.match(source, /Your Castonaut profile details\./);
+  assert.match(source, /public Farcaster profile stays the same/);
+  assert.match(styles, /\.sidebar \.nav-list \{ grid-template-columns: repeat\(5, minmax\(0, 1fr\)\); \}/);
+});
+
 test('replying from a profile opens the addressed reply composer and retains the parent cast', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.match(source, /if \(button\.dataset\.action === 'reply'\) \{[\s\S]{0,300}state\.parent = \{ fid: targetFid, hash: button\.dataset\.hash \};[\s\S]{0,300}\$\('#composer'\)\.hidden = false/);

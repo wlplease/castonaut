@@ -10,6 +10,7 @@ import {
   utf8ByteLength,
   withCastonautAttribution,
 } from '../src/cast-attribution.js';
+import { castEmbedUrls } from '../src/cast-links.js';
 
 test('casts include Castonaut attribution and use the full long-cast byte limit', () => {
   const attributed = withCastonautAttribution('Hello Farcaster!');
@@ -37,14 +38,39 @@ test('truncating by protocol bytes never splits a Unicode code point', () => {
   assert.doesNotMatch(truncated, /\uFFFD/);
 });
 
+test('cast links become valid deduplicated HTTPS embeds while prose punctuation stays out', () => {
+  assert.deepEqual(castEmbedUrls('Read this: https://example.com/post). More: https://example.org/'), [
+    'https://example.com/post',
+    'https://example.org/',
+  ]);
+  assert.deepEqual(castEmbedUrls('http://example.com https://user:pass@example.com https://example.com/'), ['https://example.com/']);
+});
+
+test('link embeds honor Farcaster byte and embed-count limits', () => {
+  const longUrl = `https://example.com/${'x'.repeat(250)}`;
+  const text = [
+    'https://one.example',
+    'https://two.example',
+    'https://three.example',
+    'https://four.example',
+    longUrl,
+  ].join(' ');
+  assert.deepEqual(castEmbedUrls(text), [
+    'https://one.example/',
+    'https://two.example/',
+    'https://three.example/',
+    'https://four.example/',
+  ]);
+});
+
 test('the installed Farcaster SDK accepts short and long casts through 1,024 bytes', async () => {
   // @farcaster/core initializes a few old Faker fixtures at import time.
   await import('../src/faker-compat.js');
   const { CastType, FarcasterNetwork, makeCastAddData } = await import('@farcaster/core');
-  const makeBody = (text) => ({
+  const makeBody = (text, urls = []) => ({
     text,
     type: castTypeForText(text, CastType),
-    embeds: [],
+    embeds: castEmbedUrls(text, urls).map((url) => ({ url })),
     embedsDeprecated: [],
     mentions: [],
     mentionsPositions: [],
@@ -53,4 +79,6 @@ test('the installed Farcaster SDK accepts short and long casts through 1,024 byt
   assert.equal((await makeCastAddData(makeBody('x'.repeat(320)), options)).isOk(), true);
   assert.equal((await makeCastAddData(makeBody('x'.repeat(321)), options)).isOk(), true);
   assert.equal((await makeCastAddData(makeBody(withCastonautAttribution('x'.repeat(CAST_USER_LIMIT))), options)).isOk(), true);
+  const linkText = withCastonautAttribution('Worth a read: https://example.com/article.');
+  assert.equal((await makeCastAddData(makeBody(linkText, castEmbedUrls('Worth a read: https://example.com/article.')), options)).isOk(), true);
 });
