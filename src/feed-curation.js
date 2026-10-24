@@ -49,11 +49,13 @@ export function hasMedia(message) {
 }
 export function isReply(message) {
   const parent = castBody(message).parentCastId;
-  return !!parent && Number(parent.fid) > 0 && !!parent.hash;
+  // A parent reference is enough to identify a reply. Be conservative with
+  // partially decoded IDs so replies never leak into a profile's Posts view.
+  return parent !== null && parent !== undefined;
 }
 export function visibleInProfileView(message, view = 'posts') {
   if (view === 'replies') return isReply(message);
-  if (view === 'media') return hasMedia(message);
+  if (view === 'media') return !isReply(message) && hasMedia(message);
   return !isReply(message);
 }
 export function topicsForCast(message) {

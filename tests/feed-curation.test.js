@@ -28,11 +28,15 @@ test('profile Posts excludes replies and gives replies their own view', () => {
   const post = cast('original post');
   const reply = cast('reply', { parentCastId: { fid: 3, hash: '0xabc' } });
   const mediaReply = cast('reply with image', { parentCastId: { fid: 3, hash: '0xabc' }, embeds: [{ url: 'https://cdn.example/photo.jpg' }] });
+  const incompleteReply = cast('reply with incomplete parent', { parentCastId: { fid: 3 } });
+  const mediaPost = cast('original post with image', { embeds: [{ url: 'https://cdn.example/photo.jpg' }] });
   assert.equal(visibleInProfileView(post, 'posts'), true);
   assert.equal(visibleInProfileView(reply, 'posts'), false);
+  assert.equal(visibleInProfileView(incompleteReply, 'posts'), false);
   assert.equal(visibleInProfileView(reply, 'replies'), true);
   assert.equal(visibleInProfileView(post, 'replies'), false);
-  assert.equal(visibleInProfileView(mediaReply, 'media'), true);
+  assert.equal(visibleInProfileView(mediaReply, 'media'), false);
+  assert.equal(visibleInProfileView(mediaPost, 'media'), true);
   assert.equal(visibleInProfileView(reply, 'media'), false);
 });
 

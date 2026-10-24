@@ -864,7 +864,7 @@ function renderCast(message) {
   card.dataset.castHash = postHash(message);
   const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'post-avatar'; avatar.dataset.openProfile = String(fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s recent posts`);
   avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
-  const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+  const avatarUrl = safeImageUrl(profile.avatar);
   if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
   const content = document.createElement('div');
   const head = document.createElement('div'); head.className = 'post-head';
@@ -1033,7 +1033,7 @@ function renderSuggestedPeople() {
     const profile = state.people.get(suggestion.fid) || { fid: suggestion.fid, name: `Farcaster ${suggestion.fid}`, username: `fid-${suggestion.fid}` };
     const row = document.createElement('article'); row.className = 'suggested-person';
     const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'suggested-avatar profile-open-button'; avatar.dataset.openProfile = String(suggestion.fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
-    const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+    const avatarUrl = safeImageUrl(profile.avatar);
     if (avatarUrl) setRemoteAvatar(avatar, avatarUrl); else avatar.textContent = String(profile.name || profile.username || '?').slice(0, 1).toUpperCase();
     const identity = document.createElement('button'); identity.type = 'button'; identity.className = 'suggested-identity profile-open-button'; identity.dataset.openProfile = String(suggestion.fid); identity.setAttribute('aria-label', `Open ${localProfileName(profile)}'s profile`);
     const name = document.createElement('strong'); name.textContent = localProfileName(profile);
@@ -1512,16 +1512,12 @@ function renderProfileSummary() {
   const bannerUrl = state.remoteMediaEnabled ? safeImageUrl(profile.banner) : '';
   if (bannerUrl) { const banner = makeRemoteImage(bannerUrl, 'profile-cover-image'); banner.alt = `${localProfileName(profile)}’s profile cover`; cover.append(banner); }
   const avatar = document.createElement('span'); avatar.className = 'profile-summary-avatar'; avatar.textContent = localProfileName(profile).slice(0, 1).toUpperCase();
-  const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+  const avatarUrl = safeImageUrl(profile.avatar);
   if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
   const identity = document.createElement('div'); identity.className = 'profile-summary-identity';
   const name = document.createElement('h3'); name.textContent = localProfileName(profile);
   const handle = document.createElement('p'); handle.textContent = `@${profile.username} · FID ${profile.fid}`;
   identity.append(name, handle);
-  if (!state.remoteMediaEnabled && safeImageUrl(profile.avatar)) {
-    const showPhoto = document.createElement('button'); showPhoto.type = 'button'; showPhoto.className = 'profile-media-enable'; showPhoto.dataset.enableRemoteMedia = 'true'; showPhoto.textContent = 'Show profile photo'; showPhoto.title = 'Loads from the profile image host, which can see your IP address.';
-    identity.append(showPhoto);
-  }
   if (profile.bio) { const bio = document.createElement('p'); bio.className = 'profile-summary-bio'; bio.textContent = profile.bio; identity.append(bio); }
   if (local.nickname || local.note) { const note = document.createElement('p'); note.className = 'profile-private-note'; note.textContent = local.note ? `Your note: ${local.note}` : 'Your personal nickname is saved on this device.'; identity.append(note); }
   const actions = document.createElement('div'); actions.className = 'profile-summary-actions';
@@ -1554,7 +1550,7 @@ function renderProfileSummary() {
   const tabs = document.createElement('div'); tabs.className = 'profile-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Profile posts');
   const postCount = state.casts.filter((message) => !isReply(message)).length;
   const replyCount = state.casts.filter(isReply).length;
-  const mediaCount = state.casts.filter(hasMedia).length;
+  const mediaCount = state.casts.filter((message) => !isReply(message) && hasMedia(message)).length;
   for (const [mode, label, count] of [['posts', 'Posts', postCount], ['replies', 'Replies', replyCount], ['media', 'Media', mediaCount]]) {
     const tab = document.createElement('button'); tab.type = 'button'; tab.className = `profile-tab${state.profileTab === mode ? ' is-active' : ''}`;
     tab.dataset.profileTab = mode; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(state.profileTab === mode));
@@ -1562,7 +1558,7 @@ function renderProfileSummary() {
   }
   const pinnedSlot = document.createElement('div'); pinnedSlot.className = 'profile-pinned-slot';
   const pinnedHash = state.profilePins[profile.fid];
-  const pinned = state.casts.find((message) => postHash(message) === pinnedHash && Number(message?.data?.fid) === Number(profile.fid));
+  const pinned = state.casts.find((message) => !isReply(message) && postHash(message) === pinnedHash && Number(message?.data?.fid) === Number(profile.fid));
   if (pinned) {
     const label = document.createElement('div'); label.className = 'profile-pinned-label'; label.textContent = 'Pinned here · only you';
     pinnedSlot.append(label, renderCast(pinned));
@@ -1791,7 +1787,7 @@ function renderDesk() {
       const open = document.createElement('button'); open.type = 'button'; open.className = 'desk-person-open'; open.dataset.deskFid = String(fid);
       const shownName = localProfileName(profile);
       const avatar = document.createElement('span'); avatar.className = 'desk-avatar'; avatar.textContent = shownName.slice(0, 1).toUpperCase();
-      const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+      const avatarUrl = safeImageUrl(profile.avatar);
       if (avatarUrl) setRemoteAvatar(avatar, avatarUrl);
       const labels = document.createElement('span'); labels.className = 'desk-person-label';
       const name = document.createElement('strong'); name.textContent = shownName;
@@ -2551,7 +2547,7 @@ function renderIdentity() {
   $('#profile-name').textContent = shownName;
   $('#profile-handle').textContent = `@${profile.username} · FID ${state.fid}`;
   $('#profile-avatar').textContent = profile.name.slice(0, 1).toUpperCase();
-  const avatarUrl = state.remoteMediaEnabled ? safeImageUrl(profile.avatar) : '';
+  const avatarUrl = safeImageUrl(profile.avatar);
   if (avatarUrl) setRemoteAvatar($('#profile-avatar'), avatarUrl);
   $('#composer').hidden = !ready || state.boardMode === 'flight-log' || (state.feedMode === 'profile' && !state.parent);
   $('#composer-context').textContent = state.signerReady ? 'Scoped key · stored in this browser' : 'App key is awaiting merge confirmation';
