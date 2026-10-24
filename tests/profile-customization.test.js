@@ -53,21 +53,22 @@ test('profile links are restricted to valid handles and opened without opener ac
   assert.match(source, /openOriginal\.rel = 'noopener noreferrer'/);
 });
 
-test('profile timelines prioritize the last week and keep earlier history available by cursor', async () => {
+test('profile timelines load the last month and keep earlier history available by cursor', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const profileFeed = await readFile(new URL('../src/profile-feed.js', import.meta.url), 'utf8');
-  assert.match(source, /const pageSize = 100/);
+  assert.match(source, /fetchProfilePages\(/);
   assert.match(source, /const messages = state\.feedMode === 'profile' \? newestFirst : paceByAuthor\(newestFirst\)\.slice\(0, 30\)/);
   assert.match(source, /state\.profileNextPageToken = castGroups\[0\]\?\.nextPageToken \|\| ''/);
   assert.match(source, /startTimestamp: state\.profileWindowStart/);
   assert.match(source, /stopTimestamp: state\.profileWindowStart/);
   assert.match(source, /pageSize: 100, reverse: true/);
   assert.match(source, /state\.profileSeenPageTokens\.has\(nextPageToken\)/);
-  assert.match(source, /More from this week/);
+  assert.match(source, /More from this month/);
   assert.match(source, /Load earlier posts/);
   assert.match(source, /state\.feedMode === 'profile' \? loadOlderProfilePosts\(\) : loadMoreFollowed\(\)/);
   assert.match(source, /Number\(b\.data\.timestamp \|\| 0\) - Number\(a\.data\.timestamp \|\| 0\)/);
-  assert.match(profileFeed, /PROFILE_RECENT_DAYS = 7/);
+  assert.match(profileFeed, /PROFILE_RECENT_DAYS = 30/);
+  assert.match(profileFeed, /PROFILE_INITIAL_PAGE_LIMIT = 5/);
 });
 
 test('profile lookups retry after transient or empty responses instead of memoizing placeholders', async () => {

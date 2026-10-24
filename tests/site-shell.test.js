@@ -11,3 +11,16 @@ test('shared client header preserves every control required by the app entrypoin
   assert.match(app, /\$\('#command-open'\)\?\.addEventListener\('click'/);
   assert.match(app, /\$\('#open-account'\)\.addEventListener\('click'/);
 });
+
+test('standalone guide, field notes, and legal pages use the client theme palettes', async () => {
+  const shell = await readFile(new URL('../src/site-shell.js', import.meta.url), 'utf8');
+  const themes = await readFile(new URL('../src/soft-reset.css', import.meta.url), 'utf8');
+  for (const theme of ['atlas', 'soft-reset', 'night-radio']) {
+    assert.match(shell, new RegExp(`<option value="${theme}">`));
+    assert.match(themes, new RegExp(`html\\[data-theme="${theme}"\\]`));
+  }
+  assert.match(themes, /guide-frame \.security-card/);
+  assert.match(themes, /\.legal-shell/);
+  assert.match(themes, /\.endorse-shell/);
+  assert.match(themes, /--page-accent:var\(--accent\)/);
+});

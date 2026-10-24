@@ -10,7 +10,7 @@ import { resultOrThrow } from './hub-result.js';
 import { BrowserEd25519Signer } from './browser-signer.js';
 import { CAST_EMBED_LIMIT, CAST_EMBED_URL_LIMIT, CAST_LIMIT, CAST_USER_LIMIT, castTypeForText, truncateUtf8, utf8ByteLength, withCastonautAttribution } from './cast-attribution.js';
 import { castEmbedUrls } from './cast-links.js';
-import { profileRecentStartTimestamp } from './profile-feed.js';
+import { fetchProfilePages, profileRecentStartTimestamp } from './profile-feed.js';
 import { isNotFound } from './snapchain-errors.js';
 import { normalizeProfileSearch } from './profile-search.js';
 import { isVideoAvatarUrl } from './avatar-media.js';
@@ -1206,7 +1206,7 @@ function renderCast(message, { priority = false } = {}) {
   const more = document.createElement('details'); more.className = 'post-more';
   const moreSummary = document.createElement('summary'); moreSummary.textContent = '•••'; moreSummary.setAttribute('aria-label', 'More post actions');
   const menu = document.createElement('div'); menu.className = 'post-more-menu';
-  const share = document.createElement('button'); share.type = 'button'; share.className = 'post-more-action'; share.dataset.shareCast = 'true'; share.dataset.fid = String(fid); share.dataset.hash = postHash(message); share.textContent = 'Copy conversation link'; menu.append(share);
+  const share = document.createElement('button'); share.type = 'button'; share.className = 'post-more-action'; share.dataset.shareCast = 'true'; share.dataset.fid = String(fid); share.dataset.hash = postHash(message); share.textContent = 'Share cast'; menu.append(share);
   const reactionDetails = document.createElement('button'); reactionDetails.type = 'button'; reactionDetails.className = 'post-more-action'; reactionDetails.dataset.reactionsCast = 'true'; reactionDetails.dataset.fid = String(fid); reactionDetails.dataset.hash = postHash(message); reactionDetails.textContent = 'Who liked or recast'; menu.append(reactionDetails);
   menu.append(menuAction(state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk', state.deskPins.includes(fid) ? 'unpin-person' : 'pin-person', fid));
   menu.append(menuAction(state.following.get(fid) ? 'Unfollow person' : 'Follow person', 'follow', fid, { hash: postHash(message) }));
@@ -1489,6 +1489,13 @@ function toggleSuggestedPeople() {
   if (opening) { loadSuggestedPeople(); panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
+async function fetchProfileRecentPages(fid, { fresh = false } = {}) {
+  return fetchProfilePages(
+    (params) => nodeRequest('casts', params, { fresh }),
+    { fid, startTimestamp: state.profileWindowStart },
+  );
+}
+
 async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = false } = {}) {
   if (fresh) {
     clearSnapchainReadCache();
@@ -1552,7 +1559,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   const feedLabel = state.feedMode === 'profile' ? 'Profile' : state.feedMode === 'friends' ? 'Circle' : state.feedMode === 'crew' ? state.crewName : 'Following';
   if (state.boardMode === 'signals') {
     $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
-    $('#feed-caption').textContent = state.feedMode === 'profile' ? 'Recent posts from this profile.' : feedDescription(state.feedMode);
+    $('#feed-caption').textContent = state.feedMode === 'profile' ? 'Last 30 days · newest first.' : feedDescription(state.feedMode);
   }
   renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Loading your feed.');
   try {
@@ -1580,7 +1587,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     renderSuggestedPeople();
     if (state.boardMode === 'signals') {
       $('#feed-title').textContent = state.feedMode === 'profile' ? 'Posts' : feedLabel;
-      $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username}` : feedDescription();
+      $('#feed-caption').textContent = state.feedMode === 'profile' ? `@${profile.username} · last 30 days` : feedDescription();
     }
     if (!limitedFids.length && ['friends', 'crew'].includes(state.feedMode)) {
       state.casts = [];
@@ -1591,20 +1598,32 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     }
     const firstPageFids = state.feedMode === 'following' ? limitedFids.slice(0, 6) : limitedFids;
     const castGroups = await mapLimit(firstPageFids, 6, async (target) => {
-      const pageSize = 100;
-      const timeRange = { startTimestamp: state.feedMode === 'profile' ? state.profileWindowStart : recentFeedStartTimestamp() };
-      const [response] = await Promise.all([nodeRequest('casts', { fid: target, pageSize, reverse: true, ...timeRange }, { fresh }), fetchProfile(target, { fresh })]);
-      return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '' };
+      if (state.feedMode === 'profile') {
+        const [page, profileData] = await Promise.all([fetchProfileRecentPages(target, { fresh }), fetchProfile(target, { fresh })]);
+        return { ...page, profileData };
+      }
+      const [response] = await Promise.all([
+        nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh }),
+        fetchProfile(target, { fresh }),
+      ]);
+      return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '', seenPageTokens: new Set() };
     });
     if (requestId !== state.feedRequest) return false;
     if (state.feedMode === 'profile') {
       state.profileNextPageToken = castGroups[0]?.nextPageToken || '';
-      if (state.profileNextPageToken) state.profileSeenPageTokens.add(state.profileNextPageToken);
+      state.profileSeenPageTokens = castGroups[0]?.seenPageTokens || new Set();
     }
     const recentStart = state.feedMode === 'profile' ? state.profileWindowStart : recentFeedStartTimestamp();
     const recentEnd = profileRecentStartTimestamp(Date.now(), 0);
+    const knownCastIds = new Set();
     const newestFirst = castGroups.flatMap((group) => group.messages)
-      .filter((message) => Number(message?.data?.timestamp) >= recentStart && Number(message?.data?.timestamp) <= recentEnd)
+      .filter((message) => {
+        const timestamp = Number(message?.data?.timestamp);
+        const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
+        if (timestamp < recentStart || timestamp > recentEnd || knownCastIds.has(key)) return false;
+        knownCastIds.add(key);
+        return true;
+      })
       .sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
     const messages = state.feedMode === 'profile' ? newestFirst : paceByAuthor(newestFirst).slice(0, 30);
     state.casts = messages;
@@ -1677,10 +1696,10 @@ function renderFeedMore() {
   const moreCount = Math.min(6, state.feedSources.length - state.feedSourceOffset);
   button.textContent = state.feedMoreBusy
     ? (state.feedMode === 'profile' ? 'Loading older posts…' : 'Loading more people…')
-    : hasProfileMore ? (state.profileArchiveMode ? 'Load older posts' : state.profileNextPageToken ? 'More from this week' : 'Load earlier posts') : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
+    : hasProfileMore ? (state.profileArchiveMode ? 'Load older posts' : state.profileNextPageToken ? 'More from this month' : 'Load earlier posts') : `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`;
   if (label) {
     label.hidden = hasMore;
-    label.textContent = hasProfileMore ? (state.profileArchiveMode ? 'MORE POSTS BELOW' : 'THIS WEEK · MORE BELOW') : state.feedMode === 'following' && state.feedFollowTotal > state.feedSources.length
+    label.textContent = hasProfileMore ? (state.profileArchiveMode ? 'MORE POSTS BELOW' : 'LAST 30 DAYS · MORE BELOW') : state.feedMode === 'following' && state.feedFollowTotal > state.feedSources.length
       ? `FIRST ${state.feedSources.length} OF ${state.feedFollowTotal} FOLLOWED ACCOUNTS CHECKED`
       : state.feedMode === 'profile' ? 'END OF PROFILE' : 'END OF TRANSMISSION';
   }
@@ -1719,7 +1738,7 @@ async function loadOlderProfilePosts() {
     await mapLimit(relatedFids, 6, fetchProfile);
     if (requestId !== state.feedRequest) return;
     renderFeed();
-    setNotice(enteringArchive ? 'Showing posts from before this week.' : state.profileArchiveMode ? `Loaded ${unwrapMessages(response).length} earlier posts.` : `Loaded ${unwrapMessages(response).length} more from this week.`, 'success');
+    setNotice(enteringArchive ? 'Showing posts from before the last 30 days.' : state.profileArchiveMode ? `Loaded ${unwrapMessages(response).length} earlier posts.` : `Loaded ${unwrapMessages(response).length} more from the last 30 days.`, 'success');
   } catch (error) {
     if (requestId === state.feedRequest) setNotice(`Could not load older posts. ${clientErrorText(error)}`, 'error');
   } finally {
@@ -1974,8 +1993,8 @@ function renderProfileSummary() {
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'button button-outline'; pin.dataset.profilePin = String(profile.fid); pin.textContent = state.deskPins.includes(profile.fid) ? 'On your Desk ✓' : 'Pin to Desk';
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'button button-outline'; follow.dataset.action = 'follow'; follow.dataset.fid = String(profile.fid); updateFollowButton(follow, profile.fid);
   const friend = document.createElement('button'); friend.type = 'button'; friend.className = 'button button-outline'; friend.dataset.action = 'toggle-friend'; friend.dataset.fid = String(profile.fid); friend.textContent = state.friendFids.includes(Number(profile.fid)) ? '✓ In Circle' : '＋ Add to Circle'; friend.disabled = Number(profile.fid) === Number(state.fid);
+  const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.copyProfile = String(profile.fid); share.textContent = 'Share'; share.setAttribute('aria-label', `Share ${localProfileName(profile)}’s profile`);
   const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button button-outline'; edit.dataset.editProfile = String(profile.fid); edit.textContent = isOwnProfile ? 'Local name & note' : 'Personalize';
-  const share = document.createElement('button'); share.type = 'button'; share.className = 'button button-outline'; share.dataset.copyProfile = String(profile.fid); share.textContent = 'Share profile';
   const coverLabel = document.createElement('label'); coverLabel.className = 'cover-tone-control'; coverLabel.textContent = isOwnProfile ? 'Your page cover' : 'Local cover';
   const coverSelect = document.createElement('select'); coverSelect.dataset.coverFid = String(profile.fid); coverSelect.setAttribute('aria-label', 'Choose a profile cover shown only on this device');
   for (const [value, label] of [['atlas', 'Atlas'], ['platinum', 'Spacebar Silver'], ['blueberry', 'Blueberry'], ['graphite', 'Graphite'], ['dawn', 'Dawn'], ['orbit', 'Orbit'], ['dusk', 'Dusk']]) {
@@ -1993,7 +2012,7 @@ function renderProfileSummary() {
     mediaLabel.append(mediaToggle, mediaCopy); morePanel.append(mediaLabel);
     const localOnly = document.createElement('p'); localOnly.className = 'profile-local-note'; localOnly.textContent = 'Your name, note, and cover stay on this device.'; morePanel.append(localOnly);
   }
-  morePanel.append(coverLabel, edit, share);
+  morePanel.append(coverLabel, edit);
   const profileUrl = originalProfileUrl(profile);
   if (profileUrl) {
     const openOriginal = document.createElement('a'); openOriginal.className = 'button button-outline'; openOriginal.href = profileUrl; openOriginal.target = '_blank'; openOriginal.rel = 'noopener noreferrer'; openOriginal.textContent = 'Open on Farcaster ↗';
@@ -2004,8 +2023,8 @@ function renderProfileSummary() {
   morePanel.addEventListener('click', (event) => {
     if (event.target.closest('button, a')) queueMicrotask(() => { more.open = false; });
   });
-  if (isOwnProfile) actions.append(compose, more);
-  else actions.append(compose, pin, follow, friend, more);
+  if (isOwnProfile) actions.append(compose, share, more);
+  else actions.append(compose, pin, follow, friend, share, more);
   shell.append(avatar, identity, actions);
   const tabs = document.createElement('div'); tabs.className = 'profile-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Profile posts');
   const postCount = state.casts.filter((message) => !isReply(message)).length;
@@ -3839,6 +3858,25 @@ document.querySelectorAll('[data-scroll-to]').forEach((link) => link.addEventLis
 }));
 window.addEventListener('hashchange', applyLocationRoute);
 window.addEventListener('popstate', applyLocationRoute);
+async function shareOrCopyLink(url, { title, text, copiedMessage } = {}) {
+  const shareData = { title: String(title || 'Castonaut'), text: String(text || ''), url: String(url) };
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share(shareData);
+      setNotice('Shared.', 'success');
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(shareData.url);
+    setNotice(`${copiedMessage || 'Link'} copied.`, 'success');
+  } catch {
+    setNotice(shareData.url, 'pending');
+  }
+}
+
 document.addEventListener('click', async (event) => {
   const composeButton = event.target.closest('[data-compose-cast]');
   if (composeButton) {
@@ -4450,19 +4488,37 @@ document.addEventListener('click', async (event) => {
   }
   const conversationButton = event.target.closest('[data-open-conversation]');
   if (conversationButton) { await openConversation(conversationButton.dataset.fid, conversationButton.dataset.hash); return; }
+  if (event.target.closest('[data-share-app]')) {
+    const url = new URL('/', location.origin);
+    await shareOrCopyLink(url.href, { title: 'Castonaut', text: 'A Farcaster client with a personal Desk.', copiedMessage: 'Castonaut link' });
+    return;
+  }
   const shareCast = event.target.closest('[data-share-cast]');
   if (shareCast) {
     const url = new URL(`${location.pathname}${location.search}`, location.origin);
-    url.hash = `cast=${Number(shareCast.dataset.fid)}/${String(shareCast.dataset.hash).toLowerCase()}`;
-    try { await navigator.clipboard.writeText(url.href); setNotice('Conversation link copied.', 'success'); }
-    catch { setNotice(url.href, 'pending'); }
+    const fid = Number(shareCast.dataset.fid);
+    const hash = String(shareCast.dataset.hash).toLowerCase();
+    url.hash = `cast=${fid}/${hash}`;
+    const profile = state.people.get(fid);
+    const cast = state.casts.find((item) => Number(item?.data?.fid) === fid && postHash(item) === hash);
+    const castText = String(cast?.data?.castAddBody?.text || '').trim();
+    await shareOrCopyLink(url.href, {
+      title: `Cast by @${profile?.username || `fid-${fid}`}`,
+      text: castText ? castText.slice(0, 240) : 'Open this conversation on Castonaut.',
+      copiedMessage: 'Cast link',
+    });
     return;
   }
   const shareProfile = event.target.closest('[data-copy-profile]');
   if (shareProfile) {
-    const url = new URL(`${location.pathname}${location.search}`, location.origin); url.hash = `profile=${Number(shareProfile.dataset.copyProfile)}`;
-    try { await navigator.clipboard.writeText(url.href); setNotice('Profile link copied.', 'success'); }
-    catch { setNotice(url.href, 'pending'); }
+    const fid = Number(shareProfile.dataset.copyProfile);
+    const url = new URL(`${location.pathname}${location.search}`, location.origin); url.hash = `profile=${fid}`;
+    const profile = state.people.get(fid);
+    await shareOrCopyLink(url.href, {
+      title: `@${profile?.username || `fid-${fid}`} on Castonaut`,
+      text: `See ${localProfileName(profile || { username: `fid-${fid}`, fid })} on Castonaut.`,
+      copiedMessage: 'Profile link',
+    });
     return;
   }
   const deskTopic = event.target.closest('[data-desk-topic]');
