@@ -1,4 +1,4 @@
-import { NeonRush } from '../archive/afterhours-arcade/src/game.js';
+import { NeonRush } from './neon-rush.js';
 import { isFarcasterMiniAppLink } from './mini-app-links.js';
 import './play-tools.css';
 

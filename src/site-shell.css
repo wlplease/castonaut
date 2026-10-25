@@ -40,6 +40,16 @@
 .site-nav a { min-height: 38px; display: inline-flex; align-items: center; padding: 0 13px; border: 1px solid transparent; border-radius: 8px; color: #5c5669; font-size: 12px; font-weight: 600; text-decoration: none; transition: background .16s, color .16s, border-color .16s, transform .16s; }
 .site-nav a:hover { border-color: var(--shell-line); background: #fff; color: var(--shell-accent); transform: translateY(-1px); }
 .site-nav a[aria-current="page"] { border-color: #ded6ef; background: var(--shell-accent-soft); color: var(--shell-accent); }
+.site-menu-more { position: relative; flex: 0 0 auto; }
+.site-menu-more>summary { min-height: 38px; display: inline-flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid transparent; border-radius: 8px; color: var(--shell-muted); cursor: pointer; font-size: 12px; font-weight: 600; list-style: none; }
+.site-menu-more>summary::-webkit-details-marker { display: none; }
+.site-menu-more>summary::after { content: "⌄"; color: var(--shell-muted); font: 11px "DM Mono", Consolas, monospace; }
+.site-menu-more[open]>summary,.site-menu-more[data-active="true"]>summary,.site-menu-more>summary:hover { border-color: var(--shell-line); background: var(--shell-accent-soft); color: var(--shell-accent); }
+.site-menu-more-panel { position: absolute; z-index: 96; top: calc(100% + 7px); right: 0; display: grid; min-width: 190px; padding: 5px; border: 1px solid var(--shell-line); border-radius: 9px; background: var(--shell-paper); box-shadow: 0 10px 28px #21162b24; }
+.site-menu-more-panel>a { min-height: 37px; display: flex; align-items: center; padding: 0 10px; border-radius: 6px; color: var(--shell-ink); font-size: 11px; font-weight: 550; text-decoration: none; }
+.site-menu-more-panel>a:hover,.site-menu-more-panel>a:focus-visible,.site-menu-more-panel>a[aria-current="page"] { background: var(--shell-accent-soft); color: var(--shell-accent); outline: none; }
+.site-compose-button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; white-space: nowrap; }
+.site-compose-button>span:first-child { font-size: 13px; }
 .site-tools { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0; }
 .site-context { display: inline-flex; align-items: center; gap: 8px; color: #81798b; font: 8px "DM Mono", Consolas, monospace; letter-spacing: .13em; white-space: nowrap; }
 .site-context>span:first-child { width: 6px; height: 6px; border-radius: 50%; background: #9a77c4; box-shadow: 0 0 0 3px #9a77c41c; }
@@ -168,6 +178,15 @@ html[data-theme="soft-reset"] .site-brand img { border-radius:5px; box-shadow:in
   .site-tools { grid-column: 2; grid-row: 1; gap: 8px; }
   .site-context { display: none; }
   .site-footer { align-items: flex-start; flex-direction: column; justify-content: center; padding-block: 16px; }
+}
+
+@media (min-width: 621px) {
+  .app-frame .sidebar .nav-list>.nav-more { display: none; }
+}
+
+@media (max-width: 380px) {
+  .site-compose-button { width: 34px; min-width: 34px; height: 34px; min-height: 34px; padding: 0; }
+  .site-compose-button>span:last-child { display: none; }
 }
 
 @media (max-width: 620px) {

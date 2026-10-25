@@ -60,9 +60,9 @@ siteNav.setAttribute('aria-label', 'Main navigation');
 if (!isClient) siteNav.append(link('Client', '/#feed', { 'data-site-link': 'client' }));
 if (isClient) {
   siteNav.append(
-    link('Following', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'following' }),
+    link('Following', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'following', title: 'Recent posts from people you follow' }),
   );
-  const topPeople = link('Top people', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'friends' });
+  const topPeople = link('Top people', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'friends', title: 'Your picks and active people in your follow graph' });
   const topPeopleCount = document.createElement('span');
   topPeopleCount.className = 'app-menu-count';
   topPeopleCount.dataset.friendCount = '';
@@ -71,11 +71,23 @@ if (isClient) {
   topPeople.append(topPeopleCount);
   siteNav.append(
     topPeople,
-    link('Discover', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'discover' }),
+    link('Discover', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'discover', title: 'Find people through your follow graph' }),
+  );
+  const more = document.createElement('details');
+  more.className = 'site-menu-more';
+  const summary = document.createElement('summary');
+  summary.textContent = 'More';
+  const menu = document.createElement('div');
+  menu.className = 'site-menu-more-panel';
+  menu.append(
+    link('Play & tools', '/#play-tools', { 'data-shell-view': 'tools' }),
+    link('Saved posts', '/#feed', { 'data-shell-saved': '' }),
     link('Guide', '/tutorial.html#quickstart', { 'data-site-link': 'guide' }),
     link('Field notes', '/endorsements.html', { 'data-site-link': 'notes' }),
-    link('About', '/#about', { 'data-site-link': 'about' }),
+    link('Node & connection', '/#about', { 'data-shell-view': 'node' }),
   );
+  more.append(summary, menu);
+  siteNav.append(more);
 } else {
   siteNav.append(
     link('Guide', '/tutorial.html#quickstart', { 'data-site-link': 'guide' }),
@@ -111,6 +123,13 @@ if (isClient && oldHeader) {
   const theme = oldHeader.querySelector('#theme-select')?.closest('.theme-picker');
   const commandButton = oldHeader.querySelector('#command-open');
   const account = oldHeader.querySelector('#open-account');
+  const composeButton = document.createElement('button');
+  composeButton.type = 'button';
+  composeButton.className = 'button button-orange site-compose-button';
+  composeButton.dataset.composeCast = '';
+  composeButton.setAttribute('aria-label', 'Write a cast');
+  composeButton.innerHTML = '<span aria-hidden="true">✎</span><span>Write</span>';
+  accountTools.prepend(composeButton);
   if (commandButton) accountTools.append(commandButton);
   if (theme) accountTools.append(theme);
   if (account) accountTools.append(account);
@@ -158,5 +177,17 @@ try { applyTheme(localStorage.getItem(THEME_STORAGE) || 'atlas'); } catch { appl
 themeSelect?.addEventListener('change', () => {
   applyTheme(themeSelect.value);
   try { localStorage.setItem(THEME_STORAGE, themeSelect.value); } catch { /* Theme still applies for this page view. */ }
+});
+
+header.querySelectorAll('[data-shell-view]').forEach((item) => item.addEventListener('click', (event) => {
+  event.preventDefault();
+  header.querySelector('.site-menu-more')?.removeAttribute('open');
+  const destination = item.dataset.shellView;
+  document.querySelector(`.sidebar [data-view="${destination}"]`)?.click();
+}));
+header.querySelector('[data-shell-saved]')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  header.querySelector('.site-menu-more')?.removeAttribute('open');
+  document.querySelector('.sidebar [data-saved-feed]')?.click();
 });
 

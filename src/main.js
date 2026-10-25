@@ -977,16 +977,7 @@ function updateFeedTabs() {
   const feedWindow = $('#feed-window');
   if (profileLayout) profileLayout.dataset.profileView = String(profileView);
   if (feedWindow) feedWindow.dataset.profileView = String(profileView);
-  const modes = ['following', 'friends'];
-  for (const mode of modes) {
-    const button = document.querySelector(`[data-feed-tab="${mode}"]`);
-    if (!button) continue;
-    button.classList.toggle('is-active', state.boardMode === 'signals' && state.feedMode === mode);
-    button.setAttribute('aria-pressed', String(state.boardMode === 'signals' && state.feedMode === mode));
-  }
   updateTopPeopleCounts();
-  const peopleTabs = $('.board-switch');
-  if (peopleTabs) peopleTabs.hidden = state.feedMode === 'profile' || state.boardMode !== 'signals';
   const feedTools = $('.feed-view-controls');
   if (feedTools) feedTools.hidden = state.feedMode === 'profile' || state.boardMode !== 'signals';
   const sortHidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
@@ -1288,6 +1279,7 @@ function renderCast(message, { priority = false } = {}) {
   const card = document.createElement('article'); card.className = 'post-card';
   card.dataset.castFid = String(fid);
   card.dataset.castHash = postHash(message);
+  card.dataset.castRenderSignature = castRenderSignature(message);
   const avatar = document.createElement('button'); avatar.type = 'button'; avatar.className = 'post-avatar'; avatar.dataset.openProfile = String(fid); avatar.setAttribute('aria-label', `Open ${localProfileName(profile)}'s recent posts`);
   avatar.textContent = (profile.name || '?').trim().slice(0, 1).toUpperCase();
   const avatarUrl = safeImageUrl(profile.avatar);
@@ -1512,6 +1504,25 @@ function renderCast(message, { priority = false } = {}) {
   more.append(moreSummary, menu); actions.append(more);
   content.append(actions); card.append(avatar, content);
   return card;
+}
+
+function castRenderSignature(message) {
+  const fid = Number(message?.data?.fid) || 0;
+  const profile = state.people.get(fid) || { fid, name: `Farcaster ${fid}`, username: `fid-${fid}`, avatar: '' };
+  const parentFid = Number(message?.data?.castAddBody?.parentCastId?.fid) || 0;
+  const parentProfile = state.people.get(parentFid);
+  const hash = postHash(message);
+  return JSON.stringify([
+    Number(state.fid), !!state.signerReady, !!state.remoteMediaEnabled,
+    profile.name, profile.username, profile.avatar, localProfileName(profile),
+    parentProfile?.name || '', parentProfile?.username || '', parentProfile?.avatar || '',
+    !!state.following.get(fid), state.following.has(fid), state.followStatusUnknown.has(fid),
+    state.friendFids.includes(fid), state.deskPins.includes(fid), state.mutedAuthors.includes(fid),
+    state.deskCasts.some((cast) => Number(cast.fid) === fid && cast.hash === hash),
+    state.savedCasts.some((cast) => Number(cast.fid) === fid && cast.hash === hash),
+    state.profilePins[fid] === hash,
+    state.sourceBySigner.get(signerHex(message.signer)) || null,
+  ]);
 }
 
 function reactionMessages(response) {
@@ -2135,6 +2146,15 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     else if (partialLoadFailures) setNotice(`Loaded what was available. ${partialLoadFailures} followed ${partialLoadFailures === 1 ? 'account could' : 'accounts could'} not be checked; use refresh to retry.`, 'error');
     else if (keepPreviousWhileNodeCatchesUp) setNotice(`The node returned no recent posts. Keeping the ${messages.length} posts already loaded while it catches up.`, 'info');
     restoreFeedScroll();
+    if (state.feedMode === 'following' && state.feedSourceOffset < state.feedSources.length) {
+      const checkedOffset = state.feedSourceOffset;
+      window.setTimeout(() => {
+        if (requestId === state.feedRequest && state.feedMode === 'following' && state.boardMode === 'signals'
+          && state.feedSourceOffset === checkedOffset && !state.feedMoreBusy) {
+          void loadMoreFollowed({ automatic: true });
+        }
+      }, 900);
+    }
     // Show posts as soon as the cast requests finish. Hydrate names and avatars
     // afterward so slower profile lookups do not hold the whole feed hostage.
     void (async () => {
@@ -2262,7 +2282,7 @@ function updateFollowingCoverage() {
     : summary;
 }
 
-async function loadMoreFollowed() {
+async function loadMoreFollowed({ automatic = false } = {}) {
   if (state.feedMoreBusy || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
   const requestId = state.feedRequest;
   const recentStart = recentFeedStartTimestamp();
@@ -2333,11 +2353,13 @@ async function loadMoreFollowed() {
     updateFollowingCoverage();
     const added = state.casts.length - existing.size;
     const checkedNow = groups.filter(Boolean).length;
-    setNotice(pageFailures
-      ? `${pageFailures} followed ${pageFailures === 1 ? 'account could' : 'accounts could'} not be checked. Kept their place in the queue; tap Load more recent posts to retry.`
-      : kind === 'people'
-      ? `Checked ${checkedNow} more followed ${checkedNow === 1 ? 'account' : 'accounts'} and loaded ${added} recent ${added === 1 ? 'post' : 'posts'}. ${state.feedSourceOffset} of ${state.feedFollowTotal} follows checked.`
-      : `Loaded ${added} more recent ${added === 1 ? 'post' : 'posts'}. ${state.casts.length} posts are now in this timeline.`, pageFailures ? 'error' : 'success');
+    if (!automatic) {
+      setNotice(pageFailures
+        ? `${pageFailures} followed ${pageFailures === 1 ? 'account could' : 'accounts could'} not be checked. Kept their place in the queue; tap Load more recent posts to retry.`
+        : kind === 'people'
+        ? `Checked ${checkedNow} more followed ${checkedNow === 1 ? 'account' : 'accounts'} and loaded ${added} recent ${added === 1 ? 'post' : 'posts'}. ${state.feedSourceOffset} of ${state.feedFollowTotal} follows checked.`
+        : `Loaded ${added} more recent ${added === 1 ? 'post' : 'posts'}. ${state.casts.length} posts are now in this timeline.`, pageFailures ? 'error' : 'success');
+    }
   } catch (error) {
     if (requestId === state.feedRequest) setNotice(`Could not load more of your Following feed. ${error.message}`, 'error');
   } finally {
@@ -2488,11 +2510,26 @@ function renderFeed() {
       : `${requestedSource ? `${messages.length} OF ${state.casts.length}` : messages.length} POSTS${repeatedGroupCount ? ` · ${repeatedGroupCount} GROUPED` : ''}`;
   $('#feed-end').hidden = false;
   const fragment = document.createDocumentFragment();
+  const existingCards = new Map([...list.querySelectorAll('.post-card[data-cast-hash]')].map((card) => [`${card.dataset.castFid}:${card.dataset.castHash}`, card]));
+  const renderedCards = new Set();
+  const appendCast = (message, options) => {
+    const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
+    const existing = existingCards.get(key);
+    if (existing && !renderedCards.has(key) && existing.dataset.castRenderSignature === castRenderSignature(message)) {
+      renderedCards.add(key);
+      fragment.append(existing);
+      return;
+    }
+    const card = renderCast(message, options);
+    renderedCards.add(key);
+    fragment.append(card);
+  };
   groups.forEach((group, index) => {
     const priority = index < 3;
-    if (group.messages.length === 1) { fragment.append(renderCast(group.messages[0], { priority })); return; }
+    if (group.messages.length === 1) { appendCast(group.messages[0], { priority }); return; }
     const cluster = document.createElement('section'); cluster.className = 'repeat-cluster';
-    cluster.append(renderCast(group.messages[0], { priority }));
+    appendCast(group.messages[0], { priority });
+    cluster.append(fragment.lastElementChild);
     const more = document.createElement('details'); more.className = 'repeat-cluster-more';
     const summary = document.createElement('summary');
     const people = new Set(group.messages.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0)).size;
@@ -2501,7 +2538,12 @@ function renderFeed() {
     updateSummary();
     more.addEventListener('toggle', updateSummary);
     const others = document.createElement('div'); others.className = 'repeat-cluster-posts';
-    group.messages.slice(1).forEach((message) => others.append(renderCast(message)));
+    group.messages.slice(1).forEach((message) => {
+      const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
+      const existing = existingCards.get(key);
+      if (existing && !renderedCards.has(key) && existing.dataset.castRenderSignature === castRenderSignature(message)) { renderedCards.add(key); others.append(existing); }
+      else { renderedCards.add(key); others.append(renderCast(message)); }
+    });
     more.append(summary, others); cluster.append(more); fragment.append(cluster);
   });
   list.removeAttribute('data-empty');
@@ -3558,6 +3600,7 @@ function setBoardMode(mode) {
   saveFeedScroll();
   state.boardMode = mode === 'flight-log' ? 'flight-log' : 'signals';
   const logMode = state.boardMode === 'flight-log';
+  updatePrimaryNav();
   updateFeedTabs();
   renderDeskShortcuts();
   $('#page-label').textContent = logMode ? 'SAVED' : state.feedMode === 'profile' ? 'PROFILE' : 'FEED';
@@ -4189,6 +4232,20 @@ function updatePrimaryNav(selection = '') {
     link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
+  const shellMenu = document.querySelector('.site-menu-more');
+  const shellItems = [...document.querySelectorAll('.site-menu-more [data-shell-view]')];
+  for (const item of shellItems) {
+    const active = item.dataset.shellView === activeView;
+    item.classList.toggle('active', active);
+    if (active) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
+  }
+  const savedItem = document.querySelector('.site-menu-more [data-shell-saved]');
+  const savedActive = currentArea === 'feed' && state.boardMode === 'flight-log';
+  if (savedItem) {
+    savedItem.classList.toggle('active', savedActive);
+    if (savedActive) savedItem.setAttribute('aria-current', 'page'); else savedItem.removeAttribute('aria-current');
+  }
+  if (shellMenu) shellMenu.dataset.active = String(savedActive || shellItems.some((item) => item.classList.contains('active')));
   updateFeedDestinationNav();
   document.querySelectorAll('.site-header [data-site-link="about"]').forEach((link) => {
     if (currentArea === 'node') link.setAttribute('aria-current', 'page');
@@ -4670,7 +4727,6 @@ stationAudio.addEventListener('pause', () => {
     voiceButton.setAttribute('aria-label', 'Listen to the station introduction');
   }
 });
-document.querySelectorAll('[data-feed-tab]').forEach((button) => button.addEventListener('click', () => setFeedTab(button.dataset.feedTab)));
 document.querySelector('[data-saved-feed]')?.addEventListener('click', (event) => {
   event.preventDefault();
   navigate('feed');
