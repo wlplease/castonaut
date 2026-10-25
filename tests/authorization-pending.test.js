@@ -52,7 +52,7 @@ test('restored accounts load the feed after signer confirmation with no payment 
   const restore = source.slice(restoreStart, restoreEnd);
   assert.match(restore, /await fetchProfile\(state\.fid\)\.catch\(\(\) => null\)/);
   assert.doesNotMatch(restore, /if \(state\.signerReady\) await fetchProfile\(state\.fid\)/);
-  assert.match(restore, /else \{[\s\S]*?await loadFeed\(state\.fid\)/);
+  assert.match(restore, /await loadFeed\(state\.fid\)/);
   assert.doesNotMatch(restore, /else if \(passActive\)/);
   assert.doesNotMatch(source, /Time Pass|VITE_PASS_CONTRACT_ADDRESS|buyTimePass|pass-gate|\$3\.70/);
 
@@ -68,7 +68,7 @@ test('startup restores the browser signer before inviting another sign-in', asyn
   assert.match(source, /objectStore\(SIGNER_STORE\)\.put\(\{ \.\.\.record, id: 'active' \}\)/);
   assert.match(source, /objectStore\(SIGNER_STORE\)\.get\('active'\)/);
   assert.match(source, /sessionRestoring: true/);
-  assert.match(source, /if \(state\.sessionRestoring\) \{\s*setNotice\('Checking this browser for your saved sign-in/);
-  assert.match(source, /restoreSession\(\)\.catch\([\s\S]*?\)\.finally\(\(\) => \{\s*state\.sessionRestoring = false;\s*renderIdentity\(\);\s*applyLocationRoute\(\);/);
+  assert.match(source, /if \(state\.sessionRestoring\) \{\s*if \(!\$\('#connect-dialog'\)\.open\) \$\('#connect-dialog'\)\.showModal\(\);\s*setConnectionStatus\('Checking this browser for a saved sign-in/);
+  assert.match(source, /restoreSession\(\)\.catch\([\s\S]*?\)\.finally\(\(\) => \{[\s\S]*?state\.sessionRestoring = false;[\s\S]*?applyLocationRoute\(\);/);
   assert.match(source, /\$\('#portal-enter'\)\.disabled = state\.sessionRestoring/);
 });

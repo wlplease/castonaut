@@ -16,8 +16,8 @@ test('authorization catches protocol chunk loading failures and reports a recove
   assert.match(flow, /Authorization could not start\. Reload and try again\./);
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /CASTONAUT · THIS BROWSER/);
-  assert.match(html, /Limited social key for Castonaut/);
-  assert.match(html, /Authorize Castonaut/);
+  assert.match(html, /Separate Farcaster social signer/);
+  assert.match(html, /Three steps: identify your account[\s\S]*register a separate limited social key/);
 });
 
 test('saved authorization can be resumed without entering the recovery phrase again', async () => {

@@ -443,6 +443,58 @@
   .recovery-phrase-entry input{min-width:0;width:100%}
   .command-items{max-height:calc(100dvh - 170px)}
 }
+
+/* A stable phone dock: keep the primary destinations legible, then move Desk
+   into the overflow menu only when five labels no longer fit comfortably. */
+@media(max-width:620px){
+  .app-frame{padding-bottom:calc(68px + env(safe-area-inset-bottom))}
+  .app-frame .sidebar{
+    height:calc(62px + env(safe-area-inset-bottom));
+    padding:4px max(8px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px,env(safe-area-inset-left));
+  }
+  .sidebar .nav-list{
+    display:grid!important;width:100%;height:52px;max-height:52px;
+    grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:50px;
+    align-items:stretch;align-content:center;gap:2px;margin:0;padding:0;
+    overflow:visible;touch-action:auto;scroll-snap-type:none
+  }
+  .sidebar .nav-list>.nav-item[data-view="desk"]{display:flex!important}
+  .sidebar .nav-list>.nav-item[data-view="search"],
+  .sidebar .nav-list>.nav-item[data-view="profile"]{display:none!important}
+  .nav-more-mobile[href="#my-desk"]{display:none!important}
+  .sidebar .nav-list>.nav-item,
+  .sidebar .nav-list>.nav-more{min-width:0;width:100%;height:50px;min-height:48px}
+  .sidebar .nav-list .nav-item,
+  .sidebar .nav-list .nav-more>summary{
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    gap:2px;min-width:0;width:100%;height:50px;min-height:48px;
+    padding:3px 2px;border-radius:9px;font-size:9px;line-height:1.05
+  }
+  .sidebar .nav-list .nav-item .nav-symbol{display:block;width:auto;height:19px;font-size:16px;line-height:19px}
+  .sidebar .nav-list .nav-item>span:nth-child(2),
+  .sidebar .nav-list .nav-more>summary>span:nth-child(2){
+    display:block;max-width:100%;overflow:hidden;text-align:center;
+    text-overflow:clip;white-space:normal;text-wrap:balance;font-size:8px;line-height:1.05
+  }
+  .sidebar .nav-list .nav-item .nav-count{position:absolute;top:1px;right:calc(50% - 24px);min-width:14px;height:14px;font-size:7px}
+  .nav-more{position:relative}
+  .nav-more>summary{list-style:none}
+  .nav-more>summary::-webkit-details-marker{display:none}
+  .nav-more-menu{
+    position:absolute;top:auto;right:0;bottom:calc(100% + 9px);left:auto;
+    width:min(280px,calc(100vw - 16px));max-height:calc(100dvh - 92px - env(safe-area-inset-bottom));
+    overflow-y:auto;overscroll-behavior:contain;padding:7px
+  }
+  .nav-more-link{min-height:42px;padding:8px 10px}
+}
+@media(max-width:399px){
+  .sidebar .nav-list{grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
+  .sidebar .nav-list>.nav-item[data-view="desk"]{display:none!important}
+  .nav-more-mobile[href="#my-desk"]{display:grid!important}
+  .sidebar .nav-list .nav-item>span:nth-child(2),
+  .sidebar .nav-list .nav-more>summary>span:nth-child(2){font-size:9px}
+  .sidebar .nav-list .nav-item .nav-count{right:calc(50% - 26px)}
+}
 @media(max-width:380px){
   .site-header--client{padding-inline:7px}
   .site-header--client .site-brand img{width:28px;height:28px;min-width:28px;flex-basis:28px}

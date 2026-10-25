@@ -1259,6 +1259,26 @@ window.addEventListener('scroll', () => {
   scrollSaveTimer = setTimeout(saveFeedScroll, 180);
 }, { passive: true });
 
+function captureFeedScrollAnchor() {
+  const cards = [...($('#feed-list')?.querySelectorAll('.post-card[data-cast-hash]') || [])];
+  const card = cards.find((item) => item.getBoundingClientRect().bottom > 0);
+  return card ? {
+    fid: card.dataset.castFid,
+    hash: card.dataset.castHash,
+    top: card.getBoundingClientRect().top,
+  } : null;
+}
+function restoreFeedScrollAnchor(anchor) {
+  if (!anchor) return;
+  requestAnimationFrame(() => {
+    const card = [...($('#feed-list')?.querySelectorAll('.post-card[data-cast-hash]') || [])]
+      .find((item) => item.dataset.castFid === anchor.fid && item.dataset.castHash === anchor.hash);
+    if (!card) return;
+    const shift = card.getBoundingClientRect().top - anchor.top;
+    if (Math.abs(shift) > 1) window.scrollBy(0, shift);
+  });
+}
+
 function writeFidList(key, values) {
   const normalized = [...new Set(values.map(Number).filter((fid) => Number.isSafeInteger(fid) && fid > 0))].slice(0, 36);
   try { localStorage.setItem(key, JSON.stringify(normalized)); return normalized; }
@@ -2318,7 +2338,7 @@ function renderFeedMore() {
   if (!footer || !button) return false;
   const hasProfileMore = state.boardMode === 'signals' && state.feedMode === 'profile'
     && (!!state.profileNextPageToken || !state.profileArchiveMode);
-  const hasMore = state.boardMode === 'signals' && ((state.feedMode === 'following' && (state.feedCastPageTokens.size > 0 || !!state.feedFollowNextPageToken)) || hasProfileMore);
+  const hasMore = state.boardMode === 'signals' && ((state.feedMode === 'following' && (state.feedSourceOffset < state.feedSources.length || state.feedCastPageTokens.size > 0 || !!state.feedFollowNextPageToken)) || hasProfileMore);
   button.hidden = !hasMore;
   button.disabled = state.feedMoreBusy;
   button.textContent = state.feedMoreBusy
@@ -2391,6 +2411,7 @@ function updateFollowingCoverage() {
 async function loadMoreFollowed({ automatic = false } = {}) {
   if (state.feedMoreBusy || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
   const requestId = state.feedRequest;
+  const scrollAnchor = captureFeedScrollAnchor();
   const recentStart = recentFeedStartTimestamp();
   let pageFailures = 0;
   state.feedMoreBusy = true;
@@ -2456,6 +2477,7 @@ async function loadMoreFollowed({ automatic = false } = {}) {
     await mapLimit([...new Set(state.casts.flatMap((message) => [Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid)]).filter((fid) => fid > 0 && !state.people.has(fid)))], 6, fetchProfile);
     if (requestId !== state.feedRequest) return;
     renderFeed();
+    restoreFeedScrollAnchor(scrollAnchor);
     updateFollowingCoverage();
     const added = state.casts.length - existing.size;
     const checkedNow = groups.filter(Boolean).length;
@@ -5246,6 +5268,7 @@ document.addEventListener('keydown', (event) => {
   cards[next].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
 $('#open-account').addEventListener('click', openConnectDialog);
+$('#hero-connect')?.addEventListener('click', openConnectDialog);
 $('#welcome-card [data-open-account]')?.addEventListener('click', openConnectDialog);
 $('#portal-enter').addEventListener('click', () => {
   openConnectDialog();
