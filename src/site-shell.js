@@ -57,24 +57,9 @@ brand.append(logo, brandText);
 const siteNav = document.createElement('nav');
 siteNav.className = 'site-nav';
 siteNav.setAttribute('aria-label', 'Main navigation');
+siteNav.hidden = isClient;
 if (!isClient) siteNav.append(link('Client', '/#feed', { 'data-site-link': 'client' }));
-if (isClient) {
-  const more = document.createElement('details');
-  more.className = 'site-menu-more';
-  const summary = document.createElement('summary');
-  summary.textContent = 'More';
-  const menu = document.createElement('div');
-  menu.className = 'site-menu-more-panel';
-  menu.append(
-    link('Play & tools', '/#play-tools', { 'data-shell-view': 'tools' }),
-    link('Saved posts', '/#feed', { 'data-shell-saved': '' }),
-    link('Guide', '/tutorial.html#quickstart', { 'data-site-link': 'guide' }),
-    link('Field notes', '/endorsements.html', { 'data-site-link': 'notes' }),
-    link('Node & connection', '/#about', { 'data-shell-view': 'node' }),
-  );
-  more.append(summary, menu);
-  siteNav.append(more);
-} else {
+if (!isClient) {
   siteNav.append(
     link('Guide', '/tutorial.html#quickstart', { 'data-site-link': 'guide' }),
     link('Field notes', '/endorsements.html', { 'data-site-link': 'notes' }),

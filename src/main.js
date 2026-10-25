@@ -445,7 +445,8 @@ function setConnectionStatus(message, { canRetry = false, canRefresh = false, ca
   // Castonaut's supported first-run sign-in uses the Farcaster recovery phrase.
   // Keep the legacy injected-wallet path out of the onboarding UI.
   $('#wallet-connect').hidden = true;
-  $('#wallet-review').hidden = true;
+  const walletReview = $('#wallet-review');
+  if (walletReview) walletReview.hidden = true;
   $('#wallet-authorize').hidden = true;
   $('#wallet-change').hidden = true;
   $('#check-signer').hidden = !canRetry;
@@ -456,11 +457,16 @@ function setConnectionStatus(message, { canRetry = false, canRefresh = false, ca
 
 function clearWalletReview() {
   pendingWalletAccount = null;
-  $('#wallet-review-fid').textContent = '';
-  $('#wallet-review-address').textContent = '';
-  $('#wallet-review').hidden = true;
-  $('#wallet-authorize').hidden = true;
-  $('#wallet-change').hidden = true;
+  const fid = $('#wallet-review-fid');
+  const address = $('#wallet-review-address');
+  const review = $('#wallet-review');
+  const authorize = $('#wallet-authorize');
+  const change = $('#wallet-change');
+  if (fid) fid.textContent = '';
+  if (address) address.textContent = '';
+  if (review) review.hidden = true;
+  if (authorize) authorize.hidden = true;
+  if (change) change.hidden = true;
 }
 
 function openConnectDialog() {

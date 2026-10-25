@@ -30,6 +30,8 @@
   box-shadow: 0 6px 24px #34274408;
   backdrop-filter: blur(16px);
 }
+.site-header--client { grid-template-columns: minmax(190px, 1fr) auto; }
+.site-header--client .site-nav { display: none; }
 
 .site-brand { display: inline-flex; align-items: center; justify-self: start; gap: 10px; min-width: 0; text-decoration: none; }
 .site-brand img { display: block; width: 38px; height: 38px; border-radius: 11px; box-shadow: 0 3px 10px #33254a16; }
@@ -181,7 +183,7 @@ html[data-theme="soft-reset"] .site-brand img { border-radius:5px; box-shadow:in
 }
 
 @media (min-width: 621px) {
-  .app-frame .sidebar .nav-list>.nav-more { display: none; }
+  .app-frame .sidebar .nav-list>.nav-more { display: block; }
 }
 
 @media (max-width: 380px) {
