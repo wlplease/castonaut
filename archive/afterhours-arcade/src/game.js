@@ -12,7 +12,7 @@ export class NeonRush {
     this.onHud = onHud;
     this.keys = new Set();
     this.pointer = null;
-    this.sound = true;
+    this.sound = false;
     this.running = false;
     this.frame = 0;
     this.tick = this.tick.bind(this);

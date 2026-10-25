@@ -3830,7 +3830,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 .desk-privacy-note>span:first-child{display:flex;flex:0 0 auto;align-items:center;gap:5px;color:var(--station-accent);font:9px var(--mono);letter-spacing:.04em}
 .desk-privacy-note i{font-size:14px;font-style:normal}
 
-.feed-statusbar{display:grid;grid-template-columns:minmax(150px,.8fr) minmax(140px,.7fr) minmax(170px,1fr);align-items:center;gap:10px;min-height:34px;padding:5px 13px;border-bottom:1px solid var(--station-line);background:color-mix(in srgb,var(--station-soft) 28%,var(--station-card));color:var(--station-copy-muted);font:9px var(--mono)}
+.feed-statusbar{display:grid;grid-template-columns:minmax(145px,.8fr) minmax(130px,.7fr) auto minmax(160px,1fr);align-items:center;gap:10px;min-height:34px;padding:5px 13px;border-bottom:1px solid var(--station-line);background:color-mix(in srgb,var(--station-soft) 28%,var(--station-card));color:var(--station-copy-muted);font:9px var(--mono)}
 .feed-status-account,.feed-status-network{display:flex;align-items:center;gap:7px;min-width:0}
 .feed-status-account{border-right:1px solid var(--station-line)}
 .feed-status-account small{flex:0 0 auto;color:var(--station-copy-soft);font-size:7px;letter-spacing:.08em}
@@ -3840,6 +3840,9 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 .feed-status-led[data-state="behind"],.feed-status-led[data-state="checking"]{background:#d18a3f;box-shadow:0 0 0 3px color-mix(in srgb,#d18a3f 13%,transparent)}
 .feed-status-led[data-state="unavailable"]{background:#c65c56;box-shadow:0 0 0 3px color-mix(in srgb,#c65c56 13%,transparent)}
 .feed-status-activity{overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap}
+.feed-status-media{justify-self:start;min-height:24px;padding:2px 7px;border:1px solid var(--station-line);border-radius:999px;background:var(--station-card);color:var(--station-copy-muted);font:8px var(--mono);white-space:nowrap}
+.feed-status-media[aria-pressed="true"]{border-color:color-mix(in srgb,#4f9777 38%,var(--station-line));background:color-mix(in srgb,#4f9777 8%,var(--station-card));color:color-mix(in srgb,#287455 82%,var(--station-ink))}
+.feed-status-media:hover{border-color:var(--station-accent);color:var(--station-ink)}
 .nav-list>.nav-section-label{grid-column:1/-1;margin:9px 0 -2px;padding:0 11px 2px;color:var(--station-copy-soft);font-size:8px;letter-spacing:.14em}
 .nav-list>.nav-section-label:not(:first-child){margin-top:14px}
 
@@ -3886,7 +3889,8 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .feed-statusbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px 8px;min-height:42px;padding:6px 9px}
   .feed-status-account{border-right:0}
   .feed-status-account small{font-size:6px}
-  .feed-status-activity{grid-column:1/-1;text-align:left;font-size:8px}
+  .feed-status-media{grid-column:1;grid-row:2}
+  .feed-status-activity{grid-column:2;grid-row:2;text-align:right;font-size:8px}
 }
 
 /* The Desk is a personal filing space: three clear stacks, kept on this device. */

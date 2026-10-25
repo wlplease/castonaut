@@ -20,6 +20,7 @@ import { summarizeProfileActivity } from './profile-analytics.js';
 import { recentOrbitCasts, summarizeOrbitActivity } from './desk-orbit.js';
 import { orbitAtlasLayout } from './orbit-atlas.js';
 import { isFarcasterMiniAppLink } from './mini-app-links.js';
+import { initPlayTools, refreshMiniAppShelf } from './play-tools.js';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
 let analyticsEnabled = false;
@@ -55,6 +56,13 @@ function trackPageview(route) {
 try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) === 'yes') enableAnalytics(); } catch { /* Analytics stays off when consent cannot be read. */ }
 
 const $ = (selector) => document.querySelector(selector);
+const connectionDetails = $('#status-card');
+if (connectionDetails && typeof window.matchMedia === 'function') {
+  const desktopLayout = window.matchMedia('(min-width: 761px)');
+  const syncConnectionDetails = () => { connectionDetails.open = desktopLayout.matches; };
+  syncConnectionDetails();
+  desktopLayout.addEventListener?.('change', syncConnectionDetails);
+}
 const snapchainReadCache = new ReadCache({ maxEntries: 36, maxBytes: 2_000_000 });
 const deviceReadCache = new DeviceReadCache({ maxEntries: 32, maxEntryBytes: 1_000_000 });
 const snapchainReadRequests = new Map();
@@ -72,6 +80,15 @@ const engagementObserver = typeof IntersectionObserver === 'function'
       void loadCastEngagement(entry.target);
     }
   }, { rootMargin: '180px 0px' })
+  : null;
+const castReferenceObserver = typeof IntersectionObserver === 'function'
+  ? new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      castReferenceObserver.unobserve(entry.target);
+      void loadCastReference(entry.target);
+    }
+  }, { rootMargin: '420px 0px' })
   : null;
 const READ_CACHE_TTL = { info: 10_000, casts: 8_000, replies: 8_000, links: 30_000, castById: 30_000, reactionsByCast: 20_000, userData: 60_000, username: 60_000 };
 const DEVICE_READ_CACHE_TTL = { casts: 120_000, replies: 60_000, links: 900_000, castById: 120_000, reactionsByCast: 30_000, userData: 900_000, username: 21_600_000 };
@@ -96,7 +113,7 @@ const DESK_SORT_STORAGE = 'castonaut.desk-sort.v1';
 const DESK_SORT_VALUES = { people: ['saved', 'name'], posts: ['saved', 'newest', 'oldest'], topics: ['saved', 'name'] };
 const PROFILE_NOTES_STORAGE = 'castonaut.profile-notes.v1';
 const FLIGHT_LOG_STORAGE = 'castonaut.flight-log.v1';
-const REMOTE_MEDIA_STORAGE = 'castonaut.remote-media.v1';
+const REMOTE_MEDIA_STORAGE = 'castonaut.remote-media.v2';
 const REPEAT_GROUPING_STORAGE = 'castonaut.group-repeats.v1';
 const THEME_STORAGE = 'castonaut.theme.v1';
 const VOICE_STORAGE = 'castonaut.station-voice.v1';
@@ -1036,6 +1053,14 @@ function renderFeedStatusbar() {
   const led = $('#feed-status-led');
   const networkState = nodeKind === 'bad' ? 'unavailable' : maxDelay === null ? (state.nodeInfo ? 'unknown' : nodeKind === '' ? 'checking' : 'unknown') : maxDelay <= 10 ? 'current' : 'behind';
   setText(network, networkState === 'current' ? 'Node current' : networkState === 'behind' ? 'Node behind' : networkState === 'unavailable' ? 'Node unavailable' : networkState === 'checking' ? 'Checking node' : 'Freshness unknown');
+  const mediaToggle = $('#feed-media-toggle');
+  if (mediaToggle) {
+    mediaToggle.textContent = state.remoteMediaEnabled ? '▧ Media on' : '▧ Media off';
+    mediaToggle.setAttribute('aria-pressed', String(state.remoteMediaEnabled));
+    mediaToggle.title = state.remoteMediaEnabled
+      ? 'Post images load automatically. Media hosts can see your IP address. Click to turn previews off.'
+      : 'Post images are hidden. Click to load media automatically; media hosts can see your IP address.';
+  }
   led.dataset.state = networkState;
   bar.dataset.network = networkState;
   network.title = networkState === 'behind'
@@ -1188,6 +1213,66 @@ function menuAction(label, action, fid, extra = {}) {
   return button;
 }
 
+function referenceId(embed) {
+  const castId = embed?.castId;
+  const fid = Number(castId?.fid);
+  const hash = hashText(castId?.hash);
+  return Number.isSafeInteger(fid) && fid > 0 && /^0x[\da-f]{40,64}$/i.test(hash) ? { fid, hash } : null;
+}
+
+async function loadCastReference(container) {
+  if (!container?.isConnected || container.dataset.loaded === 'true') return;
+  container.dataset.loaded = 'true';
+  const fid = Number(container.dataset.fid);
+  const hash = container.dataset.hash;
+  const key = `${fid}:${hash.toLowerCase()}`;
+  let message = state.messages.get(key);
+  try {
+    if (!message) message = unwrapMessages(await nodeRequest('castById', { fid, hash }))[0];
+    if (!message?.data?.castAddBody) throw new Error('Referenced cast unavailable');
+    state.messages.set(key, message);
+    const profile = state.people.get(fid) || await fetchProfile(fid);
+    if (!container.isConnected) return;
+    const body = message.data.castAddBody;
+    const heading = document.createElement('div'); heading.className = 'post-reference-heading';
+    const author = document.createElement('button'); author.type = 'button'; author.className = 'post-reference-author'; author.dataset.openProfile = String(fid); author.textContent = `${localProfileName(profile)} · @${profile.username || `fid-${fid}`}`;
+    const timestamp = document.createElement('time'); timestamp.className = 'post-reference-time'; timestamp.textContent = farcasterDate(message.data.timestamp);
+    heading.append(author, timestamp);
+    const copy = document.createElement('p'); copy.className = 'post-reference-copy'; copy.textContent = body.text || '(media cast)';
+    const children = [heading, copy];
+    const mediaEmbeds = [...(body.embeds || []), ...(body.embedsDeprecated || []).map((url) => ({ url }))]
+      .filter((embed) => typeof embed?.url === 'string' && (isImageEmbedUrl(embed.url) || isVideoEmbedUrl(embed.url)))
+      .slice(0, 2);
+    if (state.remoteMediaEnabled) {
+      for (const embed of mediaEmbeds) {
+        const mediaUrl = safeExternalUrl(embed.url);
+        if (!mediaUrl) continue;
+        if (isImageEmbedUrl(embed.url)) {
+          const image = makeRemoteImage(mediaUrl.href, 'post-reference-image');
+          image.alt = `Image attached to a referenced cast by ${localProfileName(profile)}`;
+          children.push(image);
+        } else if (isVideoEmbedUrl(embed.url)) {
+          const video = document.createElement('video'); video.className = 'post-reference-video'; video.controls = true; video.playsInline = true; video.preload = 'metadata'; video.referrerPolicy = 'no-referrer'; video.src = mediaUrl.href; video.setAttribute('aria-label', `Video attached to a referenced cast by ${localProfileName(profile)}`); children.push(video);
+        }
+      }
+    } else if (mediaEmbeds.length) {
+      const mediaNote = document.createElement('small'); mediaNote.className = 'post-reference-media-note'; mediaNote.textContent = `${mediaEmbeds.length} attached ${mediaEmbeds.length === 1 ? 'image' : 'images'} · media is off`;
+      children.push(mediaNote);
+    }
+    const open = document.createElement('button'); open.type = 'button'; open.className = 'post-reference-open'; open.dataset.openConversation = 'true'; open.dataset.fid = String(fid); open.dataset.hash = hash; open.textContent = 'Open referenced cast ↗';
+    children.push(open);
+    container.replaceChildren(...children);
+    container.dataset.loaded = 'true';
+  } catch {
+    if (!container.isConnected) return;
+    const status = document.createElement('span'); status.className = 'post-reference-status'; status.textContent = 'Referenced cast is unavailable from this node.';
+    const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'post-reference-open'; retry.textContent = 'Try again';
+    retry.addEventListener('click', () => { container.dataset.loaded = ''; void loadCastReference(container); });
+    container.replaceChildren(status, retry);
+    container.dataset.loaded = 'error';
+  }
+}
+
 function renderCast(message, { priority = false } = {}) {
   if (message?.data?.fid && postHash(message)) {
     state.messages.set(`${Number(message.data.fid)}:${postHash(message)}`, message);
@@ -1235,10 +1320,20 @@ function renderCast(message, { priority = false } = {}) {
     context.append(label);
     if (parentMessage) {
       const jump = document.createElement('button'); jump.type = 'button'; jump.className = 'reply-context-jump'; jump.dataset.focusCast = parentHash; jump.textContent = 'View above'; context.append(jump);
-    } else if (parentProfile?.username && !/^fid-\d+$/.test(parentProfile.username) && /^0x[\da-f]{40,64}$/i.test(parentHash)) {
-      const link = document.createElement('a'); link.href = `https://farcaster.xyz/${encodeURIComponent(parentProfile.username)}/${parentHash}`; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Open parent ↗'; context.append(link);
+    } else if (/^0x[\da-f]{40,64}$/i.test(parentHash)) {
+      const open = document.createElement('button'); open.type = 'button'; open.className = 'reply-context-jump'; open.dataset.openConversation = 'true'; open.dataset.fid = String(fid); open.dataset.hash = postHash(message); open.setAttribute('aria-label', 'Open this reply and its parent in Castonaut'); open.textContent = 'Open parent'; context.append(open);
     }
     content.append(context);
+  }
+  if (typeof body.parentUrl === 'string' && body.parentUrl) {
+    const parentUrl = safeExternalUrl(body.parentUrl);
+    if (parentUrl) {
+      const channelContext = document.createElement('div'); channelContext.className = 'reply-context channel-context';
+      channelContext.append(document.createTextNode('In channel · '));
+      const channelLink = document.createElement('a'); channelLink.href = parentUrl.href; channelLink.target = '_blank'; channelLink.rel = 'noopener noreferrer nofollow';
+      channelLink.textContent = readableLinkPath(parentUrl.pathname) || parentUrl.hostname.replace(/^www\./i, '');
+      channelContext.append(channelLink); content.append(channelContext);
+    }
   }
   if (fullText.length > 240) {
     const excerpt = document.createElement('p'); excerpt.className = 'post-copy post-excerpt'; excerpt.textContent = `${fullText.slice(0, 220).trimEnd()}…`;
@@ -1254,63 +1349,69 @@ function renderCast(message, { priority = false } = {}) {
     const copy = document.createElement('p'); copy.className = 'post-copy'; copy.textContent = fullText;
     content.append(copy);
   }
-  const embeds = [...(body.embeds || []), ...(body.embedsDeprecated || [])].filter((embed) => typeof embed?.url === 'string').slice(0, 4);
-  const imageEmbed = embeds.find((embed) => isImageEmbedUrl(embed.url));
-  const videoEmbed = embeds.find((embed) => isVideoEmbedUrl(embed.url));
-  const mediaEmbed = imageEmbed || videoEmbed;
-  if (mediaEmbed) {
-    if (state.remoteMediaEnabled) {
-      const mediaUrl = safeExternalUrl(mediaEmbed.url);
-      if (mediaUrl && videoEmbed === mediaEmbed) {
-        const media = document.createElement('details'); media.className = 'post-media post-video-media';
-        const summary = document.createElement('summary'); summary.textContent = '▶ Play attached video'; summary.setAttribute('aria-label', 'Load and play attached video');
-        const video = document.createElement('video'); video.className = 'post-video'; video.controls = true; video.playsInline = true; video.preload = 'none'; video.setAttribute('aria-label', `Video attached by ${shownName}`); video.dataset.src = mediaUrl.href;
-        const videoFallback = document.createElement('span'); videoFallback.className = 'media-fallback'; videoFallback.hidden = true;
-        videoFallback.append(document.createTextNode('Video unavailable · '));
-        const videoLink = document.createElement('a'); videoLink.href = mediaUrl.href; videoLink.target = '_blank'; videoLink.rel = 'noopener noreferrer nofollow'; videoLink.textContent = 'open original';
-        videoFallback.append(videoLink);
-        video.addEventListener('error', () => { videoFallback.hidden = false; });
-        media.addEventListener('toggle', () => {
-          if (media.open && !video.dataset.loaded) { videoFallback.hidden = true; video.src = video.dataset.src; video.dataset.loaded = 'true'; video.load(); }
-          if (!media.open) { video.pause(); video.removeAttribute('src'); video.dataset.loaded = ''; video.load(); }
-        });
-        media.append(summary, video, videoFallback); content.append(media);
-      } else if (mediaUrl) {
-        const media = document.createElement('figure'); media.className = 'post-media image-media';
-        const isGif = isGifEmbedUrl(mediaEmbed.url);
-        const imageFrame = document.createElement('div'); imageFrame.className = 'post-image-frame';
-        imageFrame.setAttribute('aria-busy', 'true');
-        const imageExpand = document.createElement('button'); imageExpand.type = 'button'; imageExpand.className = 'post-image-expand'; imageExpand.setAttribute('aria-label', `Expand ${isGif ? 'GIF' : 'image'} attached by ${shownName}`); imageExpand.setAttribute('aria-expanded', 'false');
-        const image = makeRemoteImage(mediaUrl.href, 'post-image', { priority }); image.alt = `${isGif ? 'Animated GIF' : 'Image'} attached by ${shownName}`;
-        imageExpand.append(image);
-        imageExpand.addEventListener('click', () => {
-          const expanded = imageFrame.classList.toggle('is-expanded');
-          imageExpand.setAttribute('aria-expanded', String(expanded));
-          imageExpand.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${isGif ? 'GIF' : 'image'} attached by ${shownName}`);
-        });
-        const imageFallback = document.createElement('span'); imageFallback.className = 'media-fallback'; imageFallback.hidden = true;
-        imageFallback.append(document.createTextNode(`${isGif ? 'GIF' : 'Image'} unavailable · `));
-        const fallbackLink = document.createElement('a'); fallbackLink.href = mediaUrl.href; fallbackLink.target = '_blank'; fallbackLink.rel = 'noopener noreferrer nofollow'; fallbackLink.textContent = 'open original';
-        imageFallback.append(fallbackLink);
-        image.addEventListener('load', () => { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); }, { once: true });
-        image.addEventListener('error', () => { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); image.hidden = true; imageFallback.hidden = false; }, { once: true });
-        imageFrame.classList.add('is-loading');
-        if (image.complete && image.naturalWidth > 0) { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); }
-        const mediaCaption = document.createElement('figcaption'); mediaCaption.className = 'post-media-caption';
-        const mediaKind = document.createElement('span'); mediaKind.textContent = isGif ? 'GIF' : 'IMAGE';
-        const mediaOpen = document.createElement('a'); mediaOpen.href = mediaUrl.href; mediaOpen.target = '_blank'; mediaOpen.rel = 'noopener noreferrer nofollow'; mediaOpen.textContent = 'Open original ↗';
-        mediaCaption.append(mediaKind, mediaOpen);
-        imageFrame.append(imageExpand); media.append(imageFrame, mediaCaption, imageFallback); content.append(media);
-      }
-    } else {
+  const embeds = [
+    ...(Array.isArray(body.embeds) ? body.embeds : []),
+    ...(Array.isArray(body.embedsDeprecated) ? body.embedsDeprecated.map((url) => ({ url })) : []),
+  ].slice(0, 4);
+  const mediaEmbeds = embeds.filter((embed) => typeof embed?.url === 'string' && (isImageEmbedUrl(embed.url) || isVideoEmbedUrl(embed.url)));
+  const castEmbeds = embeds.map(referenceId).filter(Boolean);
+  for (const mediaEmbed of mediaEmbeds) {
+    const mediaUrl = safeExternalUrl(mediaEmbed.url);
+    if (!mediaUrl) continue;
+    const isVideo = isVideoEmbedUrl(mediaEmbed.url);
+    const isGif = isGifEmbedUrl(mediaEmbed.url);
+    if (!state.remoteMediaEnabled) {
       const mediaNote = document.createElement('span'); mediaNote.className = 'media-hidden-note';
-      const kind = videoEmbed === mediaEmbed ? 'video' : isGifEmbedUrl(mediaEmbed.url) ? 'GIF' : 'image';
-      mediaNote.textContent = `${kind} hidden · Media off`; mediaNote.title = 'Use the Media off control above the feed to load remote media. Hosts can see your IP address.'; content.append(mediaNote);
+      mediaNote.textContent = `${isVideo ? 'Video' : isGif ? 'GIF' : 'Image'} hidden · Media off`; mediaNote.title = 'Turn on Load post media to show this attachment. The original media host can see your IP address.'; content.append(mediaNote);
+    } else if (isVideo) {
+      const media = document.createElement('figure'); media.className = 'post-media post-video-media';
+      const video = document.createElement('video'); video.className = 'post-video'; video.controls = true; video.playsInline = true; video.preload = 'metadata'; video.referrerPolicy = 'no-referrer'; video.src = mediaUrl.href; video.setAttribute('aria-label', `Video attached by ${shownName}`);
+      const videoFallback = document.createElement('span'); videoFallback.className = 'media-fallback'; videoFallback.hidden = true;
+      videoFallback.append(document.createTextNode('Video unavailable · '));
+      const videoLink = document.createElement('a'); videoLink.href = mediaUrl.href; videoLink.target = '_blank'; videoLink.rel = 'noopener noreferrer nofollow'; videoLink.textContent = 'open original'; videoFallback.append(videoLink);
+      video.addEventListener('error', () => { videoFallback.hidden = false; });
+      const caption = document.createElement('figcaption'); caption.className = 'post-media-caption';
+      const kind = document.createElement('span'); kind.textContent = 'VIDEO';
+      const open = document.createElement('a'); open.href = mediaUrl.href; open.target = '_blank'; open.rel = 'noopener noreferrer nofollow'; open.textContent = 'Open original ↗';
+      caption.append(kind, open); media.append(video, caption, videoFallback); content.append(media);
+    } else {
+      const media = document.createElement('figure'); media.className = 'post-media image-media';
+      const imageFrame = document.createElement('div'); imageFrame.className = 'post-image-frame'; imageFrame.setAttribute('aria-busy', 'true');
+      const imageExpand = document.createElement('button'); imageExpand.type = 'button'; imageExpand.className = 'post-image-expand'; imageExpand.setAttribute('aria-label', `Expand ${isGif ? 'GIF' : 'image'} attached by ${shownName}`); imageExpand.setAttribute('aria-expanded', 'false');
+      const image = makeRemoteImage(mediaUrl.href, 'post-image', { priority }); image.alt = `${isGif ? 'Animated GIF' : 'Image'} attached by ${shownName}`; imageExpand.append(image);
+      imageExpand.addEventListener('click', () => {
+        const expanded = imageFrame.classList.toggle('is-expanded'); imageExpand.setAttribute('aria-expanded', String(expanded));
+        imageExpand.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${isGif ? 'GIF' : 'image'} attached by ${shownName}`);
+      });
+      const imageFallback = document.createElement('span'); imageFallback.className = 'media-fallback'; imageFallback.hidden = true;
+      imageFallback.append(document.createTextNode(`${isGif ? 'GIF' : 'Image'} unavailable · `));
+      const fallbackLink = document.createElement('a'); fallbackLink.href = mediaUrl.href; fallbackLink.target = '_blank'; fallbackLink.rel = 'noopener noreferrer nofollow'; fallbackLink.textContent = 'open original'; imageFallback.append(fallbackLink);
+      image.addEventListener('load', () => { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); }, { once: true });
+      image.addEventListener('error', () => { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); image.hidden = true; imageFallback.hidden = false; }, { once: true });
+      imageFrame.classList.add('is-loading');
+      if (image.complete && image.naturalWidth > 0) { imageFrame.classList.remove('is-loading'); imageFrame.removeAttribute('aria-busy'); }
+      const mediaCaption = document.createElement('figcaption'); mediaCaption.className = 'post-media-caption';
+      const mediaKind = document.createElement('span'); mediaKind.textContent = isGif ? 'GIF' : 'IMAGE';
+      const mediaOpen = document.createElement('a'); mediaOpen.href = mediaUrl.href; mediaOpen.target = '_blank'; mediaOpen.rel = 'noopener noreferrer nofollow'; mediaOpen.textContent = 'Open original ↗';
+      mediaCaption.append(mediaKind, mediaOpen); imageFrame.append(imageExpand); media.append(imageFrame, mediaCaption, imageFallback); content.append(media);
     }
   }
-  const linkEmbed = embeds.find((embed) => embed !== imageEmbed && embed !== videoEmbed);
-  const previewUrl = safeExternalUrl(linkEmbed?.url || String(body.text || '').match(/https?:\/\/[^\s<>"'`]+/i)?.[0]);
-  if (previewUrl) {
+  for (const reference of castEmbeds) {
+    const referenceCard = document.createElement('aside'); referenceCard.className = 'post-reference-card'; referenceCard.dataset.fid = String(reference.fid); referenceCard.dataset.hash = reference.hash;
+    const status = document.createElement('span'); status.className = 'post-reference-status'; status.textContent = 'Loading referenced cast…'; referenceCard.append(status);
+    content.append(referenceCard);
+    if (castReferenceObserver) castReferenceObserver.observe(referenceCard);
+    else void loadCastReference(referenceCard);
+  }
+  const textUrls = [...String(body.text || '').matchAll(/https?:\/\/[^\s<>"'`]+/gi)].map((match) => match[0].replace(/[),.!?:;\]}]+$/g, ''));
+  const linkUrls = [...embeds.map((embed) => embed?.url), ...textUrls]
+    .filter((url) => typeof url === 'string' && !isImageEmbedUrl(url) && !isVideoEmbedUrl(url));
+  const seenLinkUrls = new Set();
+  for (const rawUrl of linkUrls) {
+    const previewUrl = safeExternalUrl(rawUrl);
+    if (!previewUrl || seenLinkUrls.has(previewUrl.href)) continue;
+    seenLinkUrls.add(previewUrl.href);
+    if (seenLinkUrls.size > 4) break;
     const isMiniApp = isFarcasterMiniAppLink(previewUrl);
     const preview = document.createElement('a'); preview.className = `post-link-preview${isMiniApp ? ' post-miniapp-preview' : ''}`; preview.href = previewUrl.href; preview.target = '_blank'; preview.rel = 'noopener noreferrer nofollow';
     preview.setAttribute('aria-label', isMiniApp ? `Open Farcaster Mini App: ${previewUrl.pathname.split('/')[3] || 'app'}` : `Open link at ${previewUrl.hostname}`);
@@ -1338,7 +1439,14 @@ function renderCast(message, { priority = false } = {}) {
   const replyGlyph = document.createElement('span'); replyGlyph.className = 'post-action-glyph'; replyGlyph.textContent = '↩';
   const replyCount = document.createElement('span'); replyCount.className = 'post-action-count'; replyCount.dataset.engagementCount = 'Reply'; replyCount.textContent = '…';
   reply.append(replyGlyph, replyCount); reply.setAttribute('aria-label', 'Reply'); reply.title = 'Reply';
-  const conversation = document.createElement('button'); conversation.type = 'button'; conversation.className = 'post-action conversation-action'; conversation.textContent = '◌'; conversation.setAttribute('aria-label', 'Open conversation'); conversation.title = 'Conversation'; conversation.dataset.openConversation = 'true'; conversation.dataset.fid = String(fid); conversation.dataset.hash = postHash(message);
+  const conversation = document.createElement('button'); conversation.type = 'button'; conversation.className = 'post-action conversation-action'; conversation.setAttribute('aria-label', 'View thread'); conversation.title = 'View thread'; conversation.dataset.openConversation = 'true'; conversation.dataset.fid = String(fid); conversation.dataset.hash = postHash(message);
+  conversation.setAttribute('aria-controls', 'conversation-view');
+  const threadIsOpen = state.conversation?.fid === fid && state.conversation?.hash === postHash(message);
+  conversation.setAttribute('aria-expanded', String(threadIsOpen));
+  conversation.classList.toggle('is-open', threadIsOpen);
+  const conversationGlyph = document.createElement('span'); conversationGlyph.className = 'post-action-glyph'; conversationGlyph.textContent = '↳';
+  const conversationLabel = document.createElement('span'); conversationLabel.className = 'post-action-label'; conversationLabel.textContent = 'Thread';
+  conversation.append(conversationGlyph, conversationLabel);
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'post-action'; follow.textContent = state.following.get(fid) ? '✓' : '＋'; follow.setAttribute('aria-label', state.following.get(fid) ? 'Unfollow' : 'Follow'); follow.title = state.following.get(fid) ? 'Unfollow' : 'Follow'; follow.dataset.action = 'follow'; follow.setAttribute('aria-pressed', String(!!state.following.get(fid)));
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'post-action pin-action'; pin.textContent = '⌖'; pin.setAttribute('aria-label', state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk'); pin.title = pin.getAttribute('aria-label'); pin.dataset.action = 'pin-person';
   pin.setAttribute('aria-pressed', String(state.deskPins.includes(fid)));
@@ -2236,7 +2344,9 @@ async function loadMoreFollowed() {
 }
 
 function renderFeed() {
+  const openThreadPanel = state.conversation ? $('#conversation-view') : null;
   renderFeedStatusbar();
+  refreshMiniAppShelf(state.casts);
   updateFeedFilterSummary();
   const requestedSource = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
   const exclude = $('#source-mode').value === 'exclude';
@@ -2365,6 +2475,7 @@ function renderFeed() {
     const morePeople = renderFeedMore();
     if (state.feedMode === 'following' && !state.casts.length && morePeople) $('#feed-end').hidden = true;
     else if (!morePeople) $('#feed-end').hidden = true;
+    placeConversationPanel(openThreadPanel);
     return;
   }
   $('#feed-count').textContent = state.boardMode === 'flight-log'
@@ -2392,6 +2503,7 @@ function renderFeed() {
   });
   list.removeAttribute('data-empty');
   list.replaceChildren(fragment);
+  placeConversationPanel(openThreadPanel);
   watchCastEngagement(list);
   renderFeedMore();
 }
@@ -2746,60 +2858,154 @@ async function searchLoadedFeed(rawQuery) {
   requestAnimationFrame(() => { field.focus({ preventScroll: true }); field.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 }
 
+function placeConversationPanel(panel) {
+  if (!panel || !state.conversation || panel.hidden) return;
+  const list = $('#feed-list');
+  const { fid, hash } = state.conversation;
+  const anchor = [...list.querySelectorAll('.post-card')].find((card) => Number(card.dataset.castFid) === Number(fid) && card.dataset.castHash === hash);
+  if (anchor) {
+    const collapsedGroup = anchor.closest('details:not([open])');
+    if (collapsedGroup) collapsedGroup.open = true;
+    anchor.after(panel);
+  }
+  else list.append(panel);
+}
+
+function updateConversationTriggers() {
+  document.querySelectorAll('[data-open-conversation="true"]').forEach((button) => {
+    const isOpen = state.conversation?.fid === Number(button.dataset.fid) && state.conversation?.hash === button.dataset.hash;
+    button.setAttribute('aria-expanded', String(!!isOpen));
+    button.classList.toggle('is-open', !!isOpen);
+    button.setAttribute('aria-label', isOpen ? 'Close thread' : 'View thread');
+    button.title = isOpen ? 'Close thread' : 'View thread';
+  });
+}
+
+function renderConversationReplies(conversation, { append = false } = {}) {
+  const replies = $('#conversation-replies');
+  const fragment = document.createDocumentFragment();
+  for (const message of conversation.replies) fragment.append(renderCast(message));
+  if (append) replies.append(fragment);
+  else replies.replaceChildren(fragment);
+  watchCastEngagement(replies);
+  const count = conversation.replies.length;
+  $('#conversation-title').textContent = count ? `${count} ${count === 1 ? 'reply' : 'replies'} loaded` : 'Conversation';
+  $('#conversation-status').textContent = conversation.loadError || (count ? 'Replies are in time order.' : 'No replies on this node yet.');
+  const more = $('#conversation-load-more');
+  more.hidden = !conversation.nextPageToken;
+  more.disabled = !!conversation.loadingMore;
+  more.textContent = conversation.loadingMore ? 'Loading replies…' : conversation.loadError ? 'Retry replies' : 'Load more replies';
+}
+
+async function loadMoreConversationReplies() {
+  const conversation = state.conversation;
+  if (!conversation?.nextPageToken || conversation.loadingMore) return;
+  conversation.loadingMore = true;
+  const moreButton = $('#conversation-load-more');
+  moreButton.disabled = true;
+  moreButton.textContent = 'Loading replies…';
+  conversation.loadError = '';
+  try {
+    const pageToken = conversation.nextPageToken;
+    const response = await nodeRequest('replies', {
+      fid: conversation.rootFid,
+      hash: conversation.rootHash,
+      pageSize: 100,
+      reverse: true,
+      pageToken,
+    }, { fresh: true });
+    if (state.conversation !== conversation) return;
+    const additions = unwrapMessages(response).filter((message) => message?.data?.castAddBody);
+    const seen = new Set(conversation.replies.map((message) => `${Number(message?.data?.fid)}/${postHash(message)}`));
+    for (const message of additions) {
+      const key = `${Number(message?.data?.fid)}/${postHash(message)}`;
+      if (!seen.has(key)) { seen.add(key); conversation.replies.push(message); }
+    }
+    conversation.replies.sort((a, b) => Number(a.data.timestamp || 0) - Number(b.data.timestamp || 0));
+    const nextToken = String(response?.nextPageToken || response?.next_page_token || '');
+    conversation.nextPageToken = nextToken && nextToken !== pageToken && !conversation.seenPageTokens.has(nextToken) ? nextToken : '';
+    if (conversation.nextPageToken) conversation.seenPageTokens.add(conversation.nextPageToken);
+    const fids = [...new Set(additions.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0 && !state.people.has(fid)))];
+    await mapLimit(fids, 6, fetchProfile);
+    if (state.conversation !== conversation) return;
+    renderConversationReplies(conversation);
+  } catch (error) {
+    if (state.conversation === conversation) {
+      conversation.loadError = `Could not load more replies. ${error.message}`;
+    }
+  } finally {
+    if (state.conversation === conversation) {
+      conversation.loadingMore = false;
+      renderConversationReplies(conversation);
+    }
+  }
+}
+
 async function openConversation(fidValue, hashValue, { updateRoute = true, fresh = false } = {}) {
   const fid = asFid(fidValue);
   const hash = hashText(hashValue);
   if (!/^0x[\da-f]{40,64}$/i.test(hash)) { setNotice('This post has an invalid cast link.', 'error'); return; }
-  state.conversation = { fid, hash };
+  if (state.conversation?.fid === fid && state.conversation?.hash === hash) { closeConversation(); return; }
+  const conversation = { fid, hash, rootFid: fid, rootHash: hash, nextPageToken: '', seenPageTokens: new Set(), replies: [], loadingMore: false };
+  state.conversation = conversation;
+  updateConversationTriggers();
   if (updateRoute) history.pushState(null, '', `#cast=${fid}/${hash}`);
   const panel = $('#conversation-view');
   const root = $('#conversation-root');
-  const replies = $('#conversation-replies');
   const status = $('#conversation-status');
   panel.hidden = false;
-  $('#feed-list').hidden = true;
-  $('#composer').hidden = true;
-  $('#feed-filters').hidden = true;
-  $('#feed-pulse').hidden = true;
-  root.replaceChildren(); replies.replaceChildren();
-  status.textContent = 'Loading the post and replies…';
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  $('#conversation-title').focus({ preventScroll: true });
+  root.replaceChildren(); $('#conversation-replies').replaceChildren();
+  $('#conversation-title').textContent = 'Conversation';
+  status.textContent = 'Loading replies…';
+  $('#conversation-load-more').hidden = true;
+  placeConversationPanel(panel);
   try {
     let original = state.casts.find((message) => Number(message?.data?.fid) === fid && postHash(message) === hash)
       || state.savedCasts.find((message) => Number(message.fid) === fid && message.hash === hash);
     if (original && !original.data) original = savedCastMessage(original);
     if (!original) original = await nodeRequest('castById', { fid, hash }, { fresh });
     const parent = original?.data?.castAddBody?.parentCastId;
+    const selectedIsReply = !!(parent?.fid && parent?.hash);
     if (parent?.fid && parent?.hash) {
       try { original = await nodeRequest('castById', { fid: Number(parent.fid), hash: hashText(parent.hash) }); }
       catch { /* Keep the selected reply as the conversation root when its parent is unavailable. */ }
     }
-    const rootFid = Number(original?.data?.fid) || fid;
-    const rootHash = postHash(original) || hash;
-    const response = await nodeRequest('replies', { fid: rootFid, hash: rootHash, pageSize: 100, reverse: true }, { fresh });
+    if (state.conversation !== conversation) return;
+    conversation.rootFid = Number(original?.data?.fid) || fid;
+    conversation.rootHash = postHash(original) || hash;
+    const rootAlreadyVisible = selectedIsReply && [...$('#feed-list').querySelectorAll('.post-card')].some((card) => Number(card.dataset.castFid) === conversation.rootFid && card.dataset.castHash === conversation.rootHash);
+    if (selectedIsReply && !rootAlreadyVisible) {
+      root.replaceChildren(renderCast(original));
+      watchCastEngagement(root);
+    }
+    const response = await nodeRequest('replies', { fid: conversation.rootFid, hash: conversation.rootHash, pageSize: 100, reverse: true }, { fresh });
+    if (state.conversation !== conversation) return;
     const messages = unwrapMessages(response).filter((message) => message?.data?.castAddBody).sort((a, b) => Number(a.data.timestamp || 0) - Number(b.data.timestamp || 0));
-    const profiles = [...new Set([rootFid, ...messages.map((message) => Number(message?.data?.fid)).filter(Boolean)])];
+    conversation.replies = messages;
+    const nextToken = String(response?.nextPageToken || response?.next_page_token || '');
+    conversation.nextPageToken = nextToken;
+    if (nextToken) conversation.seenPageTokens.add(nextToken);
+    const profiles = [...new Set([conversation.rootFid, ...messages.map((message) => Number(message?.data?.fid)).filter(Boolean)])];
     await mapLimit(profiles, 6, fetchProfile);
-    root.replaceChildren(renderCast(original));
-    watchCastEngagement(root);
-    replies.replaceChildren(...messages.map(renderCast));
-    $('#conversation-title').textContent = messages.length ? `${messages.length} ${messages.length === 1 ? 'reply' : 'replies'}` : 'A quiet thread';
-    status.textContent = messages.length ? 'Replies are shown in chronological order.' : 'No replies found on this node yet.';
+    if (state.conversation !== conversation) return;
+    if (!rootAlreadyVisible && selectedIsReply && root.firstElementChild) {
+      const updatedRoot = renderCast(original); root.replaceChildren(updatedRoot); watchCastEngagement(root);
+    }
+    renderConversationReplies(conversation);
+    placeConversationPanel(panel);
+    requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
   } catch (error) {
-    status.textContent = `Could not load this conversation. ${error.message}`;
+    if (state.conversation === conversation) status.textContent = `Could not load this thread. ${error.message}`;
   }
 }
 
-function closeConversation() {
+function closeConversation({ updateRoute = true } = {}) {
   state.conversation = null;
-  $('#conversation-view').hidden = true;
-  $('#feed-list').hidden = false;
-  $('#composer').hidden = !state.signerReady || state.boardMode === 'flight-log';
-  $('#feed-filters').hidden = state.boardMode === 'flight-log';
-  $('#feed-pulse').hidden = !state.casts.length || state.boardMode === 'flight-log';
-  history.pushState(null, '', state.feedMode === 'profile' ? `#profile=${Number(state.feedTargetFid)}` : '#feed');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  updateConversationTriggers();
+  const panel = $('#conversation-view');
+  panel.hidden = true;
+  $('#feed-filters').after(panel);
+  if (updateRoute) history.pushState(null, '', state.feedMode === 'profile' ? `#profile=${Number(state.feedTargetFid)}` : '#feed');
 }
 
 function openProfileEditor(fid) {
@@ -3981,12 +4187,16 @@ function updatePrimaryNav(selection = '') {
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
   updateFeedDestinationNav();
+  document.querySelectorAll('.site-header [data-site-link="about"]').forEach((link) => {
+    if (currentArea === 'node') link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
 }
 
 function navigate(view, { preserveHash = false, restoreScroll = true } = {}) {
   const profileView = view === 'profile';
-  const area = view === 'node' ? 'node' : ['desk', 'search'].includes(view) ? view : 'feed';
-  const target = area === 'node' ? 'node' : 'desk';
+  const area = ['node', 'tools'].includes(view) ? view : ['desk', 'search'].includes(view) ? view : 'feed';
+  const target = ['node', 'tools'].includes(area) ? area : 'desk';
   if (area !== currentArea && currentArea !== 'node') areaScroll.set(currentArea, window.scrollY);
   currentArea = area;
   document.querySelectorAll('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== target; });
@@ -3998,8 +4208,8 @@ function navigate(view, { preserveHash = false, restoreScroll = true } = {}) {
     renderSuggestedPeople();
     if (state.signerReady) loadSuggestedPeople();
   }
-  $('#page-label').textContent = area === 'node' ? 'NODE' : area === 'desk' ? 'DESK' : area === 'search' ? 'SEARCH' : profileView || state.feedMode === 'profile' ? 'PROFILE' : state.boardMode === 'flight-log' ? 'SAVED' : 'FEED';
-  const expectedHash = profileView && state.fid ? `#profile=${Number(state.fid)}` : area === 'node' ? '#about' : area === 'desk' ? '#my-desk' : area === 'search' ? '#people-search' : '#feed';
+  $('#page-label').textContent = area === 'node' ? 'NODE' : area === 'tools' ? 'PLAY & TOOLS' : area === 'desk' ? 'DESK' : area === 'search' ? 'SEARCH' : profileView || state.feedMode === 'profile' ? 'PROFILE' : state.boardMode === 'flight-log' ? 'SAVED' : 'FEED';
+  const expectedHash = profileView && state.fid ? `#profile=${Number(state.fid)}` : area === 'node' ? '#about' : area === 'tools' ? '#play-tools' : area === 'desk' ? '#my-desk' : area === 'search' ? '#people-search' : '#feed';
   if (!preserveHash && location.hash !== expectedHash) history.pushState(null, '', expectedHash);
   trackPageview(profileView ? 'profile' : area);
   if (area === 'node') {
@@ -4010,7 +4220,9 @@ function navigate(view, { preserveHash = false, restoreScroll = true } = {}) {
 }
 
 function applyLocationRoute() {
+  if (!/^#cast=\d+\/0x[\da-f]{40,64}$/i.test(location.hash) && state.conversation) closeConversation({ updateRoute: false });
   if (location.hash === '#node' || location.hash === '#about') { navigate('node', { preserveHash: true }); return; }
+  if (location.hash === '#play-tools') { navigate('tools', { preserveHash: true }); return; }
   if (location.hash === '#my-desk') { navigate('desk', { preserveHash: true }); return; }
   if (location.hash === '#people-search' || location.hash === '#search') {
     navigate('search', { preserveHash: true });
@@ -4377,6 +4589,7 @@ $('#search-network-refresh')?.addEventListener('click', () => {
   loadSuggestedPeople();
 });
 $('#conversation-close').addEventListener('click', closeConversation);
+$('#conversation-load-more').addEventListener('click', loadMoreConversationReplies);
 $('#theme-select').addEventListener('change', (event) => {
   setTheme(event.currentTarget.value);
   try { localStorage.setItem(THEME_STORAGE, event.currentTarget.value); } catch { /* Theme still applies for this visit. */ }
@@ -4625,6 +4838,7 @@ function setRemoteMediaEnabled(enabled) {
   setNotice(state.remoteMediaEnabled ? 'Post images and GIFs are on. Media hosts can see your IP address.' : 'Post images and GIFs are off. Profile photos still load automatically.', state.remoteMediaEnabled ? 'pending' : 'success');
   syncQuickControls();
 }
+$('#feed-media-toggle')?.addEventListener('click', () => setRemoteMediaEnabled(!state.remoteMediaEnabled));
 const commandPalette = $('#command-palette');
 const commandQuery = $('#command-query');
 const shortcutPlatform = navigator.userAgentData?.platform || navigator.platform || '';
@@ -5410,7 +5624,23 @@ $('#clear-profile-custom').addEventListener('click', () => {
 });
 $('#profile-edit-dialog').addEventListener('click', (event) => { if (event.target === $('#profile-edit-dialog')) $('#profile-edit-dialog').close(); });
 
+initPlayTools({ onShareScore: (score) => {
+  navigate('feed');
+  if (state.boardMode !== 'signals') setBoardMode('signals');
+  if (state.feedMode === 'profile') setFeedTab('following');
+  setComposerExpanded(true);
+  const field = $('#composer-text');
+  field.value = `I scored ${Number(score).toLocaleString()} in Neon Rush on Castonaut. Can you beat me?`;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  requestAnimationFrame(() => {
+    field.focus({ preventScroll: true });
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!state.signerReady) openConnectDialog();
+  });
+} });
+
 if (location.hash === '#node' || location.hash === '#about') navigate('node', { preserveHash: true });
+else if (location.hash === '#play-tools') navigate('tools', { preserveHash: true });
 else if (location.hash === '#my-desk') navigate('desk', { preserveHash: true });
 else if (location.hash === '#people-search' || location.hash === '#search') navigate('search', { preserveHash: true });
 else navigate('feed', { preserveHash: true });
