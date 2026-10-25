@@ -275,7 +275,7 @@
                   <div class="conversation-head"><div><span class="overline">THREAD</span><h2 id="conversation-title">Conversation</h2><p id="conversation-status" role="status" aria-live="polite"></p></div><button type="button" class="icon-button" id="conversation-close" aria-label="Close thread" title="Close thread">×</button></div>
                   <div class="conversation-root" id="conversation-root"></div>
                   <div class="conversation-replies" id="conversation-replies"></div>
-                  <div class="conversation-more"><button type="button" class="button button-outline" id="conversation-load-more" hidden>Load more replies</button></div>
+                  <div class="conversation-more"><button type="button" class="button button-outline conversation-retry" id="conversation-retry" hidden>Retry conversation</button><button type="button" class="button button-outline" id="conversation-load-more" hidden>Load more replies</button></div>
                 </section>
                 <details class="feed-pulse" id="feed-pulse" hidden>
                   <summary><span><strong>Orbit Pulse</strong><small>A quick read on this feed and your pinned people</small></span><span class="pulse-local">ON THIS DEVICE</span></summary>
@@ -285,6 +285,10 @@
                   <div class="composer-collapsed-head"><button type="button" class="composer-toggle" id="composer-toggle" aria-expanded="false" aria-controls="composer-content"><span class="composer-toggle-title">Write a cast</span><span class="composer-toggle-mark" aria-hidden="true">＋</span></button><button type="button" class="button button-outline composer-review-pending" id="composer-review-pending" hidden>Review signed post</button></div>
                   <div class="composer-content" id="composer-content">
                   <label class="composer-label" id="composer-label" for="composer-text">Write a cast</label>
+                  <section class="composer-quote" id="composer-quote" hidden aria-label="Quoted cast">
+                    <div class="composer-quote-heading"><span>QUOTED CAST</span><button type="button" class="composer-quote-remove" id="composer-quote-remove">Remove</button></div>
+                    <aside class="post-reference-card composer-quote-card" id="composer-quote-reference" aria-live="polite"></aside>
+                  </section>
                   <textarea id="composer-text" rows="3" inputmode="text" enterkeyhint="send" autocapitalize="sentences" spellcheck="true" placeholder="What’s on your mind?"></textarea>
                   <section class="composer-media" id="composer-media" hidden>
                     <div class="media-url-field"><label for="composer-media-url">Attach a direct image or GIF</label><input id="composer-media-url" type="url" inputmode="url" maxlength="256" placeholder="Paste a direct https://…gif link" autocomplete="url" /><p id="composer-media-note">Castonaut does not upload media. Previews are on by default; turn them off in Profile → Customize. Farcaster embeds allow up to 256 bytes per link.</p></div>

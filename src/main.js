@@ -232,6 +232,7 @@ const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_ST
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
 const state = { fid: null, signer: null, signerMode: 'none', publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedCastPageTokens: new Map(), feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+state.quoteCast = null;
 function loadDeskSortPreferences() {
   let stored = {};
   try { stored = JSON.parse(localStorage.getItem(DESK_SORT_STORAGE) || '{}'); } catch { /* Use the recent-first defaults. */ }
@@ -986,7 +987,9 @@ async function checkNode() {
 
 function renderEmpty(title, copy, action = null) {
   const isLoading = /(?:\.\.\.|…|tuning in|loading|searching|checking)/i.test(title);
+  const isNetworkState = !isLoading && /(?:node|unavailable|service|could not|catching up|behind|incomplete|waiting)/i.test(`${title} ${copy}`);
   const box = document.createElement('div'); box.className = `empty-message${isLoading ? ' is-loading' : ''}`;
+  box.dataset.state = isLoading ? 'loading' : isNetworkState ? 'network' : 'empty';
   box.setAttribute('role', 'status');
   box.setAttribute('aria-live', 'polite');
   box.setAttribute('aria-busy', String(isLoading));
@@ -1170,9 +1173,13 @@ function renderFeedStatusbar() {
   setText(activity, state.sessionRestoring && !state.feedBusy ? (state.fid ? 'Restoring account…' : 'Checking this browser…')
     : state.feedMoreBusy ? (state.feedMode === 'friends' ? 'Finding more active people…' : 'Checking more followed accounts…')
     : state.feedBusy ? (state.feedMode === 'friends' ? 'Loading Top people…' : state.feedMode === 'profile' ? 'Loading profile posts…' : 'Loading recent posts…')
-      : state.feedFailedSources && !state.casts.length ? `Could not check ${state.feedFailedSources} ${state.feedMode === 'friends' ? 'people' : 'followed accounts'}`
+      : state.feedFailedSources && !state.casts.length ? `Could not check ${state.feedFailedSources} ${state.feedMode === 'friends' ? 'people' : state.feedMode === 'profile' ? 'this profile' : `followed account${state.feedFailedSources === 1 ? '' : 's'}`}`
       : !state.nodeInfo && nodeKind === 'bad' ? 'Waiting for the node'
-      : state.feedFailedSources ? `${state.feedFailedSources} sources unavailable · results may be partial`
+      : state.feedFailedSources ? `${state.feedFailedSources} source${state.feedFailedSources === 1 ? '' : 's'} unavailable · results may be partial`
+      : !state.casts.length && maxDelay !== null && maxDelay > 10 ? `No posts visible · node ${formatNodeDelay(maxDelay)} behind`
+      : !state.casts.length && state.feedMode === 'following' && state.feedSources.length ? `${state.feedSourceOffset} followed accounts checked · no posts visible`
+      : !state.casts.length && state.feedMode === 'friends' ? 'No recent posts from Top people'
+      : !state.casts.length && state.feedMode === 'profile' ? 'No recent profile posts'
       : state.feedMode === 'friends' && state.casts.length ? `${new Set(state.casts.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0)).size} active people · ${state.casts.length} recent posts`
           : state.feedMode === 'following' && state.casts.length ? `${state.casts.length} recent posts · ${state.feedSourceOffset} of ${state.feedFollowComplete ? state.feedFollowTotal : `at least ${state.feedFollowTotal}`} follows checked`
             : state.casts.length ? `${state.casts.length} recent ${state.casts.length === 1 ? 'post' : 'posts'} loaded`
@@ -1393,6 +1400,24 @@ async function loadCastReference(container) {
   }
 }
 
+function renderComposerQuote() {
+  const section = $('#composer-quote');
+  const reference = $('#composer-quote-reference');
+  if (!section || !reference) return;
+  const quote = state.quoteCast;
+  section.hidden = !quote;
+  reference.replaceChildren();
+  if (!quote) return;
+  reference.dataset.fid = String(quote.fid);
+  reference.dataset.hash = quote.hash;
+  reference.dataset.loaded = '';
+  const status = document.createElement('span');
+  status.className = 'post-reference-status';
+  status.textContent = 'Loading cast preview…';
+  reference.append(status);
+  void loadCastReference(reference);
+}
+
 function renderCast(message, { priority = false } = {}) {
   if (message?.data?.fid && postHash(message)) {
     state.messages.set(`${Number(message.data.fid)}:${postHash(message)}`, message);
@@ -1567,7 +1592,8 @@ function renderCast(message, { priority = false } = {}) {
   conversation.classList.toggle('is-open', threadIsOpen);
   const conversationGlyph = document.createElement('span'); conversationGlyph.className = 'post-action-glyph'; conversationGlyph.textContent = '↳';
   const conversationLabel = document.createElement('span'); conversationLabel.className = 'post-action-label'; conversationLabel.textContent = 'Thread';
-  conversation.append(conversationGlyph, conversationLabel);
+  const conversationCount = document.createElement('span'); conversationCount.className = 'conversation-count'; conversationCount.hidden = true; conversationCount.dataset.threadReplyCount = 'true';
+  conversation.append(conversationGlyph, conversationLabel, conversationCount);
   const follow = document.createElement('button'); follow.type = 'button'; follow.className = 'post-action'; follow.textContent = state.following.get(fid) ? '✓' : '＋'; follow.setAttribute('aria-label', state.following.get(fid) ? 'Unfollow' : 'Follow'); follow.title = state.following.get(fid) ? 'Unfollow' : 'Follow'; follow.dataset.action = 'follow'; follow.setAttribute('aria-pressed', String(!!state.following.get(fid)));
   const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'post-action pin-action'; pin.textContent = '⌖'; pin.setAttribute('aria-label', state.deskPins.includes(fid) ? 'Unpin person from Desk' : 'Pin person to Desk'); pin.title = pin.getAttribute('aria-label'); pin.dataset.action = 'pin-person';
   pin.setAttribute('aria-pressed', String(state.deskPins.includes(fid)));
@@ -1579,9 +1605,10 @@ function renderCast(message, { priority = false } = {}) {
   flightLog.dataset.flightLog = 'true'; flightLog.dataset.fid = String(fid); flightLog.dataset.hash = postHash(message);
   const saved = state.savedCasts.some((cast) => Number(cast.fid) === fid && cast.hash === postHash(message));
   flightLog.textContent = saved ? '★ Saved' : '☆ Save'; flightLog.setAttribute('aria-pressed', String(saved));
-  for (const button of [like, recast, reply, follow, pin]) { button.dataset.fid = String(fid); button.dataset.hash = postHash(message); button.disabled = button !== pin && (!state.signerReady || (button === follow && fid === state.fid)); }
+  const quote = document.createElement('button'); quote.type = 'button'; quote.className = 'post-action quote-action'; quote.dataset.action = 'quote-cast'; quote.dataset.fid = String(fid); quote.dataset.hash = postHash(message); quote.textContent = '❞'; quote.setAttribute('aria-label', 'Quote cast'); quote.title = 'Quote cast';
+  for (const button of [like, recast, reply, quote, follow, pin]) { button.dataset.fid = String(fid); button.dataset.hash = postHash(message); button.disabled = button !== pin && (!state.signerReady || (button === follow && fid === state.fid)); }
   const originalUrl = originalCastUrl(profile, message);
-  actions.append(conversation, like, recast, reply, deskSignal);
+  actions.append(conversation, like, recast, reply, quote, deskSignal);
   const more = document.createElement('details'); more.className = 'post-more';
   const moreSummary = document.createElement('summary'); moreSummary.textContent = '•••'; moreSummary.setAttribute('aria-label', 'Save or manage this post');
   const menu = document.createElement('div'); menu.className = 'post-more-menu';
@@ -1620,8 +1647,8 @@ function renderCast(message, { priority = false } = {}) {
   const deskTopic = topics.find((topic) => !state.deskTopics.includes(topic));
   if (deskTopic) secondaryList.append(menuAction(`Pin topic ${deskTopic.replace(/^site:/, '')}`, 'toggle-desk-topic', fid, { topic: deskTopic }));
   if (topics.length) secondaryList.append(menuAction(`Mute ${topics[0].replace(/^site:/, '')}`, 'mute-topic', fid, { topic: topics[0] }));
+  secondaryList.append(menuAction('Quote cast', 'quote-cast', fid, { hash: postHash(message) }));
   if (originalUrl) {
-    secondaryList.append(menuAction('Quote cast', 'quote-cast', fid, { hash: postHash(message), url: originalUrl }));
     const open = document.createElement('a'); open.className = 'post-more-action'; open.href = originalUrl; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.textContent = 'Open original cast ↗'; secondaryList.append(open);
   }
   const pinLabel = state.profilePins[fid] === postHash(message) ? 'Unpin from profile' : 'Pin to profile';
@@ -1694,6 +1721,15 @@ function paintEngagementCount(card, type, result) {
   if (button) {
     button.setAttribute('aria-label', `${result ? `${result.more ? 'At least ' : ''}${result.count} ${label}` : `${label} count unavailable`} · Reply`);
     button.title = result ? `${result.count} ${label}` : `${label} count unavailable`;
+  }
+  const threadCount = card.querySelector('.conversation-count');
+  const threadButton = threadCount?.closest('.conversation-action');
+  if (threadCount && threadButton) {
+    threadCount.hidden = !result || result.count === 0;
+    threadCount.textContent = result ? displayEngagementCount(result) : '';
+    const threadLabel = threadButton.getAttribute('aria-expanded') === 'true' ? 'Close thread' : 'View thread';
+    threadButton.setAttribute('aria-label', result?.count ? `${threadLabel} · ${displayEngagementCount(result)} replies` : threadLabel);
+    threadButton.title = result?.count ? `${displayEngagementCount(result)} replies · ${threadLabel}` : threadLabel;
   }
 }
 
@@ -1821,6 +1857,8 @@ function refreshCastEngagement(fid, hash) {
       count.textContent = '…';
       count.dataset.countState = 'loading';
     }
+    const threadCount = card.querySelector('.conversation-count');
+    if (threadCount) { threadCount.hidden = true; threadCount.textContent = ''; }
     watchCastEngagement(card);
   });
 }
@@ -3050,8 +3088,10 @@ function updateConversationTriggers() {
     const isOpen = state.conversation?.fid === Number(button.dataset.fid) && state.conversation?.hash === button.dataset.hash;
     button.setAttribute('aria-expanded', String(!!isOpen));
     button.classList.toggle('is-open', !!isOpen);
-    button.setAttribute('aria-label', isOpen ? 'Close thread' : 'View thread');
-    button.title = isOpen ? 'Close thread' : 'View thread';
+    const count = button.querySelector('.conversation-count:not([hidden])')?.textContent;
+    const label = isOpen ? 'Close thread' : 'View thread';
+    button.setAttribute('aria-label', count ? `${label} · ${count} replies` : label);
+    button.title = count ? `${count} replies · ${label}` : label;
   });
 }
 
@@ -3063,8 +3103,12 @@ function renderConversationReplies(conversation, { append = false } = {}) {
   else replies.replaceChildren(fragment);
   watchCastEngagement(replies);
   const count = conversation.replies.length;
-  $('#conversation-title').textContent = count ? `${count} ${count === 1 ? 'reply' : 'replies'} loaded` : 'Conversation';
-  $('#conversation-status').textContent = conversation.loadError || (count ? 'Replies are in time order.' : 'No replies on this node yet.');
+  $('#conversation-title').textContent = `${conversation.nextPageToken ? 'At least ' : ''}${count} ${count === 1 ? 'reply' : 'replies'}`;
+  const delay = maxNodeDelay();
+  $('#conversation-status').textContent = conversation.rootLoadError || conversation.loadError || (count
+    ? conversation.nextPageToken ? 'Oldest first · more replies are available.' : 'Oldest first · all replies on this node are loaded.'
+    : delay !== null && delay > 10 ? `No replies visible yet · this node is ${formatNodeDelay(delay)} behind.` : 'No replies found on this node yet.');
+  $('#conversation-retry').hidden = !conversation.rootLoadError;
   const more = $('#conversation-load-more');
   more.hidden = !conversation.nextPageToken;
   more.disabled = !!conversation.loadingMore;
@@ -3119,7 +3163,7 @@ async function openConversation(fidValue, hashValue, { updateRoute = true, fresh
   const fid = asFid(fidValue);
   const hash = hashText(hashValue);
   if (!/^0x[\da-f]{40,64}$/i.test(hash)) { setNotice('This post has an invalid cast link.', 'error'); return; }
-  if (state.conversation?.fid === fid && state.conversation?.hash === hash) { closeConversation(); return; }
+  if (state.conversation?.fid === fid && state.conversation?.hash === hash && !fresh) { closeConversation(); return; }
   const conversation = { fid, hash, rootFid: fid, rootHash: hash, nextPageToken: '', seenPageTokens: new Set(), replies: [], loadingMore: false };
   state.conversation = conversation;
   updateConversationTriggers();
@@ -3128,9 +3172,11 @@ async function openConversation(fidValue, hashValue, { updateRoute = true, fresh
   const root = $('#conversation-root');
   const status = $('#conversation-status');
   panel.hidden = false;
+  panel.setAttribute('aria-busy', 'true');
   root.replaceChildren(); $('#conversation-replies').replaceChildren();
-  $('#conversation-title').textContent = 'Conversation';
-  status.textContent = 'Loading replies…';
+  $('#conversation-title').textContent = 'Opening conversation…';
+  status.textContent = 'Loading the cast and checking for replies on your node.';
+  $('#conversation-retry').hidden = true;
   $('#conversation-load-more').hidden = true;
   placeConversationPanel(panel);
   try {
@@ -3166,10 +3212,16 @@ async function openConversation(fidValue, hashValue, { updateRoute = true, fresh
       const updatedRoot = renderCast(original); root.replaceChildren(updatedRoot); watchCastEngagement(root);
     }
     renderConversationReplies(conversation);
+    panel.setAttribute('aria-busy', 'false');
     placeConversationPanel(panel);
     requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
   } catch (error) {
-    if (state.conversation === conversation) status.textContent = `Could not load this thread. ${error.message}`;
+    if (state.conversation === conversation) {
+      conversation.rootLoadError = `Could not load this conversation. ${clientErrorText(error)}`;
+      status.textContent = conversation.rootLoadError;
+      panel.setAttribute('aria-busy', 'false');
+      $('#conversation-retry').hidden = false;
+    }
   }
 }
 
@@ -4473,13 +4525,17 @@ function applyLocationRoute() {
   }
 }
 
-function castBody(text, parent, protocol, embeds = [], linkText = text) {
+function castBody(text, parent, protocol, embeds = [], linkText = text, quoteCast = null) {
   if (utf8ByteLength(text) > CAST_LIMIT) throw new Error(`This cast is over Farcaster’s ${CAST_LIMIT}-byte limit.`);
   const embedUrls = castEmbedUrls(linkText, embeds, { limit: CAST_EMBED_LIMIT, maxUrlBytes: CAST_EMBED_URL_LIMIT });
   if (embeds.length > CAST_EMBED_LIMIT || embeds.some((url) => utf8ByteLength(url) > CAST_EMBED_URL_LIMIT)) {
     throw new Error(`Farcaster allows up to ${CAST_EMBED_LIMIT} embeds, each no longer than ${CAST_EMBED_URL_LIMIT} UTF-8 bytes.`);
   }
-  const body = { text, type: castTypeForText(text, protocol.CastType), embeds: embedUrls.map((url) => ({ url })), embedsDeprecated: [], mentions: [], mentionsPositions: [] };
+  if (quoteCast && (!Number.isSafeInteger(Number(quoteCast.fid)) || Number(quoteCast.fid) <= 0 || !/^0x[\da-f]{40}$/i.test(quoteCast.hash || ''))) throw new Error('This cast cannot be quoted because its Farcaster ID is invalid.');
+  if (embedUrls.length + Number(!!quoteCast) > CAST_EMBED_LIMIT) throw new Error(`Farcaster allows up to ${CAST_EMBED_LIMIT} embeds per cast. Remove a link or attachment to quote this post.`);
+  const castEmbeds = embedUrls.map((url) => ({ url }));
+  if (quoteCast) castEmbeds.push({ castId: { fid: Number(quoteCast.fid), hash: resultOrThrow(protocol.hexStringToBytes(quoteCast.hash), 'Could not read the quoted cast hash') } });
+  const body = { text, type: castTypeForText(text, protocol.CastType), embeds: castEmbeds, embedsDeprecated: [], mentions: [], mentionsPositions: [] };
   if (parent) body.parentCastId = { fid: Number(parent.fid), hash: resultOrThrow(protocol.hexStringToBytes(parent.hash), 'Could not read the reply cast hash') };
   return body;
 }
@@ -4517,6 +4573,7 @@ function saveComposerDraft() {
     text: truncateUtf8($('#composer-text').value),
     mediaUrl: $('#composer-media-url').value.trim().slice(0, 2048),
     parent: state.parent && { fid: Number(state.parent.fid), hash: String(state.parent.hash).slice(0, 66) },
+    quoteCast: state.quoteCast && { fid: Number(state.quoteCast.fid), hash: String(state.quoteCast.hash) },
     root: state.threadRoot && { fid: Number(state.threadRoot.fid), hash: String(state.threadRoot.hash).slice(0, 66) },
     items: state.threadItems.slice(0, 10).map((text) => truncateUtf8(text)),
     pending: state.threadPending && (state.threadPending.managed || state.threadPending.encoded?.length <= 100_000) ? state.threadPending : null,
@@ -4524,7 +4581,7 @@ function saveComposerDraft() {
   };
   try {
     localStorage.setItem(`${COMPOSE_STORAGE}:${state.fid}`, JSON.stringify(draft));
-    $('#draft-discard').hidden = !(draft.text.trim() || draft.mediaUrl || draft.pendingCast);
+    $('#draft-discard').hidden = !(draft.text.trim() || draft.mediaUrl || draft.quoteCast || draft.pendingCast);
     if (status) status.textContent = draft.pendingCast ? (draft.pendingCast.managed ? 'Post request saved on this device; resume it safely.' : 'Signed post saved on this device; resume it to confirm.') : 'Draft saved on this device.';
   } catch { if (status) status.textContent = 'Draft could not be saved in this browser.'; }
 }
@@ -4556,7 +4613,7 @@ function focusComposerInput() {
 }
 
 function restoreComposerDraft(fid) {
-  state.parent = null; state.threadRoot = null; state.threadItems = []; state.threadPending = null; state.pendingCast = null;
+  state.parent = null; state.quoteCast = null; state.threadRoot = null; state.threadItems = []; state.threadPending = null; state.pendingCast = null;
   setPendingCastControls(false);
   setComposerSubmitLabel('Post');
   try {
@@ -4566,6 +4623,7 @@ function restoreComposerDraft(fid) {
       if (typeof saved.mediaUrl === 'string') { $('#composer-media-url').value = safeExternalUrl(saved.mediaUrl)?.href || ''; $('#composer-media').hidden = !$('#composer-media-url').value; }
       const validParent = (value) => value && Number.isSafeInteger(Number(value.fid)) && Number(value.fid) > 0 && /^0x[\da-f]{40,64}$/i.test(value.hash);
       if (validParent(saved.parent)) state.parent = { fid: Number(saved.parent.fid), hash: saved.parent.hash };
+      if (saved.quoteCast && Number.isSafeInteger(Number(saved.quoteCast.fid)) && Number(saved.quoteCast.fid) > 0 && /^0x[\da-f]{40}$/i.test(saved.quoteCast.hash || '')) state.quoteCast = { fid: Number(saved.quoteCast.fid), hash: saved.quoteCast.hash };
       if (validParent(saved.root)) state.threadRoot = { fid: Number(saved.root.fid), hash: saved.root.hash };
       if (Array.isArray(saved.items)) state.threadItems = saved.items.filter((text) => typeof text === 'string' && text.trim()).slice(0, 10).map((text) => truncateUtf8(text));
       const validManagedPending = (pending) => pending?.managed === true && /^[a-zA-Z0-9_-]{12,64}$/.test(pending.idem || '') && typeof pending.text === 'string' && typeof pending.bodyText === 'string';
@@ -4586,8 +4644,10 @@ function restoreComposerDraft(fid) {
     }
   } catch { /* An invalid or unavailable local draft never blocks sign-in. */ }
   $('#char-count').textContent = `${utf8ByteLength($('#composer-text').value)} / ${CAST_USER_LIMIT} bytes`;
-  $('#composer-text').placeholder = state.parent ? `Replying to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}…` : 'What’s on your mind?';
-  $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.pendingCast);
+  renderComposerQuote();
+  $('#composer-label').textContent = state.quoteCast ? 'Quote cast · add a thought' : state.parent ? `Reply to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}` : 'Write a cast';
+  $('#composer-text').placeholder = state.parent ? `Replying to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}…` : state.quoteCast ? 'Add a thought about this cast…' : 'What’s on your mind?';
+  $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value || state.quoteCast || state.pendingCast);
   if (state.pendingCast) {
     $('#composer-text').value = state.pendingCast.text;
     $('#composer-media-url').value = state.pendingCast.mediaUrl;
@@ -4596,7 +4656,7 @@ function restoreComposerDraft(fid) {
     setComposerSubmitLabel('Resume saved post');
     $('#draft-status').textContent = state.pendingCast.managed ? 'A post request is saved here. Resume it to safely retry the same request.' : 'A signed post is waiting for confirmation. Resume it to avoid creating a duplicate.';
   }
-  setComposerExpanded(Boolean(!state.pendingCast && ($('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.threadItems.length || state.threadPending)));
+  setComposerExpanded(Boolean(!state.pendingCast && ($('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.quoteCast || state.threadItems.length || state.threadPending)));
   renderThreadDraft();
 }
 
@@ -4607,7 +4667,9 @@ function clearCurrentDraft() {
   setPendingCastControls(false);
   $('#char-count').textContent = `0 / ${CAST_USER_LIMIT} bytes`;
   state.parent = null;
+  state.quoteCast = null;
   state.pendingCast = null;
+  renderComposerQuote();
   $('#composer-label').textContent = 'Write a cast';
   $('#composer-text').placeholder = 'What’s on your mind?';
   $('#draft-discard').hidden = true;
@@ -4846,6 +4908,10 @@ $('#search-network-refresh')?.addEventListener('click', () => {
   loadSuggestedPeople();
 });
 $('#conversation-close').addEventListener('click', closeConversation);
+$('#conversation-retry').addEventListener('click', () => {
+  const conversation = state.conversation;
+  if (conversation) void openConversation(conversation.fid, conversation.hash, { updateRoute: false, fresh: true });
+});
 $('#conversation-load-more').addEventListener('click', loadMoreConversationReplies);
 $('#theme-select').addEventListener('change', (event) => {
   setTheme(event.currentTarget.value);
@@ -5334,6 +5400,14 @@ $('#composer-toggle').addEventListener('click', () => {
   setComposerExpanded(opening, { focus: opening });
 });
 $('#composer-review-pending').addEventListener('click', () => setComposerExpanded(true));
+$('#composer-quote-remove').addEventListener('click', () => {
+  state.quoteCast = null;
+  renderComposerQuote();
+  $('#composer-label').textContent = state.parent ? `Reply to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}` : 'Write a cast';
+  $('#composer-text').placeholder = state.parent ? `Replying to ${profileLabel(state.people.get(Number(state.parent.fid)), state.parent.fid)}…` : 'What’s on your mind?';
+  $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.parent || state.pendingCast);
+  saveComposerDraft();
+});
 $('#composer-text').addEventListener('input', (event) => {
   const field = event.currentTarget;
   if (utf8ByteLength(field.value) > CAST_USER_LIMIT) {
@@ -5343,7 +5417,7 @@ $('#composer-text').addEventListener('input', (event) => {
     field.setSelectionRange(position, position);
   }
   $('#char-count').textContent = `${utf8ByteLength($('#composer-text').value)} / ${CAST_USER_LIMIT} bytes`;
-  $('#draft-discard').hidden = !$('#composer-text').value;
+  $('#draft-discard').hidden = !($('#composer-text').value || $('#composer-media-url').value.trim() || state.quoteCast || state.parent || state.pendingCast);
   saveComposerDraft();
 });
 $('#composer-media-toggle').addEventListener('click', () => {
@@ -5488,13 +5562,13 @@ $('#composer-media-url').addEventListener('input', () => {
   $('#composer-media-note').textContent = candidate
     ? withinLimit ? `${candidate.hostname} will be attached. Previews are on by default; turn them off in Profile → Customize.` : `This link is over Farcaster’s ${CAST_EMBED_URL_LIMIT}-byte embed limit.`
     : 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews are on by default.';
-  $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value.trim());
+  $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.quoteCast || state.parent || state.pendingCast);
   saveComposerDraft();
 });
 $('#composer-media-clear').addEventListener('click', () => {
   $('#composer-media-url').value = ''; $('#composer-media').hidden = true;
   $('#composer-media-note').textContent = 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews are on by default.';
-  $('#draft-discard').hidden = !$('#composer-text').value.trim();
+  $('#draft-discard').hidden = !($('#composer-text').value.trim() || state.quoteCast || state.parent || state.pendingCast);
   saveComposerDraft();
 });
 async function renderEmojiResults(query = '') {
@@ -5573,13 +5647,15 @@ $('.emoji-picker').addEventListener('click', (event) => {
   field.focus();
 });
 $('#composer-text').addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && state.parent) {
+  if (event.key === 'Escape' && (state.parent || state.quoteCast)) {
     state.parent = null;
+    state.quoteCast = null;
+    renderComposerQuote();
     $('#composer-label').textContent = 'Write a cast';
     $('#composer-text').placeholder = 'What’s on your mind?';
     if (state.feedMode === 'profile') $('#composer').hidden = true;
     saveComposerDraft();
-    setNotice('Reply cancelled.');
+    setNotice('Reply or quote cancelled.');
   }
 });
 
@@ -5607,7 +5683,8 @@ $('#composer').addEventListener('submit', async (event) => {
   const mediaValue = $('#composer-media-url').value.trim();
   const mediaUrl = mediaValue ? safeExternalUrl(mediaValue) : null;
   if (mediaValue && (!mediaUrl || utf8ByteLength(mediaUrl.href) > CAST_EMBED_URL_LIMIT)) { setNotice(`Use a valid HTTPS GIF or image URL up to ${CAST_EMBED_URL_LIMIT} UTF-8 bytes.`, 'error'); return; }
-  if (!text && !mediaUrl) return;
+  if (!text && !mediaUrl && !state.quoteCast) return;
+  if (state.quoteCast && state.signerMode === 'neynar') { setNotice('Native quote casts need the local Farcaster seed-code signer. Managed Neynar sign-in currently supports URL embeds only.', 'error'); return; }
   const submit = $('#composer button[type="submit"]'); submit.disabled = true;
   try {
     let pending = state.pendingCast;
@@ -5619,7 +5696,7 @@ $('#composer').addEventListener('submit', async (event) => {
       } else {
         const protocol = await import('./protocol.js');
         const signer = await getActiveSigner();
-        const message = await protocol.makeCastAdd(castBody(attributedText, state.parent, protocol, mediaUrl ? [mediaUrl.href] : [], text), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
+        const message = await protocol.makeCastAdd(castBody(attributedText, state.parent, protocol, mediaUrl ? [mediaUrl.href] : [], text, state.quoteCast), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
         const signedMessage = resultOrThrow(message, 'Could not sign cast');
         const hash = postHash(signedMessage);
         if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. Your draft remains saved.');
@@ -5794,6 +5871,8 @@ document.addEventListener('click', async (event) => {
     if (button.dataset.action === 'pin-person' || button.dataset.action === 'unpin-person') { await toggleDeskPin(button.dataset.fid, null); renderFeed(); return; }
     if (button.dataset.action === 'reply') {
       if (!state.signerReady) { $('#connect-dialog').showModal(); return; }
+      state.quoteCast = null;
+      renderComposerQuote();
       state.parent = { fid: targetFid, hash: button.dataset.hash };
       $('#composer-label').textContent = `Reply to ${profileLabel(state.people.get(targetFid), targetFid)}`;
       $('#composer').hidden = false;
@@ -5804,20 +5883,20 @@ document.addEventListener('click', async (event) => {
     }
     if (button.dataset.action === 'quote-cast') {
       if (!state.signerReady) { $('#connect-dialog').showModal(); return; }
-      const quoteUrl = safeExternalUrl(button.dataset.url);
-      if (!quoteUrl) throw new Error('This cast does not have a valid share link.');
+      if (state.signerMode === 'neynar') { setNotice('Native quote casts need the local Farcaster seed-code signer. Managed Neynar sign-in currently supports URL embeds only.', 'error'); return; }
+      const quoteFid = Number(button.dataset.fid || targetFid);
+      const quoteHash = button.dataset.hash || '';
+      if (!Number.isSafeInteger(quoteFid) || quoteFid <= 0 || !/^0x[\da-f]{40}$/i.test(quoteHash)) throw new Error('This cast cannot be quoted because its Farcaster ID is invalid.');
+      state.quoteCast = { fid: quoteFid, hash: quoteHash };
       state.parent = null;
-      const field = $('#composer-text');
-      const existing = field.value.trimEnd();
-      const beforeQuote = existing ? `${existing}\n\n` : '';
-      field.value = `${beforeQuote}${quoteUrl.href}\n\n`;
-      field.setSelectionRange(beforeQuote.length, beforeQuote.length);
       $('#composer-label').textContent = 'Quote cast · add a thought';
+      $('#composer-text').placeholder = 'Add a thought about this cast…';
       $('#composer').hidden = false;
       setComposerExpanded(true);
-      field.dispatchEvent(new Event('input', { bubbles: true }));
-      field.focus();
-      $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      renderComposerQuote();
+      $('#draft-discard').hidden = false;
+      saveComposerDraft();
+      focusComposerInput();
       return;
     }
     if (!state.signerReady) { $('#connect-dialog').showModal(); return; }

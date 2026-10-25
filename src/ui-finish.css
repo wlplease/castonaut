@@ -50,6 +50,8 @@
 /* Empty feeds should feel like a calm status panel, with an obvious next step. */
 .feed-window>.feed-list[data-empty="true"]>.empty-message{border-radius:10px;box-shadow:0 1px 4px color-mix(in srgb,var(--station-ink) 7%,transparent)}
 .empty-message-actions>.button{border-radius:8px;font-family:var(--display);font-weight:600}
+.feed-window>.feed-list>.empty-message[data-state="network"]{border-color:color-mix(in srgb,var(--station-warning,var(--station-accent)) 46%,var(--station-line));background:color-mix(in srgb,var(--station-warning,var(--station-accent)) 6%,var(--station-card))}
+.feed-window>.feed-list>.empty-message[data-state="network"] strong{color:var(--station-ink)}
 
 /* Put the timeline first in the reader’s attention; open the full composer on demand. */
 .feed-window>.composer:not(.is-expanded){padding:0 14px;border-bottom:1px solid var(--station-line);background:var(--station-card)}
@@ -195,9 +197,9 @@
   :where(.button,.icon-button,.avatar-button,.board-tab,.profile-tab,.desk-stack-tab,.feed-filter-summary,.feed-quick-controls>summary,.nav-item,.nav-more-link){transition:none}
 }
 
-/* Keep the five everyday cast actions and the overflow menu on one phone row. */
+/* Keep the six everyday cast actions and the overflow menu on one phone row. */
 @media(max-width:620px){
-  .post-actions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) 32px;align-items:center;gap:2px;overflow:visible}
+  .post-actions{display:grid;grid-template-columns:repeat(6,minmax(0,1fr)) 32px;align-items:center;gap:2px;overflow:visible}
   .post-actions>.post-action{display:inline-flex;flex:initial;width:auto;min-width:0;min-height:36px;justify-content:center;gap:4px;padding-inline:2px}
   .post-action-glyph{flex:0 0 auto;font-size:15px}
   .post-action-count{min-width:0;font-size:8px}
@@ -205,7 +207,7 @@
   .post-actions>.post-more>summary{width:30px;height:32px}
 }
 @media(max-width:350px){
-  .post-actions{grid-template-columns:repeat(5,minmax(0,1fr)) 29px;gap:1px}
+  .post-actions{grid-template-columns:repeat(6,minmax(0,1fr)) 29px;gap:1px}
   .post-actions>.post-action{gap:2px;padding-inline:0}
   .post-action-glyph{font-size:14px}
   .post-actions>.post-more{width:29px}
@@ -286,6 +288,7 @@
    read as part of the post instead of collapsing into a wall of text. */
 .post-copy{white-space:pre-wrap;overflow-wrap:anywhere}
 .post-reference-card{display:grid;gap:7px;max-width:min(100%,680px);margin:10px 0 12px;padding:12px 14px;border:1px solid var(--station-line);border-left:3px solid var(--station-accent);border-radius:8px;background:color-mix(in srgb,var(--station-soft) 52%,var(--station-card));color:var(--station-ink)}
+.post-reference-card:not(.composer-quote-card)::before{content:'QUOTED CAST';color:var(--station-copy-muted);font:8px var(--mono);letter-spacing:.14em}
 .post-reference-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0}
 .post-reference-author{overflow:hidden;border:0;background:transparent;color:var(--station-ink);font:600 11px var(--display);text-align:left;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .post-reference-time,.post-reference-status,.post-reference-media-note{color:var(--station-copy-muted);font:9px var(--mono)}
@@ -396,7 +399,7 @@
   .post-media.image-media{width:100%;max-width:100%}
   .post-media .post-image,.post-media video,.post-embed img,.post-reference-image,.post-reference-video{max-width:100%;max-height:min(52dvh,360px);object-fit:contain}
   .post-embed,.post-reference-card,.post-link-preview,.cast-embed{width:100%;max-width:100%;min-width:0;overflow-wrap:anywhere}
-  .post-actions{grid-template-columns:repeat(5,minmax(0,1fr)) 30px;gap:1px}
+  .post-actions{grid-template-columns:repeat(6,minmax(0,1fr)) 30px;gap:1px}
   .post-actions>.post-action{min-height:40px}
   .post-actions>.post-more{width:30px}
   .post-actions>.post-more>summary{width:30px;height:36px}
@@ -508,8 +511,57 @@
   .sidebar .nav-list .nav-item span:not(.nav-symbol){font-size:7px}
   .feed-toolbar-actions>.board-switch .board-tab{font-size:8px}
   .composer-bottom>div>.button,.composer-bottom>div>.emoji-picker>summary{font-size:8px}
-  .post-actions{grid-template-columns:repeat(5,minmax(0,1fr)) 28px}
+  .post-actions{grid-template-columns:repeat(6,minmax(0,1fr)) 28px}
   .post-actions>.post-more,.post-actions>.post-more>summary{width:28px}
+}
+
+/* Native quote composition stays visually attached to the draft. */
+.feed-window>.feed-list>.post-card .post-head,
+.feed-window>.feed-list>.repeat-cluster>.post-card .post-head{min-width:0;align-items:baseline;row-gap:4px}
+.feed-window>.feed-list>.post-card .post-profile-link,
+.feed-window>.feed-list>.repeat-cluster>.post-card .post-profile-link{max-width:100%;font-size:13px;line-height:1.3}
+.feed-window>.feed-list>.post-card .post-copy,
+.feed-window>.feed-list>.repeat-cluster>.post-card .post-copy{max-width:72ch;margin:7px 0 10px;font-size:14px;line-height:1.62;letter-spacing:.002em}
+.feed-window>.feed-list>.post-card .post-actions,
+.feed-window>.feed-list>.repeat-cluster>.post-card .post-actions{border-top:1px solid color-mix(in srgb,var(--station-line) 56%,transparent);padding-top:5px;margin-top:6px}
+.feed-window>.feed-list>.post-card .post-reference-card,
+.feed-window>.feed-list>.repeat-cluster>.post-card .post-reference-card{width:min(100%,720px)}
+.composer-quote{min-width:0;margin:0 0 10px;padding:9px 10px;border:1px solid var(--station-line);border-radius:9px;background:color-mix(in srgb,var(--station-soft) 32%,var(--station-card))}
+.composer-quote-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;color:var(--station-copy-muted);font:8px var(--mono);letter-spacing:.14em}
+.composer-quote-remove{min-height:28px;padding:3px 8px;border:1px solid var(--station-line);border-radius:6px;background:var(--station-card);color:var(--station-accent);font-size:10px;cursor:pointer}
+.composer-quote-remove:hover{background:var(--station-soft)}
+.composer-quote-card.post-reference-card{width:100%;max-width:none;margin:0;padding:9px 10px;background:var(--station-card)}
+.post-actions>.quote-action{font-size:15px;font-weight:700}
+.post-actions>.quote-action:hover:not(:disabled){color:var(--station-accent)}
+.post-action[data-action="reply"] .post-action-count{display:none}
+.conversation-count{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border:1px solid color-mix(in srgb,var(--station-line) 78%,transparent);border-radius:999px;color:var(--station-copy-muted);font:8px/1 var(--mono);font-variant-numeric:tabular-nums}
+.conversation-retry{min-height:34px;padding-inline:10px}
+@media(max-width:620px){
+  .feed-window>.feed-list>.post-card .post-profile-link,
+  .feed-window>.feed-list>.repeat-cluster>.post-card .post-profile-link{font-size:12px}
+  .feed-window>.feed-list>.post-card .post-copy,
+  .feed-window>.feed-list>.repeat-cluster>.post-card .post-copy{font-size:13px;line-height:1.58;margin-block:6px 9px}
+  .composer-quote{margin-bottom:8px;padding:7px}
+  .composer-quote-card.post-reference-card{padding:8px}
+  .post-actions>.post-action{gap:2px}
+  .post-action-count{font-variant-numeric:tabular-nums}
+}
+@media(max-width:360px){
+  .feed-list>.post-card,.feed-list>.repeat-cluster>.post-card{grid-template-columns:27px minmax(0,1fr);gap:6px;padding-inline:5px}
+  .post-avatar{width:27px;height:27px}
+  .post-actions{grid-template-columns:repeat(6,minmax(0,1fr)) 25px;gap:0}
+  .post-actions>.post-action{min-height:34px;padding-inline:0}
+  .post-action-glyph{font-size:13px}
+  .post-actions>.post-more,.post-actions>.post-more>summary{width:25px}
+  .post-actions>.post-more>summary{height:32px}
+  .conversation-action .post-action-label{display:none}
+  .conversation-count{min-width:14px;height:14px;padding-inline:3px;font-size:7px}
+  .post-reference-card{padding:8px}
+  .post-reference-heading{flex-wrap:wrap;gap:4px}
+  .post-reference-author{max-width:100%;font-size:10px}
+  .post-reference-time{font-size:8px}
+  .post-reference-image,.post-reference-video{max-height:42dvh}
+  .conversation-view{margin-inline:0}
 }
 
 /* Keep feed controls together and account details readable at desktop widths. */
