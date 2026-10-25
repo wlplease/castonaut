@@ -259,7 +259,7 @@
                 </div>
                 <div class="feed-statusbar" id="feed-statusbar" role="group" aria-label="Active account and feed status">
                   <span class="feed-status-account"><small>ACTIVE ACCOUNT</small><strong id="feed-status-account">Read-only</strong></span>
-                  <span class="feed-status-network"><i class="feed-status-led" id="feed-status-led" aria-hidden="true"></i><strong id="feed-status-network">Checking node</strong></span>
+                  <button type="button" class="feed-status-network" id="feed-status-node" aria-label="Open node status"><i class="feed-status-led" id="feed-status-led" aria-hidden="true"></i><strong id="feed-status-network">Checking node</strong><span class="feed-status-open" aria-hidden="true">↗</span></button>
                   <button type="button" class="feed-status-media" id="feed-media-toggle" aria-label="Toggle automatic post media loading" aria-pressed="true">▧ Media on</button>
                   <span class="feed-status-activity" id="feed-status-activity" role="status" aria-live="polite">Waiting for a feed check</span>
                 </div>
@@ -401,7 +401,7 @@
     <dialog class="neon-rush-dialog" id="neon-rush-dialog" aria-labelledby="neon-rush-dialog-title">
       <div class="neon-rush-titlebar"><div><span class="window-controls" aria-hidden="true"><i></i><i></i><i></i></span><span class="overline">CASTONAUT · FREE PLAY</span></div><button type="button" class="icon-button" id="neon-rush-close" aria-label="Close game">×</button></div>
       <div class="neon-rush-heading"><h2 id="neon-rush-dialog-title">Neon Rush</h2><p>Move to catch stars. Avoid the hazards. Space or Dash clears nearby danger.</p></div>
-      <div class="neon-rush-hud" aria-live="polite"><span><small>SCORE</small><strong id="neon-rush-score">000000</strong></span><span><small>COMBO</small><strong id="neon-rush-combo">×0</strong></span><span><small>LIVES</small><strong id="neon-rush-lives">♥ ♥ ♥</strong></span><span><small>TIME</small><strong id="neon-rush-time">75</strong></span></div>
+      <div class="neon-rush-hud" role="group" aria-label="Game status" aria-live="off"><span><small>SCORE</small><strong id="neon-rush-score">000000</strong></span><span><small>COMBO</small><strong id="neon-rush-combo">×0</strong></span><span><small>LIVES</small><strong id="neon-rush-lives">♥ ♥ ♥</strong></span><span><small>TIME</small><strong id="neon-rush-time">75</strong></span></div>
       <div class="neon-rush-stage"><canvas id="neon-rush-canvas" width="720" height="900" aria-label="Neon Rush arcade game" tabindex="0"></canvas><div class="neon-rush-start-card"><p id="neon-rush-result" role="status" hidden></p><button type="button" class="button button-orange" id="neon-rush-start">Start game</button></div></div>
       <div class="neon-rush-controls"><span>← → / A D / drag · Space dash · P pause</span><div><button type="button" class="button button-outline" id="neon-rush-dash">Dash</button><button type="button" class="button button-outline" id="neon-rush-pause">Pause</button><button type="button" class="button button-outline" id="neon-rush-sound">Sound off</button></div></div>
     </dialog>

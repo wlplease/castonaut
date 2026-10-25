@@ -3832,6 +3832,10 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 
 .feed-statusbar{display:grid;grid-template-columns:minmax(145px,.8fr) minmax(130px,.7fr) auto minmax(160px,1fr);align-items:center;gap:10px;min-height:34px;padding:5px 13px;border-bottom:1px solid var(--station-line);background:color-mix(in srgb,var(--station-soft) 28%,var(--station-card));color:var(--station-copy-muted);font:9px var(--mono)}
 .feed-status-account,.feed-status-network{display:flex;align-items:center;gap:7px;min-width:0}
+.feed-status-network{justify-self:start;padding:2px 4px;border:0;border-radius:5px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.feed-status-network:hover,.feed-status-network:focus-visible{background:var(--station-soft);color:var(--station-ink);outline-color:var(--station-accent)}
+.feed-status-open{color:var(--station-copy-soft);font-size:8px;opacity:0;transition:opacity .15s}
+.feed-status-network:hover .feed-status-open,.feed-status-network:focus-visible .feed-status-open{opacity:1}
 .feed-status-account{border-right:1px solid var(--station-line)}
 .feed-status-account small{flex:0 0 auto;color:var(--station-copy-soft);font-size:7px;letter-spacing:.08em}
 .feed-status-account strong,.feed-status-network strong{overflow:hidden;color:var(--station-ink);font-size:9px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
@@ -3851,6 +3855,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 .post-action[data-action="recast"][aria-pressed="true"]{background:color-mix(in srgb,#43866e 11%,var(--station-card));color:#34775e}
 .post-action[data-action="follow"][aria-pressed="true"]{background:color-mix(in srgb,var(--station-accent) 10%,var(--station-card));color:var(--station-accent)}
 .post-action[data-action="toggle-desk-cast"][aria-pressed="true"],.flight-log-action[aria-pressed="true"]{background:color-mix(in srgb,var(--station-gold) 13%,var(--station-card));color:color-mix(in srgb,var(--station-gold) 76%,var(--station-ink))}
+.post-action[aria-busy="true"]{opacity:.68;cursor:progress}
 
 @media(max-width:620px){
   .sidebar .nav-list>.nav-section-label{display:none}

@@ -1068,18 +1068,21 @@ function renderFeedStatusbar() {
     : networkState === 'current' ? 'The node is current. Follow changes are checked before signing.'
       : networkState === 'unavailable' ? 'The node could not be reached. Follow status cannot be checked right now.'
         : 'The node freshness and follow status have not been confirmed.';
+  $('#feed-status-node')?.setAttribute('aria-label', `${network.textContent}. Open node details.`);
 
   const activity = $('#feed-status-activity');
   setText(activity, state.feedMoreBusy ? (state.feedMode === 'friends' ? 'Finding more active people…' : 'Checking more followed accounts…')
     : state.feedBusy ? `Loading ${state.feedMode === 'friends' ? 'Top people' : state.feedMode === 'profile' ? 'profile posts' : 'Following'}…`
       : state.feedFailedSources && !state.casts.length ? `Could not check ${state.feedFailedSources} ${state.feedMode === 'friends' ? 'people' : 'followed accounts'}`
       : !state.nodeInfo && nodeKind === 'bad' ? 'Waiting for the node'
+      : state.feedFailedSources ? `${state.feedFailedSources} sources unavailable · results may be partial`
       : state.feedMode === 'friends' && state.casts.length ? `${new Set(state.casts.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0)).size} active people · ${state.casts.length} recent posts`
           : state.feedMode === 'following' && state.casts.length ? `${state.casts.length} recent posts · ${state.feedSourceOffset} of ${state.feedFollowComplete ? state.feedFollowTotal : `at least ${state.feedFollowTotal}`} follows checked`
             : state.casts.length ? `${state.casts.length} recent ${state.casts.length === 1 ? 'post' : 'posts'} loaded`
           : 'No recent posts loaded');
   activity.title = maxDelay !== null && maxDelay > 10
-    ? `Node data is ${formatNodeDelay(maxDelay)} behind; feed posts and follow relationships may be incomplete.`
+    ? `Node data is ${formatNodeDelay(maxDelay)} behind; feed posts and follow relationships may be incomplete.${state.feedFailedSources ? ` ${state.feedFailedSources} sources also failed to load.` : ''}`
+    : state.feedFailedSources ? `${state.feedFailedSources} feed sources did not respond. Refresh to retry; displayed posts may be incomplete.`
     : 'Posts are newest first by default. Popular sorts the loaded posts by reactions.';
   document.querySelectorAll('[data-action="follow"][data-fid]').forEach((button) => updateFollowButton(button, button.dataset.fid));
 }
@@ -4476,6 +4479,7 @@ $('#feed-refresh').addEventListener('click', () => {
     : state.boardMode === 'flight-log' ? Promise.resolve(renderFeed()) : loadFeed(state.feedTargetFid || state.fid, state.feedMode, { fresh: true });
   Promise.resolve(task).finally(() => { button.disabled = false; button.removeAttribute('aria-busy'); });
 });
+$('#feed-status-node')?.addEventListener('click', () => { navigate('node'); void checkNode(); });
 $('#feed-more')?.addEventListener('click', () => state.feedMode === 'profile' ? loadOlderProfilePosts() : loadMoreFollowed());
 $('#show-suggested')?.addEventListener('click', toggleSuggestedPeople);
 $('#suggested-close')?.addEventListener('click', toggleSuggestedPeople);
@@ -5596,6 +5600,8 @@ document.addEventListener('click', async (event) => {
       const routeType = button.dataset.action === 'like' ? 'Like' : 'Recast';
       const params = { fid: state.fid, target_fid: targetFid, target_hash: hash, reaction_type: routeType };
       let active = false;
+      button.setAttribute('aria-busy', 'true');
+      button.setAttribute('aria-label', `${routeType === 'Like' ? 'Like' : 'Recast'} update waiting for node confirmation`);
       try { await nodeRequest('reactionById', params, { fresh: true }); active = true; }
       catch (error) { if (!isNotFound(error)) throw error; }
       const body = { type: reactionType, targetCastId: { fid: targetFid, hash: resultOrThrow(protocol.hexStringToBytes(hash), 'Could not read the reaction cast hash') } };
@@ -5608,9 +5614,17 @@ document.addEventListener('click', async (event) => {
       saveViewerReactionState(state.fid, targetFid, hash, routeType, !active);
       paintReactionButtonState(button, routeType, !active);
       refreshCastEngagement(targetFid, hash);
+      button.removeAttribute('aria-busy');
     }
     button.disabled = false;
-  } catch (error) { button.removeAttribute('aria-busy'); setNotice(error.message, 'error'); button.disabled = !state.signerReady; }
+  } catch (error) {
+    button.removeAttribute('aria-busy');
+    if (button.dataset.action === 'like' || button.dataset.action === 'recast') {
+      const type = button.dataset.action === 'like' ? 'Like' : 'Recast';
+      paintReactionButtonState(button, type, button.getAttribute('aria-pressed') === 'true');
+    }
+    setNotice(error.message, 'error'); button.disabled = !state.signerReady;
+  }
 });
 $('#profile-edit-form').addEventListener('submit', (event) => {
   event.preventDefault();
