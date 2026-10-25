@@ -13,3 +13,13 @@
   .legal-section p,.legal-section li{overflow-wrap:anywhere}
   .legal-footer nav{flex-wrap:wrap;gap:10px 14px}
 }
+
+/* A short, scannable summary before the full policy text. */
+.legal-snapshot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0 0 20px}
+.legal-snapshot article{min-width:0;padding:13px;border:1px solid var(--line);border-radius:7px;background:color-mix(in srgb,var(--card) 86%,var(--soft));box-shadow:0 2px 8px #28312b08}
+.legal-snapshot article>span{color:var(--accent);font:8px var(--mono);letter-spacing:.12em}
+.legal-snapshot article p{margin:6px 0 0;color:var(--muted);font-size:10px;line-height:1.55}
+.legal-callout{box-shadow:0 2px 8px #28312b08}
+.legal-toc a{transition:background-color .14s ease,border-color .14s ease,color .14s ease}
+.legal-toc a:hover{border-color:var(--accent);background:var(--soft);color:var(--ink)}
+@media(max-width:580px){.legal-snapshot{grid-template-columns:1fr;gap:6px}.legal-snapshot article{padding:10px 12px}.legal-snapshot article p{margin-top:3px}}

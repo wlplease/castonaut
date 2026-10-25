@@ -144,8 +144,8 @@ export function initPlayTools({ onShareScore }) {
     document.querySelector('[data-view="desk"]')?.click();
     requestAnimationFrame(() => {
       if (tool === 'capsules') {
-        document.querySelector('[data-desk-stack-tab="posts"]')?.click();
-        requestAnimationFrame(() => { const drawer = document.querySelector('.time-capsule'); if (drawer) { drawer.open = true; drawer.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
+          const drawer = document.querySelector('.time-capsule');
+          if (drawer) { drawer.open = true; drawer.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       } else {
         const accessories = document.querySelector('.desk-accessories');
         const details = tool === 'orbit' ? $('#desk-atlas') : $('#desk-notepad-drawer');

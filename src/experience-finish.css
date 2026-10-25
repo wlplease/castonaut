@@ -363,6 +363,150 @@ html[data-theme="night-radio"] .network-search-status[data-state="error"] { colo
 .profile-activity-grid > * { min-width: 0; }
 
 /* Node and Play & tools read like focused utility windows. */
+.nav-more-heading { display:block; padding:7px 10px 3px; color:var(--station-copy-soft); font:8px var(--mono); letter-spacing:.12em; }
+.nav-more-heading.nav-more-mobile { display:none; }
+@media (max-width:620px) { .nav-more-heading.nav-more-mobile { display:block; } }
+.desk-content { display:grid; gap:14px; margin-top:12px; }
+.desk-stack-panel { min-width:0; min-height:0; padding:10px 0 2px; }
+.desk-stack-panel + .desk-stack-panel { border-top:1px solid var(--finish-line); }
+.desk-people-stack { padding-top:0; }
+@media (max-width:620px) {
+  .desk-content { gap:10px; margin-top:9px; }
+  .desk-stack-panel { padding-block:8px 1px; }
+  .desk-people-stack { padding-top:0; }
+}
+
+/* Keep the node page centered on live health and the next useful action. */
+.node-journey { margin:14px 0 12px; padding:18px; border-radius:8px; box-shadow:0 1px 3px color-mix(in srgb,var(--finish-ink) 7%,transparent); }
+.node-journey:before { display:none; }
+.node-journey-head { align-items:center; gap:14px; }
+.node-journey-head h2 { margin:3px 0 0; font-size:22px; }
+.node-journey-status { flex-basis:min(420px,56%); box-shadow:none; }
+.node-journey-actions { margin-top:12px; }
+.node-chain-panel { margin:12px 0 16px; padding:18px; }
+.node-chain-head { padding-bottom:12px; }
+.node-chain-head h2 { margin:3px 0; font-size:21px; }
+.node-chain-head p,.node-chain-note { font-size:10px; }
+.node-chain-summary { padding:12px 0; }
+.node-privacy-settings { margin:12px 0 20px; border:1px solid var(--finish-line); border-radius:7px; background:var(--finish-card); }
+.node-privacy-settings>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:42px; padding:9px 12px; color:var(--finish-ink); font-size:11px; font-weight:650; cursor:pointer; list-style:none; }
+.node-privacy-settings>summary::-webkit-details-marker { display:none; }
+.node-privacy-settings>summary::after { content:'+'; color:var(--finish-accent); font:12px var(--mono); }
+.node-privacy-settings[open]>summary::after { content:'−'; }
+.node-privacy-settings>summary small { margin-left:auto; color:var(--station-copy-muted); font-size:9px; font-weight:400; }
+.node-privacy-settings>div { padding:0 12px 12px; }
+.node-privacy-settings p { margin:0; color:var(--station-copy-muted); font-size:10px; }
+.node-privacy-settings .analytics-choice { margin-top:9px; padding:9px; }
+.node-privacy-settings .legal-inline-link { margin-top:8px; }
+@media (max-width:620px) {
+  .node-journey { padding:14px; }
+  .node-journey-head { align-items:stretch; }
+  .node-journey-status { flex-basis:auto; }
+  .node-chain-panel { padding:13px; }
+  .node-privacy-settings>summary { flex-wrap:wrap; justify-content:flex-start; }
+  .node-privacy-settings>summary small { width:100%; margin-left:0; }
+}
+
+/* Manga Ink: rice paper, indigo woodblock lines, and a vermilion seal. */
+html[data-theme="manga-ink"] {
+  --station-paper:#f4efdf;--station-card:#fffaf0;--station-line:#293b59;--station-ink:#17243b;
+  --station-accent:#c43d2d;--station-soft:#e9e1cd;--station-gold:#b7833e;--station-muted:#586176;
+  --station-copy:#202b40;--station-copy-muted:#536078;--station-copy-soft:#72798a;--station-wash:#eee7d6;
+  --station-focus:#c43d2d;--bg:#f4efdf;--panel:#fffaf0;--panel-2:#e9e1cd;--panel-3:#ded4bf;
+  --line:#293b59;--text:#202b40;--muted:#536078;--faint:#72798a;--mint:#314d73;--orange:#c43d2d;
+  --cream:#f4efdf;--shadow:0 2px 0 #293b5914;color-scheme:light;color:#202b40;background:#f4efdf;
+}
+html[data-theme="manga-ink"] body {
+  background-color:var(--station-paper);
+  background-image:radial-gradient(#293b5916 .65px,transparent .8px),linear-gradient(90deg,#c43d2d08 1px,transparent 1px),linear-gradient(180deg,#fff9,transparent 44%);
+  background-size:6px 6px,100% 100%,100% 100%;background-attachment:fixed;
+}
+html[data-theme="manga-ink"] .topbar { background:repeating-linear-gradient(0deg,#fffaf0f4 0 2px,#e9e1cddd 2px 3px);border-color:#293b59; }
+html[data-theme="manga-ink"] .sidebar { background:linear-gradient(90deg,#eee7d6,#f4efdf 18px);border-color:#293b59; }
+html[data-theme="manga-ink"] .brand strong,html[data-theme="manga-ink"] .room-heading h1,html[data-theme="manga-ink"] .feed-toolbar h2,
+html[data-theme="manga-ink"] .side-card h3,html[data-theme="manga-ink"] .identity-card h3,html[data-theme="manga-ink"] .desk-strip-head h2,
+html[data-theme="manga-ink"] .welcome-content h3 { color:#17243b; }
+html[data-theme="manga-ink"] .nav-item.active { box-shadow:inset 3px 0 #c43d2d;background:#e9e1cd;color:#17243b; }
+html[data-theme="manga-ink"] .nav-item.active .nav-symbol,html[data-theme="manga-ink"] .feed-toolbar .overline,html[data-theme="manga-ink"] .node-source,
+html[data-theme="manga-ink"] .post-profile-link:hover,html[data-theme="manga-ink"] .brand small { color:#c43d2d; }
+html[data-theme="manga-ink"] .feed-window,html[data-theme="manga-ink"] .side-card,html[data-theme="manga-ink"] .profile-summary,
+html[data-theme="manga-ink"] .desk-strip,html[data-theme="manga-ink"] .about-local-card,html[data-theme="manga-ink"] .guide-banner,
+html[data-theme="manga-ink"] .source-card,html[data-theme="manga-ink"] .readout-card,html[data-theme="manga-ink"] .diagnostic-panel,
+html[data-theme="manga-ink"] .concept-panel,html[data-theme="manga-ink"] .connect-dialog,html[data-theme="manga-ink"] .profile-edit-dialog {
+  border-color:#293b59;background:#fffaf0;box-shadow:0 2px 0 #293b5919;
+}
+html[data-theme="manga-ink"] .window-titlebar,html[data-theme="manga-ink"] .dialog-top {
+  border-color:#293b59;background:repeating-linear-gradient(0deg,#e9e1cd 0 2px,#fffaf0 2px 4px);color:#293b59;
+}
+html[data-theme="manga-ink"] .composer,html[data-theme="manga-ink"] .feed-filters,html[data-theme="manga-ink"] .node-ribbon,
+html[data-theme="manga-ink"] .identity-bar,html[data-theme="manga-ink"] .sidebar-note { border-color:#293b59;background:#eee7d6;color:#202b40; }
+html[data-theme="manga-ink"] .post-card { border-color:#d2c8b4;background:transparent;color:#202b40; }
+html[data-theme="manga-ink"] .post-card:hover { background:#fffaf0; }
+html[data-theme="manga-ink"] .post-action,html[data-theme="manga-ink"] .post-more>summary,html[data-theme="manga-ink"] .button-outline,
+html[data-theme="manga-ink"] .theme-picker,html[data-theme="manga-ink"] .board-switch,html[data-theme="manga-ink"] .feed-view-controls,
+html[data-theme="manga-ink"] .profile-tab,html[data-theme="manga-ink"] .feed-quick-controls>summary,html[data-theme="manga-ink"] .feed-filter-summary {
+  border-color:#66738a;background:#fffaf0;color:#293b59;
+}
+html[data-theme="manga-ink"] .board-tab.is-active,html[data-theme="manga-ink"] .board-tab[aria-pressed="true"],html[data-theme="manga-ink"] .profile-tab.is-active {
+  border-color:#293b59;background:#293b59;color:#fffaf0;
+}
+html[data-theme="manga-ink"] .button-orange,html[data-theme="manga-ink"] .composer #composer-submit { border-color:#a83227;background:#c43d2d;color:#fffaf0; }
+html[data-theme="manga-ink"] input:not([type="checkbox"]):not([type="radio"]),html[data-theme="manga-ink"] textarea,html[data-theme="manga-ink"] select {
+  border-color:#66738a;background:#fffdf7;color:#202b40;
+}
+html[data-theme="manga-ink"] :focus-visible { outline-color:#c43d2d; }
+@media (max-width:620px) {
+  html[data-theme="manga-ink"] body { background-size:7px 7px,100% 100%,100% 100%; }
+}
+
+/* Desk header: make the title, status, stacks, and add field one compact group. */
+.desk-strip { padding-inline:14px; }
+.desk-windowbar { min-height:22px; margin-bottom:8px; }
+.desk-strip-head { align-items:center; padding-bottom:7px; }
+.desk-strip-head h2 { margin-top:2px; font-size:clamp(23px,2.4vw,28px); }
+.desk-head-actions { gap:6px; }
+.desk-head-actions .desk-backup-link { min-height:32px; padding:5px 9px; }
+.desk-privacy-note { gap:12px; margin:7px 0; padding:6px 9px; font-size:9px; line-height:1.35; }
+.desk-privacy-note>span:first-child { font-size:8px; }
+.desk-status { margin:7px 0; padding:3px 7px; }
+.desk-status-item { padding-block:2px; }
+.desk-stack-tabs { margin:7px 0; padding:3px; }
+.desk-stack-tab { min-height:36px; }
+.desk-add-person { margin-bottom:8px; }
+.desk-add-person input,.desk-add-person .button { min-height:36px; }
+.desk-content { gap:9px; margin-top:8px; }
+.desk-stack-panel { padding-top:6px; }
+.desk-people-stack { padding-top:0; }
+@media (max-width:620px) {
+  .desk-strip { padding-inline:10px; }
+  .desk-windowbar { margin-inline:-10px; margin-bottom:7px; }
+  .desk-strip-head { align-items:center; gap:6px; padding-bottom:7px; }
+  .desk-strip-head h2 { font-size:22px; }
+  .desk-head-actions { flex:0 0 auto; gap:5px; }
+  .desk-head-actions .desk-backup-link { min-height:34px; padding:4px 7px; font-size:8px; }
+  .desk-privacy-note { align-items:flex-start; flex-direction:row; gap:7px; margin:7px 0; padding:7px; font-size:8px; }
+  .desk-privacy-note>span:first-child { flex:0 0 auto; }
+  .desk-status { margin:7px 0; }
+  .desk-stack-tabs { margin:7px 0; }
+  .desk-stack-tab { min-height:34px; gap:5px; padding-inline:5px; font-size:10px; }
+  .desk-add-person { margin-bottom:7px; }
+  .desk-add-person input,.desk-add-person .button { min-height:38px; }
+  .desk-content { gap:7px; margin-top:6px; }
+}
+@media (max-width:360px) {
+  .desk-privacy-note { flex-direction:column; gap:3px; }
+  .desk-stack-tab { font-size:9px; }
+  .desk-stack-tab small { min-width:17px; height:17px; }
+}
+
+/* Following is the timeline; keep its two useful viewing choices in plain sight. */
+.feed-sort-switch { display:flex; flex-wrap:nowrap; align-items:center; gap:2px; width:max-content; }
+.feed-sort-switch>.board-tab { min-width:76px; min-height:32px; padding-inline:11px; }
+.feed-sort-switch>.board-tab[aria-pressed="true"] { font-weight:650; }
+@media (max-width:620px) {
+  .feed-sort-switch { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
+  .feed-sort-switch>.board-tab { min-width:0; min-height:34px; }
+}
 .node-ribbon {
   min-width: 0;
   border-color: var(--finish-line);

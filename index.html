@@ -54,11 +54,13 @@
           <a class="nav-item" href="#my-desk" data-view="desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
           <a class="nav-item" href="#people-search" data-view="search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span><kbd id="search-shortcut-hint" aria-hidden="true">⌘K</kbd></a>
           <a class="nav-item" href="#profile" data-view="profile" aria-label="Your profile" title="Your profile and local appearance"><span class="nav-symbol" aria-hidden="true">◉</span><span>Profile</span></a>
+          <p class="rail-label nav-section-label" aria-hidden="true">STUDIO</p>
+          <a class="nav-item" href="#play-tools" data-view="tools" aria-label="Play and tools"><span class="nav-symbol" aria-hidden="true">✳</span><span>Play &amp; tools</span></a>
           <p class="rail-label nav-section-label nav-timelines-label" aria-hidden="true">TIMELINES</p>
           <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="following" aria-label="Following"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span></a>
           <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="friends" aria-label="Top people"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span><span class="nav-count" data-friend-count hidden>0</span></a>
           <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="discover" aria-label="Discover"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span></a>
-          <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><a class="nav-more-link nav-more-mobile" href="#my-desk" data-view="desk"><span>Desk</span><small>Your saved people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#people-search" data-view="search"><span>Search</span><small>Find people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#profile" data-view="profile"><span>Profile</span><small>Your profile and settings</small></a><a class="nav-more-link" href="#play-tools" data-view="tools"><span>Play &amp; tools</span><small>Free games and Farcaster apps</small></a><a class="nav-more-link" href="#feed" data-saved-feed><span>Saved posts</span><small>Posts saved on this device</small></a><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>How Castonaut works</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Community notes</small></a><a class="nav-more-link" href="#about" data-view="node"><span>Node</span><small>Connection and setup</small></a><a class="nav-more-link nav-more-mobile" href="/privacy.html"><span>Privacy</span></a><a class="nav-more-link nav-more-mobile" href="/terms.html"><span>Terms</span></a><a class="nav-more-link nav-more-mobile" href="/tutorial.html#security"><span>Security</span></a></div></details>
+          <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><span class="nav-more-heading nav-more-mobile">PERSONAL</span><a class="nav-more-link nav-more-mobile" href="#my-desk" data-view="desk"><span>Desk</span><small>Your saved people, posts, and topics</small></a><a class="nav-more-link nav-more-mobile" href="#people-search" data-view="search"><span>Search</span><small>Find accounts, posts, and channels</small></a><a class="nav-more-link nav-more-mobile" href="#profile" data-view="profile"><span>Profile</span><small>Your public profile and local settings</small></a><span class="nav-more-heading">REFERENCE</span><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>Set up your account and client</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Project notes and community context</small></a><a class="nav-more-link" href="#about" data-view="node"><span>Node</span><small>Connection status and setup</small></a><span class="nav-more-heading nav-more-mobile">POLICIES</span><a class="nav-more-link nav-more-mobile" href="/privacy.html"><span>Privacy</span><small>Data use and your choices</small></a><a class="nav-more-link nav-more-mobile" href="/terms.html"><span>Terms</span><small>Terms for the hosted client</small></a><a class="nav-more-link nav-more-mobile" href="/tutorial.html#security"><span>Security</span><small>Signer and device safety</small></a></div></details>
         </nav>
       </aside>
 
@@ -214,14 +216,10 @@
             <section class="desk-strip" id="my-desk" aria-labelledby="desk-title" data-area="desk">
               <div class="desk-windowbar" aria-hidden="true"><span>CASTONAUT</span><strong>DESK</strong><i>37</i></div>
               <div class="desk-strip-head"><div><span class="overline">PERSONAL WORKSPACE</span><h2 id="desk-title">Your Desk</h2></div><div class="desk-head-actions"><button type="button" class="desk-backup-link" data-share-app="true">Invite ↗</button><button type="button" class="desk-backup-link" id="desk-backup-open">Backup ↗</button></div></div>
-              <p class="desk-privacy-note"><span><i aria-hidden="true">⌖</i> LOCAL · THIS DEVICE</span><span>Pins, saved posts, topics, and notes stay in this browser; pinning does not follow anyone. Casts, follows, likes, and recasts are public Farcaster actions.</span></p>
+              <p class="desk-privacy-note"><span><i aria-hidden="true">⌖</i> SAVED HERE</span><span>Desk saves stay in this browser. Casts, follows, likes, and recasts are public Farcaster actions.</span></p>
               <div class="desk-status" id="desk-status" aria-label="Farcaster account and node status"></div>
-              <div class="desk-stack-tabs" role="tablist" aria-label="Desk stacks">
-                <button type="button" role="tab" id="desk-tab-people" class="desk-stack-tab is-active" data-desk-stack-tab="people" aria-controls="desk-stack-people" aria-selected="true"><span>People</span><small id="desk-stack-people-count">0</small></button>
-                <button type="button" role="tab" id="desk-tab-posts" class="desk-stack-tab" data-desk-stack-tab="posts" aria-controls="desk-stack-posts" aria-selected="false" tabindex="-1"><span>Posts</span><small id="desk-stack-posts-count">0</small></button>
-                <button type="button" role="tab" id="desk-tab-topics" class="desk-stack-tab" data-desk-stack-tab="topics" aria-controls="desk-stack-topics" aria-selected="false" tabindex="-1"><span>Topics</span><small id="desk-stack-topics-count">0</small></button>
-              </div>
-              <section class="desk-stack-panel" id="desk-stack-people" role="tabpanel" aria-labelledby="desk-tab-people" tabindex="0">
+              <div class="desk-content">
+              <section class="desk-stack-panel desk-people-stack" id="desk-stack-people" aria-label="People you pinned">
                 <form class="desk-add-person" id="desk-add-person" role="search">
                   <label class="sr-only" for="desk-person-query">Add a person</label>
                   <div><input id="desk-person-query" type="search" maxlength="200" placeholder="Find a person…" autocomplete="off" /><button type="submit" class="button button-outline">＋ Add</button></div>
@@ -232,7 +230,7 @@
                   <section class="desk-activity desk-panel" aria-labelledby="desk-activity-title"><div class="desk-section-heading"><h3 id="desk-activity-title">Recent from your people</h3><span id="desk-activity-count">0</span></div><div class="desk-orbit-pulse" id="desk-orbit-pulse" hidden></div><div class="desk-activity-list" id="desk-activity-list"><p class="desk-activity-empty">New posts from pinned people appear here.</p></div></section>
                 </div>
               </section>
-              <section class="desk-stack-panel" id="desk-stack-posts" role="tabpanel" aria-labelledby="desk-tab-posts" tabindex="0" hidden>
+              <section class="desk-stack-panel desk-posts-stack" id="desk-stack-posts" aria-labelledby="desk-saved-title">
                 <div class="desk-shortcuts desk-panel" id="desk-shortcuts" aria-label="Saved posts"><section class="desk-saved-section" aria-labelledby="desk-saved-title"><div class="desk-section-heading"><h3 id="desk-saved-title">Saved posts</h3><div class="desk-stack-tools"><select class="desk-sort-select" data-desk-sort="posts" aria-label="Sort saved posts"><option value="saved">Recently saved</option><option value="newest">Post date · newest</option><option value="oldest">Post date · oldest</option></select><span id="desk-cast-count">0 saved</span></div></div><div class="desk-saved-signals" id="desk-casts"></div></section></div>
                 <details class="time-capsule" aria-labelledby="capsule-title">
                   <summary class="capsule-heading"><span class="overline">TIME CAPSULE</span><span class="capsule-heading-title" id="capsule-title">Today’s page</span><span class="capsule-count">14 days · this device</span></summary>
@@ -241,11 +239,12 @@
                   <section class="capsule-replay" id="capsule-replay" aria-live="polite" hidden><div class="capsule-replay-head"><span><small>LOOKING BACK</small><strong id="capsule-replay-title"></strong></span><button type="button" id="capsule-replay-close" aria-label="Close capsule replay">×</button></div><div class="capsule-replay-list" id="capsule-replay-list"></div></section>
                 </details>
               </section>
-              <section class="desk-stack-panel" id="desk-stack-topics" role="tabpanel" aria-labelledby="desk-tab-topics" tabindex="0" hidden>
+              <section class="desk-stack-panel desk-topics-stack" id="desk-stack-topics" aria-labelledby="desk-topics-title">
                 <div class="desk-shortcuts desk-panel" aria-label="Pinned topics"><section class="desk-topics-section" aria-labelledby="desk-topics-title"><div class="desk-section-heading"><h3 id="desk-topics-title">Pinned topics</h3><div class="desk-stack-tools"><select class="desk-sort-select" data-desk-sort="topics" aria-label="Sort pinned topics"><option value="saved">Recently saved</option><option value="name">Name A–Z</option></select><span id="desk-topic-count">0 pinned</span></div></div><div class="desk-topic-list" id="desk-topics"></div></section></div>
                 <p class="desk-active-topic" id="desk-active-topic" hidden></p>
                 <p class="desk-stack-hint">Choose a topic to filter the feed. Pins and topic choices stay on this device.</p>
               </section>
+              </div>
               <details class="desk-accessories">
                 <summary><span>Desk tools</span><small>Orbit map · Notepad</small></summary>
                 <div class="desk-accessory-grid">
@@ -414,21 +413,19 @@
           </section>
 
           <section class="view node-view" id="node-view" data-panel="node" hidden>
-            <div class="overline"><span class="live-pip"></span> ABOUT CASTONAUT</div>
-            <div class="node-page-heading"><div><h1>Run your own node.</h1><p class="lead">Optional. Read here without one.</p></div></div>
+            <div class="overline"><span class="live-pip"></span> NODE STATUS</div>
+            <div class="node-page-heading"><div><h1>Node health.</h1><p class="lead">Check readiness and shard freshness for this client’s Snapchain endpoint.</p></div></div>
             <section class="node-journey" aria-labelledby="node-journey-title">
-            <div class="node-journey-head"><div><span class="overline">OPTIONAL NODE</span><h2 id="node-journey-title">Connect your own.</h2><p>Check status, costs, and setup.</p></div><div class="node-journey-status"><span class="node-led" id="node-journey-led"></span><span><strong id="node-journey-state">Checking configured node…</strong><small id="node-journey-detail">Client feed node.</small></span></div></div>
-              <div class="node-journey-steps"><article><span>01 / CHECK</span><h3>Readiness</h3><p>Version · shards · delay</p></article><article><span>02 / PREPARE</span><h3>Costs</h3><p>Compute · disk · cleanup</p></article><article><span>03 / CONNECT</span><h3>Your route</h3><p>Local requests show your IP.</p></article></div>
+              <div class="node-journey-head"><div><span class="overline">CURRENT CONNECTION</span><h2 id="node-journey-title">Snapchain</h2></div><div class="node-journey-status"><span class="node-led" id="node-journey-led"></span><span><strong id="node-journey-state">Checking configured node…</strong><small id="node-journey-detail">Checking the service that powers your feed.</small></span></div></div>
               <div class="node-journey-actions"><button type="button" class="button button-outline" id="node-journey-check">Check node</button><a class="button button-orange" href="/tutorial.html#quickstart">Open quickstart ↗</a></div>
             </section>
             <section class="node-chain-panel" aria-labelledby="node-chain-title">
-              <div class="node-chain-head"><div><span class="overline">LIVE SNAPCHAIN DATA</span><h2 id="node-chain-title">Chain status</h2><p>Shard heights and indexed message totals from the connected node.</p></div><span class="node-chain-updated" id="node-chain-updated" role="status">Waiting for a node check</span></div>
-              <div class="node-chain-summary" aria-label="Network summary"><div><span>NODE VERSION</span><strong id="chain-version">—</strong></div><div><span>SHARDS TRACKED</span><strong id="chain-shard-count">—</strong></div><div><span>MESSAGES INDEXED</span><strong id="chain-message-count">—</strong></div></div>
+              <div class="node-chain-head"><div><span class="overline">LIVE DATA</span><h2 id="node-chain-title">Shard status</h2><p>Height, indexed messages, and delay for each shard.</p></div><span class="node-chain-updated" id="node-chain-updated" role="status">Waiting for a node check</span></div>
+              <div class="node-chain-summary" aria-label="Network summary"><div><span>VERSION</span><strong id="chain-version">—</strong></div><div><span>SHARDS</span><strong id="chain-shard-count">—</strong></div><div><span>MESSAGES</span><strong id="chain-message-count">—</strong></div></div>
               <div class="node-shard-list" id="shard-list" aria-live="polite"><p class="node-chain-empty">Check the node to load shard heights and message counts.</p></div>
-              <p class="node-chain-note">Block delay is the node’s reported freshness for each shard. Heights are per-shard and do not represent a single global block number.</p>
+              <p class="node-chain-note">Delay and height are reported separately for each shard.</p>
             </section>
-            <div class="about-feature-grid"><article class="side-card"><span class="overline">FEED</span><h3>A timeline you control.</h3><p>Follow everyone you care about, then keep your closest people within reach.</p></article><article class="side-card"><span class="overline">YOUR DESK</span><h3>Keep people and posts close.</h3><p>Pin people, posts, and topics on this device.</p></article><article class="side-card"><span class="overline">SAVED</span><h3>Pick up where you left off.</h3><p>Save posts to revisit later.</p></article></div>
-            <section class="about-local-card"><div><span class="overline">LOCAL BY DEFAULT</span><h2>Your space stays yours.</h2><p>Desk, notes, and saves stay here. Remote images can reveal your IP. Analytics are optional.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share visit statistics</strong><small>Optional page views. Your choice stays on this device; URL details are removed.</small></span></label><a class="legal-inline-link" href="/privacy.html">Privacy details</a></div><div class="local-stamp"><span>LOCAL</span><b>✳</b><small>YOUR DEVICE</small></div></section>
+            <details class="node-privacy-settings"><summary><span>Privacy &amp; analytics</span><small>Local data · optional page views</small></summary><div><p>Desk saves stay in this browser. External media hosts can see your IP address.</p><label class="analytics-choice" for="analytics-consent"><input id="analytics-consent" type="checkbox" /><span><strong>Share visit statistics</strong><small>Optional page views. Your choice stays on this device; URL details are removed.</small></span></label><a class="legal-inline-link" href="/privacy.html">Read the privacy notice ↗</a></div></details>
           </section>
 
           <section class="view play-tools-view" id="play-tools-view" data-panel="tools" hidden aria-labelledby="play-tools-title">
@@ -471,10 +468,7 @@
         <button type="button" class="command-item" data-command-feed-destination="friends"><span class="command-icon">✳</span><span><strong>Top people</strong><small>Your handpicked circle</small></span></button>
         <button type="button" class="command-item" data-command-feed-destination="discover"><span class="command-icon">✧</span><span><strong>Discover</strong><small>Find people through your follow graph</small></span></button>
         <button type="button" class="command-item" data-command-view="desk"><span class="command-icon">⌖</span><span><strong>Desk</strong><small>Pinned people and saved posts</small></span></button>
-        <button type="button" class="command-item" data-command-view="tools"><span class="command-icon">✳</span><span><strong>Play &amp; tools</strong><small>Free games and Mini Apps from your feed</small></span></button>
-        <button type="button" class="command-item" data-command-desk-stack="people"><span class="command-icon">◎</span><span><strong>Desk · People</strong><small>Your pinned people, saved on this device</small></span></button>
-        <button type="button" class="command-item" data-command-desk-stack="posts"><span class="command-icon">▣</span><span><strong>Desk · Posts</strong><small>Posts and notes you saved locally</small></span></button>
-        <button type="button" class="command-item" data-command-desk-stack="topics"><span class="command-icon">#</span><span><strong>Desk · Topics</strong><small>Your topic shortcuts</small></span></button>
+        <button type="button" class="command-item" data-command-view="tools"><span class="command-icon">✳</span><span><strong>Play &amp; tools</strong><small>Games and Mini Apps</small></span></button>
         <button type="button" class="command-item" data-command-view="search"><span class="command-icon">⌕</span><span><strong>Search</strong><small>Find a profile or loaded post</small></span></button>
         <button type="button" class="command-item" data-command-view="profile"><span class="command-icon">◉</span><span><strong>Your profile</strong><small>Posts and local profile settings</small></span></button>
         <button type="button" class="command-item" data-command-view="node"><span class="command-icon">⌘</span><span><strong>Node</strong><small>Connection and setup</small></span></button>

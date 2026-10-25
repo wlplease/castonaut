@@ -3549,23 +3549,6 @@ function saveProfileTouch(fid, values) {
   return true;
 }
 
-function setDeskStack(stack, focus = false) {
-  const allowed = ['people', 'posts', 'topics'];
-  const selected = allowed.includes(stack) ? stack : 'people';
-  for (const name of allowed) {
-    const tab = $(`[data-desk-stack-tab="${name}"]`);
-    const panel = $(`#desk-stack-${name}`);
-    const active = name === selected;
-    if (tab) {
-      tab.classList.toggle('is-active', active);
-      tab.setAttribute('aria-selected', String(active));
-      tab.tabIndex = active ? 0 : -1;
-      if (focus && active) tab.focus();
-    }
-    if (panel) panel.hidden = !active;
-  }
-}
-
 function deskSortedPeople() {
   const people = [...state.deskPins];
   if (state.deskSort.people === 'name') people.sort((a, b) => localProfileName(state.people.get(a) || { fid: a, name: `Farcaster ${a}` }).localeCompare(localProfileName(state.people.get(b) || { fid: b, name: `Farcaster ${b}` }), undefined, { sensitivity: 'base', numeric: true }));
@@ -3591,7 +3574,6 @@ function renderDesk() {
   if (!container) return;
   renderDeskStatus();
   $('#desk-people-count').textContent = `${state.deskPins.length} pinned`;
-  $('#desk-stack-people-count').textContent = String(state.deskPins.length);
   const peopleSort = $('[data-desk-sort="people"]');
   if (peopleSort) peopleSort.value = state.deskSort.people;
   container.replaceChildren();
@@ -3870,8 +3852,6 @@ function renderDeskShortcuts() {
   casts.replaceChildren(); topics.replaceChildren();
   $('#desk-cast-count').textContent = `${state.deskCasts.length} saved`;
   $('#desk-topic-count').textContent = `${state.deskTopics.length} pinned`;
-  $('#desk-stack-posts-count').textContent = String(state.deskCasts.length);
-  $('#desk-stack-topics-count').textContent = String(state.deskTopics.length);
   const postsSort = $('[data-desk-sort="posts"]');
   const topicsSort = $('[data-desk-sort="topics"]');
   if (postsSort) postsSort.value = state.deskSort.posts;
@@ -4600,10 +4580,19 @@ function renderIdentity() {
     : state.fid && !ready
     ? 'Account found. Castonaut is checking whether this browser’s social key is confirmed on your node.'
     : state.signerMode === 'neynar' ? 'Connected with a revocable Farcaster signer.' : 'Your existing account is all you need. The next step creates a separate, limited social key.';
-  if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
+  if (!state.fid) {
+    $('#avatar-initial').textContent = '?';
+    $('#open-account').setAttribute('aria-label', 'Connect your Farcaster account');
+    $('#open-account').title = 'Connect your Farcaster account';
+    $('#composer').hidden = true;
+    return;
+  }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
   const shownName = localProfileName(profile);
   $('#avatar-initial').textContent = shownName.slice(0, 1).toUpperCase();
+  const profileLabel = `@${profile.username || `fid-${state.fid}`}`;
+  $('#open-account').setAttribute('aria-label', state.signerReady ? `Open your profile, ${profileLabel}` : 'Review your connected account');
+  $('#open-account').title = state.signerReady ? `Your profile · ${profileLabel}` : 'Review your connected account and signer';
   $('#profile-name').textContent = shownName;
   $('#profile-handle').textContent = `@${profile.username} · FID ${state.fid}`;
   $('#profile-avatar').textContent = profile.name.slice(0, 1).toUpperCase();
@@ -5170,10 +5159,6 @@ $('#search-examples')?.addEventListener('click', (event) => {
   }
 });
 $('#desk-add-person')?.addEventListener('submit', (event) => { event.preventDefault(); addDeskPerson($('#desk-person-query').value); });
-$('#my-desk')?.addEventListener('click', (event) => {
-  const tab = event.target.closest('[data-desk-stack-tab]');
-  if (tab) setDeskStack(tab.dataset.deskStackTab);
-});
 $('#my-desk')?.addEventListener('change', (event) => {
   const select = event.target.closest('[data-desk-sort]');
   if (!select) return;
@@ -5183,18 +5168,6 @@ $('#my-desk')?.addEventListener('change', (event) => {
   state.deskSort[stack] = select.value;
   try { localStorage.setItem(DESK_SORT_STORAGE, JSON.stringify(state.deskSort)); } catch { /* Sorting still applies for this visit. */ }
   if (stack === 'people') renderDesk(); else renderDeskShortcuts();
-});
-$('#my-desk')?.addEventListener('keydown', (event) => {
-  const tab = event.target.closest('[data-desk-stack-tab]');
-  if (!tab) return;
-  const tabs = [...$('#my-desk').querySelectorAll('[data-desk-stack-tab]')];
-  const index = tabs.indexOf(tab);
-  const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length
-    : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length
-      : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
-  if (next < 0) return;
-  event.preventDefault();
-  setDeskStack(tabs[next].dataset.deskStackTab, true);
 });
 $('#desk-atlas')?.addEventListener('toggle', () => { if ($('#desk-atlas')?.open) renderDeskAtlas(); });
 document.addEventListener('change', (event) => {
@@ -5366,7 +5339,12 @@ document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener
   }
 }));
 async function openFeedDestination(destination) {
-  navigate('feed');
+  navigate('feed', { restoreScroll: false });
+  if (destination === 'following' && !state.fid) {
+    setNotice('Connect a Farcaster account to load your Following feed. Here is a sample timeline.', 'pending');
+    requestAnimationFrame(() => $('#client-preview')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
+    return;
+  }
   if (destination === 'discover') {
     if (state.boardMode !== 'signals') setBoardMode('signals');
     if (state.feedMode === 'profile') await loadFeed(state.fid, 'following');
@@ -5615,7 +5593,6 @@ $('#command-items').addEventListener('click', (event) => {
     if (state.boardMode !== 'signals') { setBoardMode('signals'); return; }
     renderDeskShortcuts(); renderFeed(); return;
   }
-  if (item.dataset.commandDeskStack) { navigate('desk'); setDeskStack(item.dataset.commandDeskStack); return; }
   if (item.dataset.commandAction === 'compose') {
     if (state.boardMode !== 'signals') setBoardMode('signals');
     if (state.feedMode === 'profile') setFeedTab('following');
@@ -5679,7 +5656,13 @@ document.addEventListener('keydown', (event) => {
   focusTarget?.focus();
   cards[next].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
-$('#open-account').addEventListener('click', openConnectDialog);
+$('#open-account').addEventListener('click', () => {
+  if (!state.signerReady || !state.fid) { openConnectDialog(); return; }
+  state.parent = null;
+  if (state.boardMode !== 'signals') setBoardMode('signals');
+  navigate('profile', { restoreScroll: false });
+  void loadFeed(state.fid, 'profile');
+});
 $('#hero-connect')?.addEventListener('click', openConnectDialog);
 $('#welcome-card [data-open-account]')?.addEventListener('click', openConnectDialog);
 $('#portal-enter').addEventListener('click', () => {
@@ -6202,8 +6185,24 @@ document.addEventListener('click', async (event) => {
   const conversationButton = event.target.closest('[data-open-conversation]');
   if (conversationButton) { await openConversation(conversationButton.dataset.fid, conversationButton.dataset.hash); return; }
   if (event.target.closest('[data-share-app]')) {
-    const url = new URL('/', location.origin);
-    await shareOrCopyLink(url.href, { title: 'Castonaut', text: 'A Farcaster client with a personal Desk.', copiedMessage: 'Castonaut link' });
+    if (state.sessionRestoring) {
+      setNotice('Checking this browser for your saved Farcaster account. Try Invite again in a moment.', 'pending');
+      return;
+    }
+    if (!state.signerReady) { openConnectDialog(); return; }
+    const appUrl = $('link[rel="canonical"]')?.href || new URL('/', location.origin).href;
+    const inviteText = `Join me on Castonaut — an independent Farcaster client with a chronological feed and a personal Desk.\n\n${appUrl}`;
+    navigate('feed', { restoreScroll: false });
+    if (state.boardMode !== 'signals') setBoardMode('signals');
+    const composer = $('#composer-text');
+    const existing = composer.value.trimEnd();
+    composer.value = [existing, inviteText].filter(Boolean).join('\n\n');
+    composer.setSelectionRange(composer.value.length, composer.value.length);
+    $('#composer-label').textContent = 'Invite friends';
+    $('#composer').hidden = false;
+    setComposerExpanded(true, { focus: true });
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    void loadFeed(state.fid, 'following');
     return;
   }
   const castProfile = event.target.closest('[data-cast-profile]');

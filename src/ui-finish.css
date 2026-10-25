@@ -491,7 +491,7 @@
   .nav-more-link{min-height:42px;padding:8px 10px}
 }
 @media(max-width:399px){
-  .sidebar .nav-list{grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
+  .sidebar .nav-list{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
   .sidebar .nav-list>.nav-item[data-view="desk"]{display:none!important}
   .nav-more-mobile[href="#my-desk"]{display:grid!important}
   .sidebar .nav-list .nav-item>span:nth-child(2),
