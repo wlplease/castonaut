@@ -155,7 +155,7 @@ export function initPlayTools({ onShareScore }) {
     });
   }));
 
-  // A quiet nod to classic Mac keyboard discoveries. It only reveals a small note.
+  // A quiet nod to early desktop keyboard discoveries. It only reveals a small note.
   const sequence = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
   let entered = [];
   window.addEventListener('keydown', (event) => {

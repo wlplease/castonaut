@@ -1,4 +1,4 @@
-/* Final shared finish: restrained classic Mac surfaces, consistent across the
+/* Final shared finish: restrained desktop surfaces, consistent across the
    client and its companion pages. All colors follow the active theme tokens. */
 :root {
   --finish-paper: var(--station-paper, var(--page-paper, var(--shell-paper, #eeede9)));
@@ -298,7 +298,7 @@ html[data-theme="night-radio"] .network-search-status[data-state="error"] { colo
 .directory-heading > span,
 .feed-toolbar .feed-updated { font-variant-numeric: tabular-nums; }
 
-/* Finder-like places: clear hierarchy and a little more breathing room. */
+/* Clear destinations: consistent hierarchy and breathing room. */
 .desk-strip { border-radius: 8px; }
 .desk-strip-head { align-items: center; }
 .desk-panel { border-color: var(--finish-line); border-radius: 7px; }

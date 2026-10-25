@@ -10,7 +10,7 @@
   <img alt="Node.js 22" src="https://img.shields.io/badge/Node.js-22-7e9c72?style=for-the-badge&logo=node.js&logoColor=white">
 </p>
 
-**Catch up in time order. Keep your people and posts close.** Castonaut is an independent, open-source Farcaster client with a readable chronological feed and a personal Desk for the people, posts, and topics you want to find again. It borrows the care of classic Mac software—clear windows, familiar controls, and a little orbital character—without getting between you and the conversation.
+**Catch up in time order. Keep your people and posts close.** Castonaut is an independent, open-source Farcaster client with a readable chronological feed and a personal Desk for the people, posts, and topics you want to find again. It pairs a calm desktop-inspired interface, familiar controls, and a little orbital character without getting between you and the conversation.
 
 You can browse the hosted client without setting up a node or entering an API key. Bring an existing Farcaster account when you’re ready to follow, react, or post.
 
@@ -38,7 +38,7 @@ The client and its personal Desk run in your browser. The read node runs on infr
 - **Native social actions:** write casts and threads, reply, quote, like, recast, and follow from the client. Your actions use your Farcaster app signer and are public protocol activity.
 - **Search with clear scope:** filter posts loaded in the current feed, open a person by exact username or FID, or load a channel timeline from the configured Snapchain node. Search does not require a Neynar search key or pretend to be a full-network text index.
 - **Play & tools:** open the built-in games and Farcaster tools without turning the main timeline into a busy arcade.
-- **A Mac-inspired interface:** light and dark moods, careful typography, compact status details, responsive navigation, and keyboard access for common actions.
+- **A desktop-inspired interface:** light and dark moods, careful typography, compact status details, responsive navigation, and keyboard access for common actions.
 
 <p align="center">
   <img src="docs/screenshots/mobile.png" alt="Castonaut landing page and sample timeline at a narrow 650-pixel viewport" width="420">

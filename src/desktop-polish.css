@@ -1,4 +1,4 @@
-/* Castonaut's classic-computer layer: a quiet menu bar, Finder-like rail,
+/* Castonaut's desktop layer: a quiet menu bar, clear navigation rail,
    and readable paper windows. Theme colors still come from the active palette. */
 
 .site-header {
@@ -412,9 +412,9 @@ html[data-theme] .post-action[aria-pressed="true"] {
 
 @media (max-width: 390px) {
   .topbar .mobile-brand img {
-    width: 32px;
-    height: 32px;
-    flex-basis: 32px;
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
   }
 }
 

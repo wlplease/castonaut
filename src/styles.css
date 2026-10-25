@@ -3816,7 +3816,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .empty-message-actions>.button{min-height:36px;padding-inline:9px}
 }
 
-/* Finder-like destinations stay direct on desktop and in the phone dock. */
+/* Main destinations stay direct on desktop and in the phone dock. */
 .nav-destination{display:grid;grid-template-columns:23px minmax(0,1fr);grid-template-rows:auto auto;align-content:center;column-gap:9px;row-gap:2px;min-height:52px}
 .nav-destination>.nav-symbol{grid-row:1/3;align-self:center}
 .nav-destination>span:not(.nav-symbol){grid-column:2;grid-row:1;line-height:1.2}
@@ -4071,7 +4071,7 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
   .feed-window>.feed-toolbar .feed-refresh-button{flex-basis:30px;width:30px;height:30px;min-height:30px}
 }
 
-/* A quieter shared surface treatment keeps the classic Mac cues without heavy bevels. */
+/* A quiet shared surface treatment keeps the desktop cues without heavy bevels. */
 .feed-window,.side-card,.profile-summary,.source-card,.readout-card,.diagnostic-panel,.concept-panel,.about-local-card{border-radius:10px;box-shadow:0 2px 10px color-mix(in srgb,var(--station-ink) 5%,transparent)}
 .button,.post-action,.board-tab,.feed-quick-controls>summary,.feed-filter-summary,.profile-tab,.nav-item,.nav-more-link{transition:background-color .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease}
 .button:hover,.post-action:hover{transform:none}

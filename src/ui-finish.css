@@ -214,7 +214,7 @@
   .post-actions>.post-more>summary{width:28px}
 }
 
-/* Keep feed sorting as one quiet Mac-style segmented control at every width. */
+/* Keep feed sorting as one quiet segmented control at every width. */
 .feed-toolbar-actions>.feed-view-controls.feed-sort-switch{
   display:flex;align-items:center;gap:2px;width:max-content;max-width:100%;padding:3px;
   border:1px solid var(--station-line);border-radius:8px;
