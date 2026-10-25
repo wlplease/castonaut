@@ -595,34 +595,6 @@ html[data-theme] .post-action[aria-pressed="true"] {
   font-size: 9px;
 }
 
-.managed-signin {
-  display: grid;
-  gap: 9px;
-  margin: 18px 0;
-  padding: 16px;
-  border: 1px solid var(--line, #b9b6b1);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--panel, #fff) 86%, var(--accent, #7963a8));
-}
-
-.managed-signin h3,
-.managed-signin p { margin: 0; }
-.managed-signin p,
-.managed-signin small { color: var(--muted, #625c68); line-height: 1.45; }
-.managed-signin-approval { justify-self: start; }
-.managed-signin-check { justify-self: start; }
-.managed-signin-status { min-height: 1em; }
-.connect-phrase-option { margin-block: 14px; }
-.connect-phrase-option > summary { cursor: pointer; font-weight: 600; }
-.connect-phrase-option[open] > summary { margin-bottom: 12px; }
-
-@media (max-width: 620px) {
-  .managed-signin { margin: 14px 0; padding: 13px; }
-  .managed-signin > .button,
-  .managed-signin-approval,
-  .managed-signin-check { width: 100%; text-align: center; }
-}
-
 @media (max-width: 900px) {
   .feed-window > .feed-toolbar {
     grid-template-columns: minmax(0, 1fr) auto;

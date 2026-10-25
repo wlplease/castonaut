@@ -200,7 +200,7 @@ function localNeynarAdapter(serverEnv) {
   return {
     name: 'castonaut-local-neynar-adapter',
     configureServer(server) {
-      for (const key of ['NEYNAR_API_KEY', 'CASTONAUT_APP_FID', 'CASTONAUT_APP_PRIVATE_KEY', 'CASTONAUT_SESSION_SECRET']) {
+      for (const key of ['NEYNAR_API_KEY', 'CASTONAUT_SESSION_SECRET']) {
         if (!process.env[key] && serverEnv[key]) process.env[key] = serverEnv[key];
       }
       const handlers = new Map();
@@ -233,8 +233,6 @@ export default defineConfig(({ mode }) => {
     SNAPCHAIN_HTTP_PASS: process.env.SNAPCHAIN_HTTP_PASS || loaded.SNAPCHAIN_HTTP_PASS || '',
     GIPHY_PROXY_URL: process.env.GIPHY_PROXY_URL || loaded.GIPHY_PROXY_URL || 'https://castonaut.vercel.app/api/giphy',
     NEYNAR_API_KEY: process.env.NEYNAR_API_KEY || loaded.NEYNAR_API_KEY || '',
-    CASTONAUT_APP_FID: process.env.CASTONAUT_APP_FID || loaded.CASTONAUT_APP_FID || '',
-    CASTONAUT_APP_PRIVATE_KEY: process.env.CASTONAUT_APP_PRIVATE_KEY || loaded.CASTONAUT_APP_PRIVATE_KEY || '',
     CASTONAUT_SESSION_SECRET: process.env.CASTONAUT_SESSION_SECRET || loaded.CASTONAUT_SESSION_SECRET || '',
   };
 

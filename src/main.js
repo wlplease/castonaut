@@ -78,30 +78,12 @@ async function managedWrite(payload) {
   return body;
 }
 
-async function refreshManagedAuthOption() {
-  const section = $('#managed-signin');
-  if (!section) return;
-  try {
-    const response = await fetch('/api/neynar-auth?action=config', { credentials: 'same-origin', cache: 'no-store' });
-    const config = await response.json();
-    const enabled = response.ok && config.enabled === true;
-    section.hidden = !enabled;
-    const phraseOption = document.querySelector('.connect-phrase-option');
-    if (phraseOption) phraseOption.open = !enabled;
-  } catch {
-    section.hidden = true;
-    const phraseOption = document.querySelector('.connect-phrase-option');
-    if (phraseOption) phraseOption.open = true;
-  }
-}
-
 function managedParentHash(parent) {
   if (!parent) return '';
   return String(parent.hash || '');
 }
 
 async function finishManagedSignIn(fid) {
-  clearInterval(startManagedSignIn.poll);
   try { localStorage.setItem(SIGN_IN_MODE_STORAGE, 'neynar'); } catch { /* The signed server cookie still restores this session. */ }
   state.fid = Number(fid);
   state.signer = null;
@@ -115,78 +97,13 @@ async function finishManagedSignIn(fid) {
   loadFlightLog(state.fid);
   loadTimeCapsules(state.fid);
   restoreComposerDraft(state.fid);
-  $('#managed-signin-status').textContent = `Connected · FID ${state.fid.toLocaleString()}.`;
-  $('#managed-signin-approval').hidden = true;
-  $('#managed-signin-check').hidden = true;
   renderIdentity();
   await fetchProfile(state.fid).catch(() => null);
   renderIdentity();
   await loadFeed(state.fid);
-  setNotice('Farcaster account connected. Your managed Castonaut signer is ready.', 'success');
+  setNotice('Your Farcaster account is ready. Loading your feed…', 'success');
   if ($('#connect-dialog').open) setTimeout(() => $('#connect-dialog').close(), 500);
 }
-
-async function checkManagedApproval({ quiet = false } = {}) {
-  if (state.managedAuthChecking) return;
-  state.managedAuthChecking = true;
-  const status = $('#managed-signin-status');
-  const check = $('#managed-signin-check');
-  if (check) check.disabled = true;
-  try {
-    const result = await managedAuthRequest('status');
-    if (result.status === 'approved' && Number(result.fid) > 0) {
-      await finishManagedSignIn(Number(result.fid));
-    } else if (result.status === 'pending') {
-      if (status) status.textContent = 'Waiting for approval in Farcaster…';
-    } else if (result.status === 'revoked' || result.status === 'expired' || result.status === 'none') {
-      if (status) status.textContent = result.status === 'revoked' ? 'The signer was revoked. Start a new request if you want to connect.' : 'No pending approval. Start a new request to connect.';
-      clearInterval(startManagedSignIn.poll);
-      if (result.status !== 'pending') {
-        $('#managed-signin-approval').hidden = true;
-        if (check) check.hidden = true;
-      }
-    }
-  } catch (error) {
-    if (!quiet && status) status.textContent = error.message;
-  } finally {
-    state.managedAuthChecking = false;
-    if (check) check.disabled = false;
-  }
-}
-
-async function startManagedSignIn() {
-  const start = $('#managed-signin-start');
-  const status = $('#managed-signin-status');
-  const approval = $('#managed-signin-approval');
-  const check = $('#managed-signin-check');
-  if (start) start.disabled = true;
-  if (status) status.textContent = 'Preparing a limited signer request…';
-  try {
-    const result = await managedAuthRequest('start', { method: 'POST', body: '{}' });
-    if (result.status === 'approved') {
-      await checkManagedApproval();
-      return;
-    }
-    const { approvalUrl } = result;
-    approval.href = approvalUrl;
-    approval.hidden = false;
-    if (check) check.hidden = false;
-    if (status) status.textContent = 'Open the request in Farcaster and approve Castonaut. This tab will check for confirmation.';
-    await checkManagedApproval({ quiet: true });
-    if (state.signerMode === 'neynar') return;
-    clearInterval(startManagedSignIn.poll);
-    startManagedSignIn.poll = setInterval(() => { if (!document.hidden) void checkManagedApproval({ quiet: true }); }, 5000);
-  } catch (error) {
-    if (status) status.textContent = error.message;
-  } finally {
-    if (start) start.disabled = false;
-  }
-}
-
-$('#managed-signin-start')?.addEventListener('click', startManagedSignIn);
-$('#managed-signin-check')?.addEventListener('click', () => checkManagedApproval());
-
-void refreshManagedAuthOption();
 
 function openMiniApp(value) {
   let url;
@@ -314,7 +231,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, DESK_SORT_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, signerMode: 'none', publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, managedAuthChecking: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedCastPageTokens: new Map(), feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, signerMode: 'none', publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedCastPageTokens: new Map(), feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 function loadDeskSortPreferences() {
   let stored = {};
   try { stored = JSON.parse(localStorage.getItem(DESK_SORT_STORAGE) || '{}'); } catch { /* Use the recent-first defaults. */ }
@@ -4158,7 +4075,7 @@ async function checkSavedSigner() {
   setConnectionStatus('Checking this browser’s saved app key with Snapchain…', { active: 'approve', completed: ['sign'], canRetry: true });
   try {
     if (!state.fid || !state.publicKey || !state.signer) await restoreSession();
-    if (!state.fid || !state.publicKey || !state.signer) throw new Error('No saved app key was found in this browser. Start again with your wallet.');
+    if (!state.fid || !state.publicKey || !state.signer) throw new Error('No saved app key was found in this browser. Start again with your Farcaster recovery phrase.');
     const confirmed = await findSigner(state.fid, state.publicKey);
     state.signerReady = confirmed;
     if (confirmed) await clearPendingRegistration();
@@ -4341,9 +4258,12 @@ function renderIdentity() {
 async function restoreSession() {
   let preferredMode = '';
   try { preferredMode = localStorage.getItem(SIGN_IN_MODE_STORAGE) || ''; } catch { /* Continue with an available authenticated session. */ }
-  // Restore the selected managed session before looking at an older local key.
-  // Do not silently switch signers if the managed session cannot be checked.
-  if (preferredMode === 'neynar' || !preferredMode) {
+  // Only check a managed session when this browser explicitly selected that
+  // legacy mode. A fresh visitor should reach the browser-key flow directly,
+  // without waiting on the retired Neynar endpoint.
+  // Do not silently switch signers if an explicitly selected legacy session
+  // cannot be checked.
+  if (preferredMode === 'neynar') {
     try {
       const managed = await managedAuthRequest('me');
       if (managed.signedIn && Number.isSafeInteger(Number(managed.fid)) && Number(managed.fid) > 0) {
@@ -4421,7 +4341,6 @@ async function restoreSession() {
 async function clearLocalSigner() {
   refreshSignerFlow = false;
   const wasManaged = state.signerMode === 'neynar';
-  if (wasManaged) clearInterval(startManagedSignIn.poll);
   if (wasManaged) {
     try { await managedAuthRequest('logout', { method: 'POST', body: '{}' }); }
     catch (error) { setNotice(`Could not clear the managed session on this server. ${error.message}`, 'error'); return; }

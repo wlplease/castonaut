@@ -2,8 +2,6 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export const AUTH_COOKIE = 'castonaut_managed_session';
 export const PENDING_COOKIE = 'castonaut_managed_pending';
-const SESSION_SECONDS = 60 * 60 * 24 * 7;
-const PENDING_SECONDS = 60 * 20;
 
 function cookieName(req, name) {
   // __Host cookies require Secure, Path=/, and no Domain, which prevents a
@@ -13,17 +11,12 @@ function cookieName(req, name) {
 
 function secret() {
   const value = process.env.CASTONAUT_SESSION_SECRET;
-  if (!value || value.length < 32) throw new Error('Managed sign-in is not configured.');
+  if (!value || value.length < 32) throw new Error('Managed session support is not configured.');
   return value;
 }
 
 function signature(value) {
   return createHmac('sha256', secret()).update(value).digest('base64url');
-}
-
-function seal(payload) {
-  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  return `${body}.${signature(body)}`;
 }
 
 function unseal(value) {
@@ -56,40 +49,10 @@ function secureCookie(req) {
   return process.env.NODE_ENV === 'production' || String(req.headers?.['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
 }
 
-function setCookie(res, req, name, value, seconds) {
-  const secure = secureCookie(req) ? '; Secure' : '';
-  const current = res.getHeader('Set-Cookie');
-  const next = `${cookieName(req, name)}=${encodeURIComponent(value)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${seconds}; Priority=High${secure}`;
-  res.setHeader('Set-Cookie', [...(Array.isArray(current) ? current : current ? [current] : []), next]);
-}
-
-export function setPendingSession(res, req, signerUuid) {
-  setCookie(res, req, PENDING_COOKIE, seal({ signerUuid, exp: Math.floor(Date.now() / 1000) + PENDING_SECONDS }), PENDING_SECONDS);
-}
-
-export function setManagedSession(res, req, { fid, signerUuid }) {
-  const numericFid = Number(fid);
-  if (!Number.isSafeInteger(numericFid) || numericFid < 1 || !/^[0-9a-f-]{36}$/i.test(String(signerUuid || ''))) throw new Error('Neynar returned an invalid account session.');
-  setCookie(res, req, AUTH_COOKIE, seal({ fid: numericFid, signerUuid, exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS }), SESSION_SECONDS);
-  clearCookie(res, req, PENDING_COOKIE);
-}
-
 export function getManagedSession(req) {
   const value = unseal(cookie(req, AUTH_COOKIE));
   if (!value || !Number.isSafeInteger(value.fid) || value.fid < 1 || !/^[0-9a-f-]{36}$/i.test(String(value.signerUuid || ''))) return null;
   return value;
-}
-
-export function getPendingSession(req) {
-  const value = unseal(cookie(req, PENDING_COOKIE));
-  return value && /^[0-9a-f-]{36}$/i.test(String(value.signerUuid || '')) ? value : null;
-}
-
-export function clearCookie(res, req, name) {
-  const secure = secureCookie(req) ? '; Secure' : '';
-  const current = res.getHeader('Set-Cookie');
-  const next = `${cookieName(req, name)}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0; Priority=High${secure}`;
-  res.setHeader('Set-Cookie', [...(Array.isArray(current) ? current : current ? [current] : []), next]);
 }
 
 export function clearManagedCookies(res, req) {
@@ -109,5 +72,5 @@ export function isSameOrigin(req) {
 }
 
 export function managedAuthConfigured() {
-  return Boolean(process.env.NEYNAR_API_KEY && process.env.CASTONAUT_APP_FID && process.env.CASTONAUT_APP_PRIVATE_KEY && process.env.CASTONAUT_SESSION_SECRET?.length >= 32);
+  return Boolean(process.env.NEYNAR_API_KEY && process.env.CASTONAUT_SESSION_SECRET?.length >= 32);
 }
