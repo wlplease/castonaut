@@ -4,6 +4,7 @@ const ROUTES = {
   info: { path: '/v1/info', method: 'GET', params: [] },
   casts: { path: '/v1/castsByFid', method: 'GET', params: ['fid', 'pageSize', 'pageToken', 'reverse', 'startTimestamp', 'stopTimestamp'] },
   replies: { path: '/v1/castsByParent', method: 'GET', params: ['fid', 'hash', 'pageSize', 'pageToken', 'reverse'] },
+  channelCasts: { path: '/v1/castsByParent', method: 'GET', params: ['url', 'pageSize', 'pageToken', 'reverse'] },
   username: { path: '/v1/userNameProofByName', method: 'GET', params: ['name'] },
   links: { path: '/v1/linksByFid', method: 'GET', params: ['fid', 'link_type', 'pageSize', 'pageToken', 'reverse'] },
   userData: { path: '/v1/userDataByFid', method: 'GET', params: ['fid', 'user_data_type', 'pageSize', 'pageToken', 'reverse'] },
@@ -31,6 +32,7 @@ const MAX_RATE_LIMIT_ENTRIES = 4096;
 const SHARED_READ_CACHE_SECONDS = {
   casts: 15,
   replies: 15,
+  channelCasts: 10,
   username: 300,
   links: 15,
   userData: 300,
@@ -63,6 +65,14 @@ function isSameOrigin(req) {
 function validateParam(name, value) {
   if (name === 'fid' || name === 'target_fid') return /^[1-9]\d{0,14}$/.test(value);
   if (name === 'name') return /^[\p{L}\p{N}._-]{1,64}$/u.test(value);
+  if (name === 'url') {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'https:' && ['warpcast.com', 'farcaster.xyz'].includes(parsed.hostname.toLowerCase())
+        && /^\/~\/channel\/[a-z0-9-]{1,64}\/?$/i.test(parsed.pathname) && !parsed.username && !parsed.password
+        && !parsed.search && !parsed.hash;
+    } catch { return false; }
+  }
   if (name === 'pageSize') return /^\d{1,3}$/.test(value) && Number(value) >= 1 && Number(value) <= 100;
   if (name === 'reverse') return value === 'true' || value === 'false' || value === '1' || value === '0';
   if (name === 'startTimestamp' || name === 'stopTimestamp') return /^\d{1,12}$/.test(value);
@@ -191,6 +201,7 @@ export default async function snapchain(req, res) {
   if (route.params.includes('fid') && !target.searchParams.has('fid')) return res.status(400).json({ error: 'fid is required' });
   if (routeName === 'castById' && !target.searchParams.has('hash')) return res.status(400).json({ error: 'hash is required' });
   if (routeName === 'replies' && (!target.searchParams.has('fid') || !target.searchParams.has('hash'))) return res.status(400).json({ error: 'parent fid and hash are required' });
+  if (routeName === 'channelCasts' && !target.searchParams.has('url')) return res.status(400).json({ error: 'channel URL is required' });
   if (routeName === 'linkById' && !target.searchParams.has('target_fid')) return res.status(400).json({ error: 'target_fid is required' });
   if (routeName === 'reactionById' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return res.status(400).json({ error: 'reaction target and type are required' });
   if (routeName === 'reactionsByCast' && (!target.searchParams.has('target_fid') || !target.searchParams.has('target_hash') || !target.searchParams.has('reaction_type'))) return res.status(400).json({ error: 'reaction target and type are required' });

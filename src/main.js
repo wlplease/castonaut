@@ -1,4 +1,5 @@
 import './runtime-polyfills.js';
+import { upload as uploadPublicBlob, uploadPresigned as uploadPublicBlobPresigned } from '@vercel/blob/client';
 import { groupRepeatedCasts } from './feed-groups.js';
 import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions, visibleInProfileView } from './feed-curation.js';
 import { mixAuthorTimeline, rankActiveFeedSources, rankFollowRecommendations } from './feed-ranking.js';
@@ -21,6 +22,7 @@ import { recentOrbitCasts, summarizeOrbitActivity } from './desk-orbit.js';
 import { orbitAtlasLayout } from './orbit-atlas.js';
 import { isFarcasterMiniAppLink } from './mini-app-links.js';
 import { initPlayTools, refreshMiniAppShelf } from './play-tools.js';
+import { CURATED_TOP_ACCOUNTS } from './top-account-roster.js';
 
 const ANALYTICS_CONSENT_STORAGE = 'castonaut.analytics-consent.v1';
 let analyticsEnabled = false;
@@ -188,7 +190,7 @@ const castReferenceObserver = typeof IntersectionObserver === 'function'
     }
   }, { rootMargin: '420px 0px' })
   : null;
-const READ_CACHE_TTL = { info: 10_000, casts: 8_000, replies: 8_000, links: 30_000, castById: 30_000, reactionsByCast: 20_000, userData: 60_000, username: 60_000 };
+const READ_CACHE_TTL = { info: 10_000, casts: 8_000, replies: 8_000, channelCasts: 8_000, links: 30_000, castById: 30_000, reactionsByCast: 20_000, userData: 60_000, username: 60_000 };
 const DEVICE_READ_CACHE_TTL = { casts: 120_000, replies: 60_000, links: 900_000, castById: 120_000, reactionsByCast: 30_000, userData: 900_000, username: 21_600_000 };
 let snapchainReadCacheVersion = 0;
 function clearSnapchainReadCache({ clearDevice = false } = {}) {
@@ -217,6 +219,7 @@ const REPEAT_GROUPING_STORAGE = 'castonaut.group-repeats.v1';
 const THEME_STORAGE = 'castonaut.theme.v1';
 const VOICE_STORAGE = 'castonaut.station-voice.v1';
 const FRIENDS_STORAGE = 'castonaut.friends.v1';
+const TOP_ROSTER_STORAGE = 'castonaut.top-roster.v1';
 const CREW_STORAGE = 'castonaut.crew.v1';
 const CREW_NAME_STORAGE = 'castonaut.crew-name.v1';
 const MUTED_AUTHORS_STORAGE = 'castonaut.muted-authors.v1';
@@ -231,7 +234,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, DESK_SORT_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, signerMode: 'none', publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedCastPageTokens: new Map(), feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, signerMode: 'none', publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, feedUpdatedAt: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedCastPageTokens: new Map(), feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', networkSearchKind: 'casts', networkSearchQuery: '', networkSearchCursor: '', networkSearchItems: [], networkSearchBusy: false, networkSearchRequest: 0, profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, curatedTopAccounts: [], curatedTopLoadPromise: null, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 state.quoteCast = null;
 function loadDeskSortPreferences() {
   let stored = {};
@@ -254,6 +257,14 @@ let giphyConfig = null;
 let giphyCooldownUntil = 0;
 let giphyCooldownTimer = null;
 let giphySearching = false;
+let photoUploadEnabled = false;
+let photoUploadStatusChecked = false;
+let photoUploadBusy = false;
+let photoUploadController = null;
+let photoUploadMode = null;
+let selectedPhotoFile = null;
+let selectedPhotoPreviewUrl = '';
+let uploadedPhotoUrl = '';
 let nodeCheckInFlight = false;
 let emojiCatalogPromise = null;
 let emojiRenderVersion = 0;
@@ -313,6 +324,15 @@ function readLocalFids(key) {
   } catch { return []; }
 }
 state.friendFids = readLocalFids(FRIENDS_STORAGE);
+function readTopRosterCache() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(TOP_ROSTER_STORAGE) || '[]');
+    const allowed = new Set(CURATED_TOP_ACCOUNTS.map((account) => account.username));
+    return Array.isArray(stored) ? stored.filter((entry) => allowed.has(entry?.username) && Number.isSafeInteger(Number(entry?.fid)) && Number(entry.fid) > 0)
+      .map((entry) => ({ ...CURATED_TOP_ACCOUNTS.find((account) => account.username === entry.username), fid: Number(entry.fid) })) : [];
+  } catch { return []; }
+}
+state.curatedTopAccounts = readTopRosterCache();
 state.mutedAuthors = readLocalFids(MUTED_AUTHORS_STORAGE);
 try {
   state.mutedTopics = JSON.parse(localStorage.getItem(MUTED_TOPICS_STORAGE) || '[]').filter((topic) => typeof topic === 'string').slice(0, 80);
@@ -1104,6 +1124,7 @@ function updateFeedTabs() {
     discover.hidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
     if (discover.hidden) { $('#suggested-panel').hidden = true; discover.setAttribute('aria-expanded', 'false'); }
   }
+  renderTopPeopleDrawer();
   updateFeedDestinationNav();
   renderFeedStatusbar();
 }
@@ -1112,11 +1133,15 @@ function updateTopPeopleCounts() {
   const activePeople = state.feedMode === 'friends'
     ? new Set(state.casts.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0)).size
     : 0;
-  const count = activePeople || state.friendFids.length;
+  const count = state.feedMode === 'friends'
+    ? Math.max(activePeople, state.feedSources.length, state.friendFids.length, state.curatedTopAccounts.length)
+    : state.friendFids.length;
   document.querySelectorAll('[data-friend-count]').forEach((friendCount) => {
     friendCount.textContent = String(count);
     friendCount.hidden = count === 0;
-    friendCount.title = activePeople ? `${activePeople} active people in this feed` : `${count} people in your local Top people list`;
+    friendCount.title = state.feedMode === 'friends'
+      ? `${count} Top people sources checked · ${activePeople} with recent posts · ${state.friendFids.length} personal picks`
+      : `${count} personal Top people picks on this device`;
   });
 }
 
@@ -1138,6 +1163,7 @@ function renderFeedStatusbar() {
   if (!bar) return;
   updateTopPeopleCounts();
   const setText = (element, value) => { if (element && element.textContent !== value) element.textContent = value; };
+  renderFeedFreshness();
   const account = $('#feed-status-account');
   const profile = state.fid ? state.people.get(Number(state.fid)) : null;
   const handle = profile?.username && !/^fid-\d+$/.test(profile.username) ? `@${profile.username}` : '';
@@ -1191,6 +1217,22 @@ function renderFeedStatusbar() {
   document.querySelectorAll('[data-action="follow"][data-fid]').forEach((button) => updateFollowButton(button, button.dataset.fid));
 }
 
+function renderFeedFreshness() {
+  const label = $('#feed-updated');
+  const refresh = $('#feed-refresh');
+  if (!label || !refresh) return;
+  const timestamp = Number(state.feedUpdatedAt) || 0;
+  const elapsed = timestamp ? Math.max(0, Date.now() - timestamp) : 0;
+  const relative = !timestamp ? 'Not refreshed yet'
+    : elapsed < 60_000 ? 'Updated just now'
+      : elapsed < 3_600_000 ? `Updated ${Math.floor(elapsed / 60_000)}m ago`
+        : `Updated ${Math.floor(elapsed / 3_600_000)}h ago`;
+  label.textContent = relative;
+  label.title = timestamp ? `Feed last loaded ${new Date(timestamp).toLocaleString()}. Refresh keeps your current reading position.` : 'The feed has not loaded successfully yet.';
+  refresh.title = timestamp ? `Refresh this view · ${relative.toLowerCase()}` : 'Refresh this view';
+  refresh.setAttribute('aria-label', timestamp ? `Refresh this view. ${relative}.` : 'Refresh this view');
+}
+
 function feedWindowTitle() {
   if (state.boardMode === 'flight-log') return 'Saved';
   if (state.feedMode === 'profile') return 'Posts';
@@ -1199,7 +1241,7 @@ function feedWindowTitle() {
 }
 
 function feedDescription(mode = state.feedMode) {
-  if (mode === 'friends') return 'Your picks and active people · up to 2 posts each.';
+  if (mode === 'friends') return '20 curated Farcaster leaders, your picks, and active people · up to 2 posts each.';
   if (mode === 'profile') return 'Recent posts from this profile.';
   return '';
 }
@@ -1465,7 +1507,7 @@ function renderCast(message, { priority = false } = {}) {
     label.textContent = profileLabel(parentProfile, Number(parent.fid));
     context.append(label);
     if (parentMessage) {
-      const jump = document.createElement('button'); jump.type = 'button'; jump.className = 'reply-context-jump'; jump.dataset.focusCast = parentHash; jump.textContent = 'View above'; context.append(jump);
+      const jump = document.createElement('button'); jump.type = 'button'; jump.className = 'reply-context-jump'; jump.dataset.focusCast = parentHash; jump.dataset.focusFid = String(Number(parent.fid)); jump.dataset.replyFid = String(fid); jump.dataset.replyHash = postHash(message); jump.textContent = 'View parent'; context.append(jump);
     } else if (/^0x[\da-f]{40,64}$/i.test(parentHash)) {
       const open = document.createElement('button'); open.type = 'button'; open.className = 'reply-context-jump'; open.dataset.openConversation = 'true'; open.dataset.fid = String(fid); open.dataset.hash = postHash(message); open.setAttribute('aria-label', 'Open this reply and its parent in Castonaut'); open.textContent = 'Open parent'; context.append(open);
     }
@@ -2129,6 +2171,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   if (previousFeed.mode !== state.feedMode || state.feedMode === 'profile') state.feedSort = 'recent';
   if (state.feedMode === 'profile' && (previousFeed.mode !== 'profile' || Number(previousFeed.targetFid) !== Number(fid))) state.profileTab = 'posts';
   state.feedTargetFid = state.feedMode === 'profile' ? fid : Number(state.fid);
+  if (previousFeed.mode !== state.feedMode || previousFeed.targetFid !== Number(state.feedTargetFid)) state.feedUpdatedAt = 0;
   const retainExistingPosts = state.boardMode === 'signals'
     && previousFeed.mode === state.feedMode
     && previousFeed.targetFid === Number(state.feedTargetFid)
@@ -2177,11 +2220,12 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   }
   try {
     if (!state.nodeInfo) checkNode();
-    const [followGraph, profile] = await Promise.all([
+    const [followGraph, profile, curatedTopFids] = await Promise.all([
       state.feedMode === 'following' ? fetchFollowGraph(fid, { maxPages: 100, maxFollows: 10_000 }, { fresh })
         : state.feedMode === 'friends' ? fetchFollowGraph(fid, { maxPages: 4, maxFollows: 400 }, { fresh }).catch(() => { friendGraphFailed = true; return { fids: [], complete: false, nextPageToken: '' }; })
           : Promise.resolve({ fids: [], complete: true, nextPageToken: '' }),
       state.feedMode === 'profile' ? fetchProfile(fid, { fresh }) : Promise.resolve(null),
+      state.feedMode === 'friends' ? ensureCuratedTopAccounts() : Promise.resolve([]),
     ]);
     const followFids = followGraph.fids;
     if (state.feedMode === 'following') {
@@ -2192,7 +2236,11 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
       state.feedFollowNextPageToken = followGraph.nextPageToken || '';
     }
     const friendCandidates = state.feedMode === 'friends'
-      ? [...new Set([...state.friendFids, ...spreadFids(followFids, Math.max(12, 36 - state.friendFids.length))])].slice(0, 36)
+      ? [...new Set([
+        ...curatedTopFids.filter((target) => Number(target) !== Number(fid)),
+        ...state.friendFids.filter((target) => Number(target) !== Number(fid)),
+        ...spreadFids(followFids.filter((target) => !curatedTopFids.includes(Number(target)) && !state.friendFids.includes(Number(target))), Math.max(12, 56 - curatedTopFids.length - state.friendFids.length)),
+      ])].slice(0, 56)
       : [];
     const uniqueFids = state.feedMode === 'profile' ? [fid]
       : state.feedMode === 'friends' ? friendCandidates
@@ -2211,7 +2259,9 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     if (!limitedFids.length && state.feedMode === 'friends') {
       state.casts = [];
       state.feedFailedSources = friendGraphFailed ? 1 : 0;
+      state.feedUpdatedAt = Date.now();
       renderFeed();
+      renderFeedFreshness();
       $('#feed-filters').hidden = false;
       restoreFeedScroll();
       return true;
@@ -2244,7 +2294,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
           return { ...page, profileData };
         }
         try {
-          const response = await nodeRequest('casts', { fid: target, pageSize: state.feedMode === 'friends' ? 25 : 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh });
+          const response = await nodeRequest('casts', { fid: target, pageSize: state.feedMode === 'friends' ? 12 : 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh });
           return { fid: target, messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '', seenPageTokens: new Set() };
         } catch (error) {
           if (state.feedMode !== 'friends') throw error;
@@ -2261,7 +2311,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     const recentStart = state.feedMode === 'profile' ? state.profileWindowStart : recentFeedStartTimestamp();
     const recentEnd = profileRecentStartTimestamp(Date.now(), 0);
     const activeFriendFids = state.feedMode === 'friends'
-      ? rankActiveFeedSources(castGroups, { ownFid: fid, pinnedFids: state.friendFids, limit: 36, activeSince: recentEnd - (7 * 86_400) })
+      ? rankActiveFeedSources(castGroups, { ownFid: fid, pinnedFids: [...curatedTopFids, ...state.friendFids], limit: 56, activeSince: recentEnd - (7 * 86_400) })
       : [];
     if (state.feedMode === 'friends') {
       state.feedSources = activeFriendFids;
@@ -2280,7 +2330,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
       })
       .sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
     const fetchedMessages = state.feedMode === 'profile' ? newestFirst
-      : state.feedMode === 'friends' ? mixAuthorTimeline(newestFirst, { maxPerAuthor: 2 }).slice(0, 30)
+      : state.feedMode === 'friends' ? mixAuthorTimeline(newestFirst, { maxPerAuthor: 2 }).slice(0, 40)
         : newestFirst;
     // A caught-up cache may be more useful than a successful but empty reply
     // from a node that is still behind. Keep it until the node can return posts.
@@ -2293,6 +2343,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     if (state.feedSort === 'popular' && state.feedMode !== 'profile') await loadPopularScores(messages);
     if (requestId !== state.feedRequest) return false;
     if (Number($('#source-fid').value) > 0) await loadSignerSources(messages);
+    state.feedUpdatedAt = Date.now();
     const profileFids = [...new Set(messages.flatMap((message) => [
       Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid),
     ]).filter((value) => value > 0))].slice(0, 80);
@@ -2300,6 +2351,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     const missingPins = state.deskPins.filter((target) => !state.people.has(target));
     renderDesk();
     renderFeed();
+    renderFeedFreshness();
     $('#feed-filters').hidden = state.boardMode === 'flight-log';
     if (state.feedMode === 'profile') renderProfileSummary();
     if (!messages.length) $('#feed-count').textContent = '0 POSTS';
@@ -2317,7 +2369,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
           && state.feedSourceOffset === checkedOffset && !state.feedMoreBusy) {
           void loadMoreFollowed({ automatic: true });
         }
-      }, 900);
+      }, 220);
     }
     // Show posts as soon as the cast requests finish. Hydrate names and avatars
     // afterward so slower profile lookups do not hold the whole feed hostage.
@@ -2449,6 +2501,7 @@ function updateFollowingCoverage() {
 async function loadMoreFollowed({ automatic = false } = {}) {
   if (state.feedMoreBusy || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
   const requestId = state.feedRequest;
+  const sourceOffsetBefore = state.feedSourceOffset;
   const scrollAnchor = captureFeedScrollAnchor();
   const recentStart = recentFeedStartTimestamp();
   let pageFailures = 0;
@@ -2515,6 +2568,7 @@ async function loadMoreFollowed({ automatic = false } = {}) {
     if (requestId !== state.feedRequest) return;
     await mapLimit([...new Set(state.casts.flatMap((message) => [Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid)]).filter((fid) => fid > 0 && !state.people.has(fid)))], 6, fetchProfile);
     if (requestId !== state.feedRequest) return;
+    state.feedUpdatedAt = Date.now();
     renderFeed();
     restoreFeedScrollAnchor(scrollAnchor);
     updateFollowingCoverage();
@@ -2532,6 +2586,14 @@ async function loadMoreFollowed({ automatic = false } = {}) {
   } finally {
     state.feedMoreBusy = false;
     renderFeedMore();
+    // Build a useful first page even when the first followed accounts are quiet.
+    // Keep automatic work bounded; the button remains available for the rest.
+    const automaticSourceLimit = Math.min(36, state.feedSources.length);
+    const continueAutomatically = automatic && requestId === state.feedRequest && state.feedMode === 'following'
+      && state.feedSourceOffset > sourceOffsetBefore && state.feedSourceOffset < automaticSourceLimit
+      && state.boardMode === 'signals' && state.casts.length < 30 && !state.feedCastPageTokens.size;
+    if (continueAutomatically) void loadMoreFollowed({ automatic: true });
+    else if (requestId === state.feedRequest && state.feedMode === 'following' && !state.casts.length) renderFeed();
   }
 }
 
@@ -2592,6 +2654,8 @@ function renderFeed() {
     const sourceFilter = state.boardMode === 'signals' ? Number($('#source-fid').value) || null : null;
     if (state.boardMode === 'flight-log') {
       renderEmpty('Nothing saved yet.', 'Save a post from any feed to keep it here.', { type: 'feed', mode: 'following', label: 'Open Following' });
+    } else if (state.feedMode === 'following' && !state.casts.length && state.feedMoreBusy && state.feedSourceOffset < state.feedSources.length) {
+      renderEmpty('Checking more followed accounts…', 'Looking for recent posts in the next small group. Your timeline will be sorted newest first.');
     } else if (state.feedMode === 'following' && !state.casts.length && state.feedFailedSources) {
       const detail = `${state.feedFailedSources} followed ${state.feedFailedSources === 1 ? 'account was' : 'accounts were'} unavailable.${nodeBehind ? ` Node data is ${formatNodeDelay(nodeDelay)} behind, so feed and relationship results may be incomplete.` : ' The node could not return their posts.'}`;
       renderEmpty('The node could not check your Following feed.', detail, nodeBehind ? { type: 'node', label: 'Check node status' } : { type: 'retry', label: 'Retry Following' });
@@ -2730,6 +2794,79 @@ function profileLabel(profile, fid) {
   const name = profile ? localProfileName(profile).trim() : '';
   if (name && !/^farcaster \d+$/i.test(name) && name.toLocaleLowerCase() !== handle.toLocaleLowerCase()) return handle ? `${name} · ${handle}` : name;
   return handle || `FID ${Number(fid)}`;
+}
+
+async function ensureCuratedTopAccounts() {
+  if (state.curatedTopLoadPromise) return state.curatedTopLoadPromise;
+  state.curatedTopLoadPromise = (async () => {
+    const known = new Map(state.curatedTopAccounts.map((account) => [account.username, account]));
+    const missing = CURATED_TOP_ACCOUNTS.filter((account) => !known.has(account.username));
+    const resolved = await mapLimit(missing, 4, async (account) => {
+      try { return { ...account, fid: await resolveProfileFid(account.username) }; }
+      catch { return null; }
+    });
+    for (const account of resolved.filter(Boolean)) known.set(account.username, account);
+    state.curatedTopAccounts = CURATED_TOP_ACCOUNTS.map((account) => known.get(account.username)).filter(Boolean);
+    try {
+      localStorage.setItem(TOP_ROSTER_STORAGE, JSON.stringify(state.curatedTopAccounts.map(({ username, fid }) => ({ username, fid }))));
+    } catch { /* A resolved roster still works for this visit if storage is unavailable. */ }
+    renderTopPeopleDrawer();
+    return state.curatedTopAccounts.map((account) => Number(account.fid)).filter((fid) => fid > 0 && fid !== Number(state.fid));
+  })();
+  try { return await state.curatedTopLoadPromise; }
+  finally { state.curatedTopLoadPromise = null; renderTopPeopleDrawer(); }
+}
+
+function renderTopPeopleDrawer() {
+  const drawer = $('#top-people-drawer');
+  const list = $('#top-people-roster');
+  const count = $('#top-people-roster-count');
+  if (!drawer || !list) return;
+  drawer.hidden = state.boardMode !== 'signals' || state.feedMode !== 'friends';
+  if (count) count.textContent = `${CURATED_TOP_ACCOUNTS.length} curated · ${state.friendFids.length} your picks`;
+  list.replaceChildren();
+  const known = new Map(state.curatedTopAccounts.map((account) => [Number(account.fid), account]));
+  for (const account of CURATED_TOP_ACCOUNTS) {
+    const resolved = state.curatedTopAccounts.find((entry) => entry.username === account.username);
+    const row = document.createElement('div'); row.className = 'top-person-row';
+    const identity = document.createElement('span'); identity.className = 'top-person-identity';
+    const name = document.createElement('strong'); name.textContent = account.name;
+    const handle = document.createElement('small'); handle.textContent = `@${account.username} · ${account.role}`;
+    identity.append(name, handle);
+    const action = document.createElement('button'); action.type = 'button'; action.className = 'button button-outline top-person-toggle';
+    if (resolved) {
+      const added = state.friendFids.includes(Number(resolved.fid));
+      action.dataset.action = 'toggle-friend'; action.dataset.fid = String(resolved.fid);
+      action.setAttribute('aria-pressed', String(added)); action.textContent = added ? 'Added ✓' : 'Add';
+      action.setAttribute('aria-label', `${added ? 'Remove' : 'Add'} ${account.name} ${added ? 'from' : 'to'} your Top people picks`);
+    } else {
+      action.disabled = true;
+      action.textContent = state.curatedTopLoadPromise ? 'Loading…' : 'Unavailable';
+      action.title = 'This username could not be resolved by the configured Snapchain node.';
+    }
+    row.append(identity, action); list.append(row);
+  }
+  const extraPicks = state.friendFids.filter((fid) => !known.has(Number(fid)));
+  if (extraPicks.length) {
+    const heading = document.createElement('h4'); heading.className = 'top-people-local-heading'; heading.textContent = 'Your other picks'; list.append(heading);
+    for (const fid of extraPicks) {
+      const profile = state.people.get(Number(fid));
+      const row = document.createElement('div'); row.className = 'top-person-row';
+      const identity = document.createElement('span'); identity.className = 'top-person-identity';
+      const name = document.createElement('strong'); name.textContent = localProfileName(profile || { fid, name: `FID ${fid}` });
+      const handle = document.createElement('small'); handle.textContent = profile?.username ? `@${profile.username}` : `FID ${fid}`;
+      identity.append(name, handle);
+      const action = document.createElement('button'); action.type = 'button'; action.className = 'button button-outline top-person-toggle';
+      action.dataset.action = 'toggle-friend'; action.dataset.fid = String(fid); action.setAttribute('aria-pressed', 'true'); action.textContent = 'Added ✓';
+      action.setAttribute('aria-label', `Remove ${name.textContent} from your Top people picks`);
+      row.append(identity, action); list.append(row);
+    }
+  }
+  if (!state.curatedTopAccounts.length) {
+    const status = document.createElement('p'); status.className = 'top-people-roster-status';
+    status.textContent = state.nodeInfo ? 'Could not resolve the curated list from this node. Search by username or FID to add people.' : 'Checking the curated roster against your Snapchain node…';
+    list.prepend(status);
+  }
 }
 
 function relationshipForCast(fid) {
@@ -3020,6 +3157,149 @@ async function searchProfile(rawQuery) {
     submit.disabled = false;
     submit.textContent = originalLabel;
     $('#people-query').disabled = false;
+  }
+}
+
+function setNetworkSearchKind(kind) {
+  if (state.networkSearchBusy) state.networkSearchRequest += 1;
+  state.networkSearchBusy = false;
+  $('#network-search-form button[type="submit"]')?.removeAttribute('disabled');
+  $('#network-search-more')?.removeAttribute('disabled');
+  state.networkSearchKind = ['people', 'channels'].includes(kind) ? kind : 'casts';
+  document.querySelectorAll('[data-network-search-kind]').forEach((button) => {
+    const selected = button.dataset.networkSearchKind === state.networkSearchKind;
+    button.setAttribute('aria-selected', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  });
+  const field = $('#network-search-query');
+  if (field) field.placeholder = state.networkSearchKind === 'people'
+    ? 'Exact username, FID, or profile link…' : state.networkSearchKind === 'channels' ? 'Channel ID, such as degen…' : 'Search posts already loaded in your feed…';
+  const note = $('#network-search-note');
+  if (note) note.textContent = state.networkSearchKind === 'people'
+    ? 'People lookup uses Snapchain username records. Enter an exact username or FID.'
+    : state.networkSearchKind === 'channels'
+      ? 'Channel posts are read from your configured Snapchain node. Enter a channel ID such as degen.'
+      : 'Searches posts already loaded from your feed. Load more in Following, then search again.';
+  $('#network-search-status').hidden = true;
+  $('#network-search-results').replaceChildren();
+  $('#network-search-more-wrap').hidden = true;
+  const more = $('#network-search-more');
+  if (more) more.textContent = state.networkSearchKind === 'channels' ? 'Load more channel posts' : 'Load more from Following';
+}
+
+function renderNetworkSearchResults(messages) {
+  const target = $('#network-search-results');
+  if (!target) return;
+  target.replaceChildren();
+  if (!messages.length) {
+    const empty = document.createElement('div'); empty.className = 'network-search-empty';
+    const title = document.createElement('strong'); title.textContent = 'No matches in this search scope.';
+    const detail = document.createElement('span'); detail.textContent = state.networkSearchKind === 'casts'
+      ? 'Load more posts in Following, or try another word.' : 'Check the spelling or try a channel ID.';
+    empty.append(title, detail); target.append(empty); return;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const message of messages) {
+    const card = renderCast(message);
+    card.classList.add('network-search-cast');
+    fragment.append(card);
+  }
+  target.append(fragment);
+}
+
+function channelUrlFromQuery(rawQuery) {
+  const query = String(rawQuery || '').trim();
+  if (!query) throw new Error('Enter a channel ID, such as degen.');
+  if (/^https:\/\//i.test(query)) {
+    const parsed = new URL(query);
+    if (!['warpcast.com', 'farcaster.xyz'].includes(parsed.hostname.toLowerCase()) || !/^\/~\/channel\/[a-z0-9-]{1,64}\/?$/i.test(parsed.pathname) || parsed.search || parsed.hash) {
+      throw new Error('Use a Farcaster channel link such as warpcast.com/~/channel/degen.');
+    }
+    return `https://warpcast.com${parsed.pathname.replace(/\/$/, '')}`;
+  }
+  const clean = query.replace(/^\//, '').replace(/^channel\//i, '');
+  if (!/^[a-z0-9-]{1,64}$/i.test(clean)) throw new Error('Enter one channel ID, such as degen.');
+  return `https://warpcast.com/~/channel/${clean}`;
+}
+
+async function searchNetwork(rawQuery, { append = false } = {}) {
+  const query = String(rawQuery || '').trim().slice(0, 100);
+  const status = $('#network-search-status');
+  const results = $('#network-search-results');
+  const more = $('#network-search-more');
+  const moreWrap = $('#network-search-more-wrap');
+  const submit = $('#network-search-form button[type="submit"]');
+  const field = $('#network-search-query');
+  if (!query) {
+    if (state.networkSearchBusy) state.networkSearchRequest += 1;
+    state.networkSearchBusy = false;
+    submit.disabled = false; more.disabled = false;
+    status.hidden = false; status.dataset.state = 'error'; status.textContent = 'Enter a search term.'; field.focus(); return;
+  }
+  if (state.networkSearchBusy && !append) state.networkSearchRequest += 1;
+  if (state.networkSearchBusy && append) return;
+  const requestId = ++state.networkSearchRequest;
+  state.networkSearchBusy = true;
+  state.networkSearchQuery = query;
+  if (!append) { results.replaceChildren(); moreWrap.hidden = true; state.networkSearchItems = []; state.networkSearchCursor = ''; }
+  status.hidden = false; status.dataset.state = 'loading';
+  status.textContent = state.networkSearchKind === 'people' ? 'Looking up this account on Snapchain…'
+    : state.networkSearchKind === 'channels' ? 'Loading recent channel posts from your node…' : 'Searching loaded posts…';
+  submit.disabled = true; more.disabled = true;
+  try {
+    if (state.networkSearchKind === 'people') {
+      const fid = await resolveProfileFid(query);
+      if (requestId !== state.networkSearchRequest) return;
+      await fetchProfile(fid);
+      setProfileRoute(fid);
+      navigate('feed', { preserveHash: true });
+      const loaded = await loadFeed(fid, 'profile');
+      status.dataset.state = loaded ? 'success' : 'error';
+      status.textContent = loaded ? `Opened @${state.people.get(fid)?.username || `fid-${fid}`} · FID ${fid}.` : 'Profile found, but its posts could not be loaded.';
+      return;
+    }
+    let items = [];
+    if (state.networkSearchKind === 'channels') {
+      const channel = channelUrlFromQuery(query);
+      const params = { url: channel, pageSize: 50, reverse: true, ...(append && state.networkSearchCursor ? { pageToken: state.networkSearchCursor } : {}) };
+      const response = await nodeRequest('channelCasts', params, { fresh: true, timeoutMs: 20_000 });
+      if (requestId !== state.networkSearchRequest) return;
+      items = unwrapMessages(response).filter((message) => message?.data?.castAddBody);
+      const next = String(response?.nextPageToken || response?.next_page_token || '');
+      state.networkSearchCursor = next;
+      moreWrap.hidden = !next;
+    } else {
+      const needle = query.toLocaleLowerCase();
+      items = state.casts.filter((message) => {
+        const body = message?.data?.castAddBody || {};
+        const profile = state.people.get(Number(message?.data?.fid));
+        return [body.text, profile?.username, profile?.name, ...(body.embeds || []).map((embed) => embed.url)]
+          .some((value) => String(value || '').toLocaleLowerCase().includes(needle));
+      });
+      state.networkSearchCursor = '';
+      moreWrap.hidden = state.feedMode !== 'following' || state.feedSourceOffset >= state.feedSources.length && !state.feedFollowNextPageToken && !state.feedCastPageTokens.size;
+    }
+    if (requestId !== state.networkSearchRequest) return;
+    const prior = new Set(state.networkSearchItems.map((message) => `${Number(message?.data?.fid)}:${postHash(message)}`));
+    const fresh = items.filter((message) => !prior.has(`${Number(message?.data?.fid)}:${postHash(message)}`));
+    state.networkSearchItems = append ? [...state.networkSearchItems, ...fresh] : fresh;
+    const missingProfiles = [...new Set(state.networkSearchItems.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0 && !state.people.has(fid)))];
+    await mapLimit(missingProfiles, 6, fetchProfile);
+    if (requestId !== state.networkSearchRequest) return;
+    renderNetworkSearchResults(state.networkSearchItems);
+    status.dataset.state = 'success';
+    status.textContent = state.networkSearchKind === 'channels'
+      ? `${state.networkSearchItems.length} recent post${state.networkSearchItems.length === 1 ? '' : 's'} from ${query.startsWith('/') ? query : `/${query}`}${state.networkSearchCursor ? ' · more available' : ''}.`
+      : `${state.networkSearchItems.length} matching post${state.networkSearchItems.length === 1 ? '' : 's'} among ${state.casts.length} posts loaded in your feed.`;
+  } catch (error) {
+    if (requestId !== state.networkSearchRequest) return;
+    status.dataset.state = 'error';
+    status.textContent = isNotFound(error) && state.networkSearchKind === 'people'
+      ? 'No account found. Try the exact username or FID.'
+      : error?.name === 'TimeoutError' ? 'The node took too long. Try again.' : clientErrorText(error);
+    if (!append) results.replaceChildren();
+  } finally {
+    if (requestId === state.networkSearchRequest) { state.networkSearchBusy = false; submit.disabled = false; more.disabled = false; }
   }
 }
 
@@ -4581,7 +4861,7 @@ function saveComposerDraft() {
   };
   try {
     localStorage.setItem(`${COMPOSE_STORAGE}:${state.fid}`, JSON.stringify(draft));
-    $('#draft-discard').hidden = !(draft.text.trim() || draft.mediaUrl || draft.quoteCast || draft.pendingCast);
+    $('#draft-discard').hidden = !(draft.text.trim() || draft.mediaUrl || draft.quoteCast || draft.pendingCast || selectedPhotoFile);
     if (status) status.textContent = draft.pendingCast ? (draft.pendingCast.managed ? 'Post request saved on this device; resume it safely.' : 'Signed post saved on this device; resume it to confirm.') : 'Draft saved on this device.';
   } catch { if (status) status.textContent = 'Draft could not be saved in this browser.'; }
 }
@@ -4663,6 +4943,7 @@ function restoreComposerDraft(fid) {
 function clearCurrentDraft() {
   $('#composer-text').value = '';
   $('#composer-media-url').value = '';
+  clearSelectedPhoto();
   $('#composer-media').hidden = true;
   setPendingCastControls(false);
   $('#char-count').textContent = `0 / ${CAST_USER_LIMIT} bytes`;
@@ -4680,12 +4961,14 @@ function clearCurrentDraft() {
 function setPendingCastControls(pending) {
   $('#composer-text').readOnly = pending;
   $('#composer-media-url').disabled = pending;
+  $('#composer-image-file').disabled = pending;
   $('#composer')?.querySelectorAll('button').forEach((button) => {
     if (button.type === 'submit' || button.id === 'draft-discard' || button.id === 'composer-toggle' || button.id === 'composer-review-pending') return;
     button.disabled = pending;
   });
   const submit = $('#composer-submit');
   if (submit && !pending) submit.disabled = !state.signerReady;
+  updatePhotoUploadControls(pending);
 }
 
 function setComposerSubmitLabel(label) {
@@ -4729,8 +5012,8 @@ async function publishPendingCast(pending) {
 
 async function publishThread() {
   if (!state.signerReady || state.threadBusy || !state.threadItems.length) return;
-  state.threadBusy = true; renderThreadDraft();
   const button = $('#thread-publish');
+  state.threadBusy = true; button.setAttribute('aria-busy', 'true'); $('#thread-draft')?.setAttribute('aria-busy', 'true'); renderThreadDraft();
   let confirmed = 0;
   try {
     const managed = state.signerMode === 'neynar';
@@ -4780,7 +5063,7 @@ async function publishThread() {
     $('#thread-draft-status').textContent = `${confirmed ? `${confirmed} post${confirmed === 1 ? '' : 's'} confirmed. ` : ''}${clientErrorText(error)} Your remaining thread is saved; resume to check the last post and continue.`;
     setNotice(clientErrorText(error), 'error');
   } finally {
-    state.threadBusy = false; renderThreadDraft(); button.disabled = !state.signerReady || !state.threadItems.length;
+    state.threadBusy = false; button.removeAttribute('aria-busy'); $('#thread-draft')?.removeAttribute('aria-busy'); renderThreadDraft(); button.disabled = !state.signerReady || !state.threadItems.length;
   }
 }
 
@@ -4793,6 +5076,47 @@ $('#feed-refresh').addEventListener('click', () => {
     ? openConversation(state.conversation.fid, state.conversation.hash, { updateRoute: false, fresh: true })
     : state.boardMode === 'flight-log' ? Promise.resolve(renderFeed()) : loadFeed(state.feedTargetFid || state.fid, state.feedMode, { fresh: true });
   Promise.resolve(task).finally(() => { button.disabled = false; button.removeAttribute('aria-busy'); });
+});
+$('#top-people-drawer')?.addEventListener('toggle', () => {
+  if (!$('#top-people-drawer').open) return;
+  renderTopPeopleDrawer();
+  if (state.curatedTopAccounts.length < CURATED_TOP_ACCOUNTS.length) void ensureCuratedTopAccounts();
+});
+$('#top-people-search')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const field = $('#top-people-query');
+  const status = $('#top-people-search-status');
+  const submit = event.currentTarget.querySelector('button[type="submit"]');
+  const query = field.value.trim();
+  status.hidden = false;
+  status.dataset.state = 'loading';
+  status.textContent = 'Looking up that Farcaster account…';
+  submit.disabled = true;
+  try {
+    const fid = await resolveProfileFid(query);
+    if (Number(fid) === Number(state.fid)) throw new Error('Your active account is already in this feed.');
+    const profile = await fetchProfile(fid);
+    if (state.friendFids.includes(Number(fid))) {
+      status.dataset.state = 'success';
+      status.textContent = `${profile?.username ? `@${profile.username}` : `FID ${fid}`} is already in your Top people picks.`;
+    } else if (state.friendFids.length >= 36) {
+      throw new Error('Your local Top people list has reached 36 accounts. Remove a pick before adding another.');
+    } else {
+      const saved = writeFidList(FRIENDS_STORAGE, [...state.friendFids, fid]);
+      if (!saved?.includes(Number(fid))) throw new Error('This browser could not save that Top people pick.');
+      state.friendFids = saved;
+      field.value = '';
+      status.dataset.state = 'success';
+      status.textContent = `Added ${profile?.username ? `@${profile.username}` : `FID ${fid}`} to Top people on this device.`;
+      updateFeedTabs();
+      if (state.feedMode === 'friends') await loadFeed(state.fid, 'friends');
+      else renderFeed();
+    }
+    renderTopPeopleDrawer();
+  } catch (error) {
+    status.dataset.state = 'error';
+    status.textContent = error?.message || 'Could not find that Farcaster account. Check the username or FID and try again.';
+  } finally { submit.disabled = false; }
 });
 $('#feed-status-node')?.addEventListener('click', () => { navigate('node'); void checkNode(); });
 $('#feed-more')?.addEventListener('click', () => state.feedMode === 'profile' ? loadOlderProfilePosts() : loadMoreFollowed());
@@ -4809,6 +5133,24 @@ $('#desk-backup-open')?.addEventListener('click', () => {
   $('#backup-export')?.focus({ preventScroll: true });
 });
 $('#people-search').addEventListener('submit', (event) => { event.preventDefault(); searchProfile($('#people-query').value); });
+$('#network-search-form')?.addEventListener('submit', (event) => { event.preventDefault(); void searchNetwork($('#network-search-query').value); });
+$('#network-search-more')?.addEventListener('click', () => {
+  if (state.networkSearchKind === 'channels' && state.networkSearchCursor) void searchNetwork(state.networkSearchQuery, { append: true });
+  else if (state.networkSearchKind === 'casts' && state.feedMode === 'following') {
+    void loadMoreFollowed({ automatic: false }).then(() => searchNetwork(state.networkSearchQuery));
+  }
+});
+$('.network-search-tabs')?.addEventListener('click', (event) => {
+  const tab = event.target.closest('[data-network-search-kind]');
+  if (tab) setNetworkSearchKind(tab.dataset.networkSearchKind);
+});
+$('.network-search-tabs')?.addEventListener('keydown', (event) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  const tabs = [...document.querySelectorAll('[data-network-search-kind]')];
+  const current = Math.max(0, tabs.indexOf(document.activeElement));
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  event.preventDefault(); tabs[next]?.focus(); setNetworkSearchKind(tabs[next]?.dataset.networkSearchKind);
+});
 $('#search-examples')?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-profile-example]');
   if (button) {
@@ -5423,7 +5765,127 @@ $('#composer-text').addEventListener('input', (event) => {
 $('#composer-media-toggle').addEventListener('click', () => {
   const panel = $('#composer-media');
   panel.hidden = !panel.hidden;
-  if (!panel.hidden) $('#composer-media-url').focus();
+  if (!panel.hidden) {
+    $('#composer-media-url').focus();
+    if (!photoUploadStatusChecked) loadPhotoUploadStatus();
+  }
+});
+function updatePhotoUploadControls(pending = Boolean(state.pendingCast)) {
+  const choose = $('#composer-image-choose');
+  const upload = $('#composer-image-upload');
+  if (!choose || !upload) return;
+  choose.disabled = pending || photoUploadBusy || !photoUploadEnabled;
+  upload.disabled = pending || photoUploadBusy || !photoUploadEnabled || !selectedPhotoFile;
+}
+
+async function loadPhotoUploadStatus() {
+  const status = $('#composer-image-status');
+  if (!status) return;
+  status.textContent = 'Checking photo upload…';
+  try {
+    const response = await fetch('/api/upload-image', { headers: { accept: 'application/json' }, cache: 'no-store' });
+    const result = await response.json();
+    photoUploadEnabled = response.ok && result.enabled === true;
+    photoUploadMode = photoUploadEnabled && ['token', 'presigned'].includes(result.mode) ? result.mode : null;
+    photoUploadStatusChecked = true;
+    status.textContent = photoUploadEnabled
+      ? 'Choose a photo · JPEG, PNG, GIF, or WebP · up to 10 MB. Uploads are public links.'
+      : 'Photo upload is unavailable on this site. Paste a public image link below instead.';
+  } catch {
+    photoUploadEnabled = false;
+    photoUploadMode = null;
+    photoUploadStatusChecked = true;
+    status.textContent = 'Photo upload is unavailable here. Paste a public image link below instead.';
+  }
+  updatePhotoUploadControls();
+}
+
+function clearSelectedPhoto() {
+  photoUploadController?.abort();
+  photoUploadController = null;
+  selectedPhotoFile = null;
+  photoUploadBusy = false;
+  $('#draft-discard').disabled = false;
+  $('#composer-image-file').value = '';
+  if (selectedPhotoPreviewUrl) URL.revokeObjectURL(selectedPhotoPreviewUrl);
+  selectedPhotoPreviewUrl = '';
+  $('#composer-photo-preview').hidden = true;
+  $('#composer-photo-preview-image').removeAttribute('src');
+  $('#composer-photo-name').textContent = '';
+  if (uploadedPhotoUrl && $('#composer-media-url').value.trim() === uploadedPhotoUrl) {
+    $('#composer-media-url').value = '';
+    $('#composer-media-url').dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  uploadedPhotoUrl = '';
+  updatePhotoUploadControls();
+}
+
+$('#composer-image-choose').addEventListener('click', () => $('#composer-image-file').click());
+$('#composer-image-file').addEventListener('change', () => {
+  const file = $('#composer-image-file').files?.[0];
+  if (!file) return;
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.type) || file.size > 10 * 1024 * 1024 || file.size === 0) {
+    $('#composer-image-status').textContent = file.size > 10 * 1024 * 1024
+      ? 'This photo is over 10 MB. Choose a smaller image.'
+      : 'Choose a JPEG, PNG, GIF, or WebP image.';
+    $('#composer-image-file').value = '';
+    return;
+  }
+  if (selectedPhotoPreviewUrl) URL.revokeObjectURL(selectedPhotoPreviewUrl);
+  selectedPhotoFile = file;
+  selectedPhotoPreviewUrl = URL.createObjectURL(file);
+  $('#composer-photo-preview-image').src = selectedPhotoPreviewUrl;
+  $('#composer-photo-name').textContent = `${file.name.slice(0, 56)} · ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  $('#composer-photo-preview').hidden = false;
+  $('#composer-image-status').textContent = 'Photo selected. Upload it to attach a public copy to your cast.';
+  $('#draft-discard').hidden = false;
+  updatePhotoUploadControls();
+});
+
+$('#composer-image-upload').addEventListener('click', async () => {
+  if (!selectedPhotoFile || !photoUploadEnabled || photoUploadBusy) return;
+  photoUploadBusy = true;
+  const controller = new AbortController();
+  photoUploadController = controller;
+  $('#draft-discard').disabled = true;
+  updatePhotoUploadControls();
+  $('#composer-image-status').textContent = 'Uploading photo to public Vercel Blob…';
+  const extension = selectedPhotoFile.type === 'image/jpeg' ? 'jpg' : selectedPhotoFile.type.split('/')[1];
+  const pathname = `casts/${Date.now()}-${crypto.randomUUID().replaceAll('-', '')}.${extension}`;
+  const uploadOptions = {
+    access: 'public',
+    handleUploadUrl: '/api/upload-image',
+    contentType: selectedPhotoFile.type,
+    abortSignal: controller.signal,
+  };
+  try {
+    const result = photoUploadMode === 'presigned'
+      ? await uploadPublicBlobPresigned(pathname, selectedPhotoFile, uploadOptions)
+      : await uploadPublicBlob(pathname, selectedPhotoFile, uploadOptions);
+    const url = safeExternalUrl(result.url);
+    if (!url || /\.private\.blob\.vercel-storage\.com$/i.test(url.hostname) || utf8ByteLength(url.href) > CAST_EMBED_URL_LIMIT) throw new Error('The photo service returned a link Farcaster cannot embed.');
+    uploadedPhotoUrl = url.href;
+    $('#composer-media-url').value = uploadedPhotoUrl;
+    $('#composer-media-url').dispatchEvent(new Event('input', { bubbles: true }));
+    $('#composer-media-note').textContent = 'Photo attached. Its public image URL will be included in your Farcaster cast.';
+    $('#composer-image-status').textContent = 'Photo uploaded and attached. You can post it now.';
+    selectedPhotoFile = null;
+    $('#composer-image-file').value = '';
+  } catch (error) {
+    if (error.name !== 'AbortError') $('#composer-image-status').textContent = error.message || 'Photo upload failed. Try again or use a direct image link.';
+  } finally {
+    if (photoUploadController === controller) {
+      photoUploadController = null;
+      photoUploadBusy = false;
+      $('#draft-discard').disabled = false;
+    }
+    updatePhotoUploadControls();
+  }
+});
+$('#composer-photo-remove').addEventListener('click', () => {
+  clearSelectedPhoto();
+  $('#composer-image-status').textContent = photoUploadEnabled ? 'Choose a photo to attach.' : 'Paste a public image link below instead.';
 });
 function safeGiphyImage(value) {
   try {
@@ -5561,13 +6023,14 @@ $('#composer-media-url').addEventListener('input', () => {
   const withinLimit = candidate && utf8ByteLength(candidate.href) <= CAST_EMBED_URL_LIMIT;
   $('#composer-media-note').textContent = candidate
     ? withinLimit ? `${candidate.hostname} will be attached. Previews are on by default; turn them off in Profile → Customize.` : `This link is over Farcaster’s ${CAST_EMBED_URL_LIMIT}-byte embed limit.`
-    : 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews are on by default.';
+    : 'Choose a photo to upload, or paste a direct HTTPS image or GIF link. Remote previews can be disabled in Profile → Customize.';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.quoteCast || state.parent || state.pendingCast);
   saveComposerDraft();
 });
 $('#composer-media-clear').addEventListener('click', () => {
-  $('#composer-media-url').value = ''; $('#composer-media').hidden = true;
-  $('#composer-media-note').textContent = 'Use a direct HTTPS .gif or image URL. Castonaut does not upload it; previews are on by default.';
+  clearSelectedPhoto();
+  $('#composer-media-url').value = ''; $('#composer-media-url').dispatchEvent(new Event('input', { bubbles: true })); $('#composer-media').hidden = true;
+  $('#composer-media-note').textContent = 'Choose a photo to upload, or paste a direct HTTPS image or GIF link. Remote previews can be disabled in Profile → Customize.';
   $('#draft-discard').hidden = !($('#composer-text').value.trim() || state.quoteCast || state.parent || state.pendingCast);
   saveComposerDraft();
 });
@@ -5664,7 +6127,7 @@ $('#draft-discard').addEventListener('click', () => {
   clearCurrentDraft(); setNotice('Current draft discarded.');
 });
 $('#thread-add').addEventListener('click', () => {
-  if ($('#composer-media-url').value.trim()) { setNotice('Remove the GIF or image before adding this post to a text thread.'); return; }
+  if ($('#composer-media-url').value.trim() || selectedPhotoFile) { setNotice('Finish attaching or remove the image before adding this post to a text thread.'); return; }
   const text = $('#composer-text').value.trim();
   if (!text) { $('#composer-text').focus(); setNotice('Write the next post before adding it to a thread.'); return; }
   if (state.threadItems.length >= 10) { setNotice('A thread can contain up to 10 posts in this composer.'); return; }
@@ -5679,13 +6142,14 @@ $('#thread-publish').addEventListener('click', publishThread);
 $('#composer').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (state.threadItems.length || state.threadPending) { setNotice('Publish or discard the saved thread before sending a separate post.', 'pending'); return; }
+  if (selectedPhotoFile) { setNotice(photoUploadBusy ? 'Wait for the photo upload to finish.' : 'Upload the selected photo or remove it before posting.', 'error'); $('#composer-image-upload').focus(); return; }
   const text = $('#composer-text').value.trim();
   const mediaValue = $('#composer-media-url').value.trim();
   const mediaUrl = mediaValue ? safeExternalUrl(mediaValue) : null;
   if (mediaValue && (!mediaUrl || utf8ByteLength(mediaUrl.href) > CAST_EMBED_URL_LIMIT)) { setNotice(`Use a valid HTTPS GIF or image URL up to ${CAST_EMBED_URL_LIMIT} UTF-8 bytes.`, 'error'); return; }
   if (!text && !mediaUrl && !state.quoteCast) return;
   if (state.quoteCast && state.signerMode === 'neynar') { setNotice('Native quote casts need the local Farcaster seed-code signer. Managed Neynar sign-in currently supports URL embeds only.', 'error'); return; }
-  const submit = $('#composer button[type="submit"]'); submit.disabled = true;
+  const submit = $('#composer button[type="submit"]'); submit.disabled = true; $('#composer').setAttribute('aria-busy', 'true');
   try {
     let pending = state.pendingCast;
     if (!pending) {
@@ -5720,7 +6184,7 @@ $('#composer').addEventListener('submit', async (event) => {
     }
     setNotice(clientErrorText(error), 'error');
   }
-  finally { setComposerSubmitLabel(state.pendingCast ? 'Resume saved post' : 'Post'); submit.disabled = !state.signerReady; }
+  finally { $('#composer').removeAttribute('aria-busy'); setComposerSubmitLabel(state.pendingCast ? 'Resume saved post' : 'Post'); submit.disabled = !state.signerReady; }
 });
 
 document.addEventListener('click', async (event) => {
@@ -5794,8 +6258,9 @@ document.addEventListener('click', async (event) => {
   if (event.target.closest('[data-clear-desk-topic]')) { state.activeDeskTopic = ''; renderDeskShortcuts(); renderFeed(); return; }
   const parentJump = event.target.closest('[data-focus-cast]');
   if (parentJump) {
-    const card = [...document.querySelectorAll('#feed-list [data-cast-hash]')].find((item) => item.dataset.castHash === parentJump.dataset.focusCast);
+    const card = [...document.querySelectorAll('#feed-list [data-cast-hash]')].find((item) => item.dataset.castHash === parentJump.dataset.focusCast && Number(item.dataset.castFid) === Number(parentJump.dataset.focusFid));
     if (card) { const collapsed = card.closest('details:not([open])'); if (collapsed) collapsed.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('cast-focus'); setTimeout(() => card.classList.remove('cast-focus'), 1500); }
+    else if (parentJump.dataset.replyFid && parentJump.dataset.replyHash) void openConversation(parentJump.dataset.replyFid, parentJump.dataset.replyHash);
     return;
   }
   const flightButton = event.target.closest('[data-flight-log]');
@@ -5842,12 +6307,16 @@ document.addEventListener('click', async (event) => {
     if (button.dataset.action === 'toggle-desk-cast') { toggleDeskCast(targetFid, button.dataset.hash); return; }
     if (button.dataset.action === 'toggle-desk-topic') { toggleDeskTopic(button.dataset.topic); return; }
     if (button.dataset.action === 'toggle-friend') {
+      if (!state.friendFids.includes(targetFid) && state.friendFids.length >= 36) {
+        setNotice('Your local Top people list can hold up to 36 accounts. Remove a pick before adding another.', 'error'); return;
+      }
       const next = state.friendFids.includes(targetFid) ? state.friendFids.filter((fid) => fid !== targetFid) : [...state.friendFids, targetFid];
-      const saved = writeFidList(FRIENDS_STORAGE, next); if (saved) state.friendFids = saved;
+      const saved = writeFidList(FRIENDS_STORAGE, next); if (!saved) return; state.friendFids = saved;
       updateFeedTabs();
       if (state.feedMode === 'friends') await loadFeed(state.fid, 'friends');
       else renderFeed();
       renderSuggestedPeople();
+      renderTopPeopleDrawer();
       if (state.feedMode === 'profile' && Number(state.feedTargetFid) === targetFid) renderProfileSummary();
       setNotice(state.friendFids.includes(targetFid) ? 'Added to Top people on this device.' : 'Removed from Top people.', 'success'); return;
     }
@@ -6045,4 +6514,5 @@ restoreSession().catch((error) => {
 setInterval(() => {
   if (document.hidden) return;
   setStationTone();
+  renderFeedFreshness();
 }, 60_000);

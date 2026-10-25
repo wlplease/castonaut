@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/src/soft-reset.css" />
     <link rel="stylesheet" href="/src/ui-finish.css" />
     <link rel="stylesheet" href="/src/macintosh.css" />
+    <link rel="stylesheet" href="/src/experience-finish.css" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -115,14 +116,32 @@
               <span>PUBLIC PROFILES</span>
               <p>Sign in to follow or post.</p>
             </aside>
-            <div class="area-heading search-heading" data-area="search"><span class="overline">PEOPLE</span><h1>Find someone.</h1><p>Open a profile, follow, or add them to Top people.</p></div>
+            <div class="area-heading search-heading" data-area="search"><span class="overline">FARCASTER SEARCH</span><h1>Find your next signal.</h1><p>Search your loaded posts, open a person by exact handle, or read a channel from your node.</p></div>
+            <section class="network-search" data-area="search" aria-label="Search Farcaster">
+              <div class="network-search-tabs" role="tablist" aria-label="Search category">
+                <button type="button" role="tab" id="network-search-tab-casts" data-network-search-kind="casts" aria-selected="true" tabindex="0">Posts</button>
+                <button type="button" role="tab" id="network-search-tab-people" data-network-search-kind="people" aria-selected="false" tabindex="-1">People</button>
+                <button type="button" role="tab" id="network-search-tab-channels" data-network-search-kind="channels" aria-selected="false" tabindex="-1">Channels</button>
+              </div>
+              <form class="network-search-form" id="network-search-form" role="search">
+                <label class="sr-only" for="network-search-query">Search posts, find a person, or open a channel</label>
+                <span aria-hidden="true">⌕</span><input id="network-search-query" name="q" type="search" maxlength="100" placeholder="Search posts already loaded in your feed…" autocomplete="off" />
+                <button type="submit" class="button button-orange">Search</button>
+              </form>
+              <p class="network-search-status" id="network-search-status" role="status" aria-live="polite" hidden></p>
+              <div class="network-search-results" id="network-search-results" aria-live="polite"></div>
+              <div class="network-search-more" id="network-search-more-wrap" hidden><button type="button" class="button button-outline" id="network-search-more">Load more from Following</button></div>
+              <p class="network-search-note" id="network-search-note">Searches posts already loaded from your feed. Load more in Following, then search again.</p>
+            </section>
+            <div class="search-exact-heading" data-area="search"><span class="overline">DIRECT LOOKUP</span><strong>Open a profile by username or FID</strong></div>
             <form class="people-search" id="people-search" role="search" data-area="search">
               <label class="sr-only" for="people-query">Find a public Farcaster profile by username or FID</label>
               <span aria-hidden="true">⌕</span><input id="people-query" name="q" type="search" maxlength="200" placeholder="Search @username or paste a profile link" autocomplete="off" />
               <button type="submit" class="button button-orange">Search</button>
               <p id="people-search-status" role="status" aria-live="polite" hidden></p>
             </form>
-            <section class="search-directory" id="search-examples" data-area="search" aria-label="People to follow">
+            <details class="search-directory-drawer" data-area="search"><summary>Quick profiles <span>Browse a few Farcaster accounts</span></summary>
+            <section class="search-directory" id="search-examples" aria-label="People to follow">
               <div class="directory-heading"><div><span class="overline">QUICK PROFILES</span><h2>People to follow</h2></div><span>Tap to open</span></div>
               <div class="directory-groups">
                 <section class="directory-group" aria-labelledby="directory-network-title">
@@ -159,7 +178,7 @@
                 <ul><li>Build in public. Share what works.</li><li>Give credit to the people who helped.</li><li>Disagree with ideas; respect the person.</li><li>Welcome newcomers with a useful answer.</li></ul>
                 <button type="button" class="directory-person network-state-balaji" data-profile-example="balajis.eth"><span class="directory-avatar">B</span><span><strong>Explore Balaji’s ideas</strong><small>@balajis.eth · FID 37</small></span><span class="directory-open">↗</span></button>
               </section>
-            </section>
+            </section></details>
             <form class="feed-search-launch" id="feed-search-launch" role="search" data-area="search">
               <label for="feed-search-query"><span class="overline">POSTS ON THIS DEVICE</span><strong>Find a word or link</strong><small>Search posts already loaded in your current feed.</small></label>
               <div><input id="feed-search-query" type="search" maxlength="100" placeholder="e.g. onchain, @name, or example.com" autocomplete="off" /><button type="submit" class="button button-outline">Search feed</button></div>
@@ -253,10 +272,10 @@
             <div class="feed-layout" data-area="feed">
                 <section class="feed-window" id="feed-window" aria-labelledby="feed-title">
                 <div class="feed-toolbar">
-                  <div><h2 id="feed-title">Following</h2><p id="feed-caption"></p></div>
+                  <div><h2 id="feed-title">Following</h2><p id="feed-caption"></p><small class="feed-updated" id="feed-updated">Not refreshed yet</small></div>
                   <div class="feed-toolbar-actions">
                     <div class="feed-view-controls feed-sort-switch" role="group" aria-label="Sort feed"><button type="button" class="board-tab" id="show-recent" aria-pressed="true">Newest</button><button type="button" class="board-tab" id="show-popular" aria-pressed="false">Popular</button></div>
-                    <span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button>
+                    <span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view"><span class="feed-refresh-glyph" aria-hidden="true">↻</span></button>
                   </div>
                 </div>
                 <div class="feed-statusbar" id="feed-statusbar" role="group" aria-label="Active account and feed status">
@@ -265,6 +284,19 @@
                   <button type="button" class="feed-status-media" id="feed-media-toggle" aria-label="Toggle automatic post media loading" aria-pressed="true">▧ Media on</button>
                   <span class="feed-status-activity" id="feed-status-activity" role="status" aria-live="polite">Checking this browser…</span>
                 </div>
+                <details class="top-people-drawer" id="top-people-drawer" hidden>
+                  <summary><span><strong>Manage Top people</strong><small id="top-people-roster-count">20 curated · 0 your picks</small></span><span class="top-people-drawer-mark" aria-hidden="true">＋</span></summary>
+                  <div class="top-people-drawer-content">
+                    <p class="top-people-drawer-note">The feed starts with 20 Farcaster leaders and blends in your recent follow graph. Add personal picks here; they stay in this browser.</p>
+                    <form class="top-people-search" id="top-people-search">
+                      <label class="sr-only" for="top-people-query">Add a Farcaster username or FID</label>
+                      <input id="top-people-query" type="search" placeholder="Add by @username or FID" autocomplete="off" maxlength="120" />
+                      <button class="button button-outline" type="submit">Add person</button>
+                    </form>
+                    <p class="top-people-search-status" id="top-people-search-status" role="status" aria-live="polite" hidden></p>
+                    <div class="top-people-roster" id="top-people-roster" aria-label="Curated Farcaster leaders"></div>
+                  </div>
+                </details>
                 <section class="suggested-panel" id="suggested-panel" aria-labelledby="suggested-title" hidden>
                   <div class="suggested-panel-head"><div><span class="overline">FROM YOUR FOLLOW GRAPH</span><h3 id="suggested-title">People to discover</h3><p>People your follows know. Follow them on Farcaster or add them to Top people on this device.</p></div><button type="button" class="icon-button" id="suggested-close" aria-label="Close suggestions">×</button></div>
                   <div class="suggested-list" id="suggested-list" aria-live="polite"></div>
@@ -291,7 +323,14 @@
                   </section>
                   <textarea id="composer-text" rows="3" inputmode="text" enterkeyhint="send" autocapitalize="sentences" spellcheck="true" placeholder="What’s on your mind?"></textarea>
                   <section class="composer-media" id="composer-media" hidden>
-                    <div class="media-url-field"><label for="composer-media-url">Attach a direct image or GIF</label><input id="composer-media-url" type="url" inputmode="url" maxlength="256" placeholder="Paste a direct https://…gif link" autocomplete="url" /><p id="composer-media-note">Castonaut does not upload media. Previews are on by default; turn them off in Profile → Customize. Farcaster embeds allow up to 256 bytes per link.</p></div>
+                    <div class="photo-upload-row">
+                      <input id="composer-image-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden />
+                      <button type="button" class="button button-outline" id="composer-image-choose">Choose photo</button>
+                      <button type="button" class="button button-orange" id="composer-image-upload" disabled>Upload &amp; attach</button>
+                      <span id="composer-image-status" role="status" aria-live="polite">Checking photo upload…</span>
+                    </div>
+                    <figure class="composer-photo-preview" id="composer-photo-preview" hidden><img id="composer-photo-preview-image" alt="Selected photo preview" /><figcaption><span id="composer-photo-name"></span><button type="button" id="composer-photo-remove" class="media-clear">Remove photo</button></figcaption></figure>
+                    <div class="media-url-field"><label for="composer-media-url">Or attach a public image or GIF link</label><input id="composer-media-url" type="url" inputmode="url" maxlength="256" placeholder="Paste a direct https://… image link" autocomplete="url" /><p id="composer-media-note">Uploaded photos are public Vercel Blob links and stay public after posting. Farcaster embeds allow up to 256 bytes per link.</p></div>
                     <button type="button" id="composer-media-clear" class="media-clear">Remove attachment</button>
                     <details class="giphy-picker" id="giphy-picker">
                       <summary>Find a GIF</summary>
@@ -345,7 +384,7 @@
                 <div class="feed-list" id="feed-list" aria-live="polite" aria-busy="false">
                   <div class="welcome-card" id="welcome-card">
                     <div class="welcome-illustration" aria-hidden="true"><div class="mini-monitor"><span></span><i></i><b></b></div><div class="mini-cursor">↖</div></div>
-                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Read first. Connect when you’re ready.</h3><p>Following shows recent posts from people you follow. Sign in to react, post, and keep a personal Desk on this device. Your Desk and saved posts stay in this browser.</p><button type="button" class="button button-outline" data-open-account>Connect a Farcaster account</button><div class="welcome-foot"><span>LIMITED SOCIAL KEY · NO FUNDS ACCESS · STORED IN THIS BROWSER</span></div></div>
+                    <div class="welcome-content"><span class="overline">WELCOME TO CASTONAUT</span><h3>Read first. Connect when you’re ready.</h3><p>Following shows recent posts from people you follow. Connect to react, post, and keep a personal Desk on this device. Your Desk and saved posts stay in this browser.</p><button type="button" class="button button-outline" data-open-account>Connect a Farcaster account</button><ol class="welcome-steps"><li><strong>Browse</strong><span>Read public posts without signing in.</span></li><li><strong>Connect</strong><span>Use your Farcaster recovery phrase to enable social actions.</span></li><li><strong>Choose a node</strong><span>Check your connection or run your own from the quickstart.</span></li></ol><div class="welcome-foot"><span>LIMITED SOCIAL KEY · NO FUNDS ACCESS · STORED IN THIS BROWSER</span><a href="/tutorial.html#quickstart">Quickstart ↗</a></div></div>
                   </div>
                 </div>
                 <div class="feed-end" id="feed-end" hidden><span></span><span class="feed-end-label">END OF TRANSMISSION</span><button type="button" class="feed-more-button" id="feed-more" hidden>Load posts from more people</button><span></span></div>

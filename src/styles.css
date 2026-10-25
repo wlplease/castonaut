@@ -3453,6 +3453,11 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 .feed-view-controls>.board-tab[aria-pressed="true"],.feed-view-controls>.board-tab[aria-expanded="true"]{background:var(--station-card);color:var(--station-accent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--station-accent) 30%,transparent),0 1px 3px #25223212}
 .feed-toolbar-actions>.feed-count{margin-left:auto;white-space:nowrap}
 .feed-toolbar-actions>.feed-refresh-button{flex:0 0 36px;width:36px;height:36px}
+.feed-refresh-glyph{display:inline-grid;place-items:center;line-height:1}
+.feed-refresh-button[aria-busy="true"]{cursor:progress;opacity:.68}
+.feed-refresh-button[aria-busy="true"] .feed-refresh-glyph{animation:feed-refresh-spin .8s linear infinite}
+@keyframes feed-refresh-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.feed-refresh-button[aria-busy="true"] .feed-refresh-glyph{animation:none}}
 @media(max-width:760px){
   .feed-toolbar-actions{display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:center;gap:6px}
   .feed-toolbar-actions>.board-switch{grid-column:1/-1;grid-row:1;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:hidden}
@@ -4077,6 +4082,27 @@ html[data-theme] .profile-summary { margin: 14px 16px 0; padding: 10px; overflow
 .feed-toolbar-actions{gap:7px}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
+
+/* Feed confidence and first-run help stay quiet until someone needs them. */
+.feed-updated{display:block;margin-top:4px;color:var(--station-copy-soft);font:8px var(--mono);letter-spacing:.02em}
+.welcome-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0 2px;padding:0;list-style:none;counter-reset:welcome-step}
+.welcome-steps li{display:grid;grid-template-columns:22px minmax(0,1fr);align-content:start;gap:2px 7px;min-width:0;padding:9px;border:1px solid var(--station-line);border-radius:7px;background:color-mix(in srgb,var(--station-soft) 25%,var(--station-card));counter-increment:welcome-step}
+.welcome-steps li::before{grid-row:span 2;display:grid;width:21px;height:21px;place-items:center;border:1px solid color-mix(in srgb,var(--station-accent) 30%,var(--station-line));border-radius:50%;color:var(--station-accent);font:9px var(--mono);content:counter(welcome-step)}
+.welcome-steps strong{font-size:10px;line-height:1.3}
+.welcome-steps span{color:var(--station-copy-muted);font-size:9px;line-height:1.4}
+.welcome-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.welcome-foot a{color:var(--station-accent);font-size:9px;font-weight:600;text-decoration:none}
+.welcome-foot a:hover{text-decoration:underline}
+@media(max-width:620px){
+  .feed-updated{margin-top:2px;font-size:7px}
+  .welcome-steps{grid-template-columns:1fr;gap:5px;margin-top:12px}
+  .welcome-steps li{grid-template-columns:21px minmax(0,1fr);padding:7px 8px}
+}
+@media(max-width:380px){
+  .welcome-steps span{font-size:8px}
+  .post-copy,.post-link-preview,.post-image-frame{min-width:0;max-width:100%;overflow-wrap:anywhere}
+  .post-actions{justify-content:flex-start}
 }
 
 /* Optional skins: vivid cyberpunk signal and a restrained manga ink palette. */

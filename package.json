@@ -25,13 +25,15 @@
     "@fontsource/dm-mono": "^5.3.0",
     "@fontsource/space-grotesk": "^5.3.0",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/blob": "^2.8.2",
     "buffer": "^6.0.3",
     "viem": "^2.57.7"
   },
   "overrides": {
     "@farcaster/core": {
       "@faker-js/faker": "10.5.0"
-    }
+    },
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "vite": "^8.3.4"

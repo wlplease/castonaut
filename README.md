@@ -1,55 +1,87 @@
 # Castonaut
 
-**Live client:** [castonaut.vercel.app](https://castonaut.vercel.app/) · **Source:** [github.com/wlplease/castonaut](https://github.com/wlplease/castonaut)
+<p align="center">
+  <img src="public/og-castonaut.png" alt="Castonaut — a calm, personal station for Farcaster" width="900">
+</p>
 
-A Farcaster feed in time order, with a personal Desk for people and posts you want to find again. Running your own Snapchain read node is optional for using the hosted client.
+<p align="center">
+  <a href="https://castonaut.vercel.app/"><img alt="Open Castonaut" src="https://img.shields.io/badge/OPEN%20CASTONAUT-Live-66509a?style=for-the-badge"></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-ead9b1?style=for-the-badge"></a>
+  <img alt="Node.js 22" src="https://img.shields.io/badge/Node.js-22-7e9c72?style=for-the-badge&logo=node.js&logoColor=white">
+</p>
 
-## What you can do
+**Catch up in time order. Keep your people and posts close.** Castonaut is an independent, open-source Farcaster client with a readable chronological feed and a personal Desk for the people, posts, and topics you want to find again. It borrows the care of classic Mac software—clear windows, familiar controls, and a little orbital character—without getting between you and the conversation.
 
-- Read Following, Friends, or a device-only Crew feed.
-- Pin people, posts, and topics to your Desk; save posts for later.
-- Find public profiles, open conversations, and filter posts by replies, media, links, and source.
-- Write short or long casts up to Farcaster’s 1,024-byte protocol limit, start threads, attach media, or use shared GIPHY search (the operator configures it once; users need no key).
-- Save a local page of the current feed to revisit later.
+You can browse the hosted client without setting up a node or entering an API key. Bring an existing Farcaster account when you’re ready to follow, react, or post.
 
-The Desk, saved posts, drafts, filters, and feed preferences stay in this browser. They are not synced between devices. Export a backup from the Desk before clearing site data.
+<p align="center">
+  <img src="docs/screenshots/desktop.png" alt="Castonaut desktop view with its Finder-like sidebar, sample timeline, and personal Desk preview" width="900">
+</p>
 
-Public feed/profile reads also use a bounded device cache (up to 32 responses, 1 MB each) in IndexedDB, with short route-specific expiry. It excludes signer records and keys; accepted writes clear it. Hosted read responses can use a brief Vercel edge cache so repeated public queries do less work on the Snapchain VM. Browser responses remain `no-store`; use Refresh when you need a fresh read.
+<p align="center"><em>The public preview: explore the layout and sample timeline before connecting an account.</em></p>
 
-## Get started
+## A familiar place for your Farcaster life
 
-Open the [client](https://castonaut.vercel.app/). Reading the sample preview does not require an account. To post, follow, or personalize the Desk, sign in with an existing Farcaster account that has storage.
+- **A feed you can follow:** read recent casts in chronological order, switch to Top people, or discover accounts through your follow graph. Posts keep replies, quoted casts, links, and media in context.
+- **The Desk:** pin people, save casts, and collect topics into personal stacks. Desk data stays in this browser; it is not published to Farcaster or synced to another device.
+- **Native social actions:** write casts and threads, reply, quote, like, recast, and follow from the client. Your actions use your Farcaster app signer and are public protocol activity.
+- **Search with clear scope:** filter posts loaded in the current feed, open a person by exact username or FID, or load a channel timeline from the configured Snapchain node. Search does not require a Neynar search key or pretend to be a full-network text index.
+- **Play & tools:** open the built-in games and Farcaster tools without turning the main timeline into a busy arcade.
+- **A Mac-inspired interface:** light and dark moods, careful typography, compact status details, responsive navigation, and keyboard access for common actions.
 
-Castonaut currently offers one sign-in path: use your Farcaster recovery phrase once to authorize a separate, limited key kept in this browser. The phrase is checked in the tab and cleared after use. The signer has social permissions but no funds or custody access. “Forget this browser” removes its local key; revoke the Farcaster signer separately in account settings.
+<p align="center">
+  <img src="docs/screenshots/mobile.png" alt="Castonaut's compact layout with the navigation sidebar, Desk preview, sample feed, and fixed bottom dock" width="560">
+</p>
 
-## Run locally
+## Start in three steps
 
-Requires Node.js 22. For a UI preview:
+1. **Browse.** Open [castonaut.vercel.app](https://castonaut.vercel.app/) and read the public sample feed.
+2. **Connect when ready.** Use an existing Farcaster account’s recovery phrase to authorize a separate, limited app signer in this browser. The phrase is processed in the page and cleared after use; only continue on a deployment and device you trust. The app signer can perform social actions but cannot move funds. Review the account and authorization details before approving.
+3. **Make it yours.** Follow people, personalize the feed, and keep useful people and posts on your Desk. Castonaut’s hosted node connection works out of the box; running your own node is optional.
+
+“Forget this browser” removes the local signer key. It does not revoke the signer on Farcaster; revoke it separately in account settings when needed. The Desk, saved posts, drafts, filters, and preferences are local to this browser. Export a Desk backup before clearing browser data.
+
+## Run Castonaut locally
+
+Requires Node.js 22.
 
 ```sh
+git clone https://github.com/wlplease/castonaut.git
+cd castonaut
 npm ci
 npm run dev
 ```
 
-Local preview uses Castonaut’s hosted Snapchain proxy by default, so the node sees Vercel’s server instead of your home IP. To point local development directly at your own node, set server-only `SNAPCHAIN_URL` in a root `.env`; then requests come from your computer and the node can see its public IP. Never use a `VITE_` prefix for a node URL or credential. See the [quickstart](https://castonaut.vercel.app/tutorial.html#quickstart) for the Google Cloud node setup, commands, costs, readiness checks, and cleanup steps.
+The Vite preview uses Castonaut’s hosted Snapchain proxy by default. To connect a local server directly to your own node, set `SNAPCHAIN_URL` in a root `.env` file. Keep node credentials server-side; never expose them through a `VITE_` variable. The [three-step quickstart](https://castonaut.vercel.app/tutorial.html#quickstart) covers node setup, readiness checks, costs, and cleanup.
+
+Useful commands:
 
 ```sh
-npm test
-npm run build
+npm run build       # production client build
+npm test            # project checks
+npm run node:status # check your configured node
 ```
 
-## Optional services
+## Run your own node
 
-- **Contest build:** the core client does not require third-party data API keys. Optional GIF search uses an operator-configured GIPHY key and shared Redis cooldown behind a server-side route; users never enter or receive keys. Feed, profile, follow, post, reaction, and direct media-link features do not depend on GIF search.
+Castonaut works as a client without a self-hosted node. If you want to operate one, the guide walks through the Snapchain setup and how the client’s signed messages and reads travel through it. Set `SNAPCHAIN_URL` on the server deployment, keep the node caught up, and check readiness before inviting people to use it. The node is public protocol infrastructure; the app’s rate limits are best-effort and are not a substitute for network-level abuse protection.
 
-## Deployment notes
+## Optional integrations
 
-Vercel serves the static app and its small server-side Snapchain proxy. Set `SNAPCHAIN_URL` as a server environment variable. Castonaut is currently free to use; no payment contract or purchase configuration is required. Verify the node is synced and reachable before inviting people to test. The node is public and can be contacted directly; the proxy’s per-instance rate limits are best-effort, not abuse-proof protection.
+Core feed, profile, follow, post, reaction, and search features do not require users to provide API keys. Operators may configure GIPHY and Redis for shared GIF search, and Vercel Blob for optional photo uploads. These service credentials belong only in server-side environment variables; see [`.env.example`](.env.example). Direct links and Farcaster media embeds remain available without the optional services.
 
-GIF search reads the existing Vercel `GIPHY_APP` secret (with `GIPHY_API_KEY` as a compatibility alias) plus `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Users never provide or receive these values. Both credentials stay server-side. The server validates each search, uses an atomic Redis cooldown to allow one search per minute across the deployment, and returns only a small set of GIF fields. It fails closed if Redis is missing or unavailable. Direct media URLs continue to work without these settings.
+## Project links
 
-The [setup guide](https://castonaut.vercel.app/tutorial.html) covers node operation, the message path, account security, source filters, and a repeatable test checklist. The [Privacy Notice](privacy.html) and [Terms of Use](terms.html) describe data handling and service providers. Complete the operator contact and jurisdiction fields before public launch.
+- [Open the client](https://castonaut.vercel.app/)
+- [Three-step quickstart and operating guide](https://castonaut.vercel.app/tutorial.html#quickstart)
+- [Privacy Notice](privacy.html) · [Terms of Use](terms.html) · [Security guide](https://castonaut.vercel.app/tutorial.html#security)
+- [Product plan](PRODUCT_PLAN.md) · [Brand guide](BRAND_GUIDE.md)
+- [MIT License](LICENSE)
+
+## Before a public launch
+
+The operator contact and governing-jurisdiction details in the Privacy Notice and Terms still need to be completed. Finish those details and verify the live deployment’s node and optional services before inviting the public.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Castonaut is released under the MIT License. See [`LICENSE`](LICENSE).
