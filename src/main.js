@@ -1,9 +1,8 @@
 import './runtime-polyfills.js';
 import { groupRepeatedCasts } from './feed-groups.js';
 import { hasMedia, isGifEmbedUrl, isImageEmbedUrl, isReply, isVideoEmbedUrl, topicsForCast, visibleByFeedOptions, visibleInProfileView } from './feed-curation.js';
-import { rankFollowRecommendations } from './feed-ranking.js';
+import { mixAuthorTimeline, rankActiveFeedSources, rankFollowRecommendations } from './feed-ranking.js';
 import { loadFollowGraph } from './follow-graph.js';
-import { loadFollowedTimeline } from './followed-timeline.js';
 import { STATION_NARRATION, STATION_VOICES } from './station-voice.js';
 import { createTimeCapsule, parseTimeCapsules, capsuleDateLabel } from './time-capsules.js';
 import { deriveRecoveryAccountCandidates, findRegisteredRecoveryAccount, isSupportedRecoveryPhraseLength, takeRecoveryPhrase } from './recovery-phrase.js';
@@ -116,7 +115,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, DESK_SORT_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedCastPageTokens: new Map(), feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 function loadDeskSortPreferences() {
   let stored = {};
   try { stored = JSON.parse(localStorage.getItem(DESK_SORT_STORAGE) || '{}'); } catch { /* Use the recent-first defaults. */ }
@@ -426,12 +425,20 @@ async function nodeRequest(route, params = {}, options = {}) {
 async function fetchFollowGraph(fid, limits = {}, { fresh = false } = {}) {
   return loadFollowGraph(
     (params) => nodeRequest('links', { fid: Number(fid), link_type: 'follow', ...params }, { fresh }),
-    { ownFid: Number(fid), maxPages: 20, maxFollows: 2000, ...limits },
+    { ownFid: Number(fid), maxPages: 100, maxFollows: 10_000, ...limits },
   );
 }
 
 async function fetchFollowGraphPage(fid, pageToken, { fresh = false } = {}) {
   return fetchFollowGraph(fid, { maxPages: 1, maxFollows: 100, pageToken }, { fresh });
+}
+
+function spreadFids(values, limit) {
+  const unique = [...new Set((values || []).map(Number).filter((fid) => Number.isSafeInteger(fid) && fid > 0))];
+  const count = Math.max(0, Math.floor(Number(limit) || 0));
+  if (unique.length <= count) return unique;
+  if (count < 2) return count ? [unique[0]] : [];
+  return Array.from({ length: count }, (_, index) => unique[Math.round(index * (unique.length - 1) / (count - 1))]);
 }
 
 function asFid(value) {
@@ -960,21 +967,21 @@ function updateFeedTabs() {
     button.classList.toggle('is-active', state.boardMode === 'signals' && state.feedMode === mode);
     button.setAttribute('aria-pressed', String(state.boardMode === 'signals' && state.feedMode === mode));
   }
-  const friendCount = $('#friend-count');
-  if (friendCount) { friendCount.textContent = String(state.friendFids.length); friendCount.hidden = state.friendFids.length === 0; }
+  updateTopPeopleCounts();
   const peopleTabs = $('.board-switch');
   if (peopleTabs) peopleTabs.hidden = state.feedMode === 'profile' || state.boardMode !== 'signals';
   const feedTools = $('.feed-view-controls');
   if (feedTools) feedTools.hidden = state.feedMode === 'profile' || state.boardMode !== 'signals';
+  const sortHidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
+  const recentSort = $('#show-recent');
   const popularSort = $('#show-popular');
-  if (popularSort) {
-    popularSort.classList.toggle('is-active', state.feedSort === 'popular');
-    popularSort.setAttribute('aria-pressed', String(state.feedSort === 'popular'));
-    popularSort.hidden = state.boardMode !== 'signals' || state.feedMode === 'profile';
-    popularSort.disabled = false;
-    popularSort.textContent = 'Popular';
-    popularSort.setAttribute('aria-label', state.feedSort === 'popular' ? 'Show newest posts' : 'Show popular posts');
-    popularSort.title = state.feedSort === 'popular' ? 'Switch to newest posts' : 'Switch to popular posts';
+  for (const [button, active] of [[recentSort, state.feedSort === 'recent'], [popularSort, state.feedSort === 'popular']]) {
+    if (!button) continue;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+    button.hidden = sortHidden;
+    button.disabled = false;
+    button.textContent = button === recentSort ? 'Newest' : 'Popular';
   }
   const discover = $('#show-suggested');
   if (discover) {
@@ -983,6 +990,18 @@ function updateFeedTabs() {
   }
   updateFeedDestinationNav();
   renderFeedStatusbar();
+}
+
+function updateTopPeopleCounts() {
+  const activePeople = state.feedMode === 'friends'
+    ? new Set(state.casts.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0)).size
+    : 0;
+  const count = activePeople || state.friendFids.length;
+  document.querySelectorAll('[data-friend-count]').forEach((friendCount) => {
+    friendCount.textContent = String(count);
+    friendCount.hidden = count === 0;
+    friendCount.title = activePeople ? `${activePeople} active people in this feed` : `${count} people in your local Top people list`;
+  });
 }
 
 function updateFeedDestinationNav() {
@@ -1001,6 +1020,7 @@ function updateFeedDestinationNav() {
 function renderFeedStatusbar() {
   const bar = $('#feed-statusbar');
   if (!bar) return;
+  updateTopPeopleCounts();
   const setText = (element, value) => { if (element && element.textContent !== value) element.textContent = value; };
   const account = $('#feed-status-account');
   const profile = state.fid ? state.people.get(Number(state.fid)) : null;
@@ -1025,11 +1045,13 @@ function renderFeedStatusbar() {
         : 'The node freshness and follow status have not been confirmed.';
 
   const activity = $('#feed-status-activity');
-  setText(activity, state.feedMoreBusy ? 'Checking more followed accounts…'
+  setText(activity, state.feedMoreBusy ? (state.feedMode === 'friends' ? 'Finding more active people…' : 'Checking more followed accounts…')
     : state.feedBusy ? `Loading ${state.feedMode === 'friends' ? 'Top people' : state.feedMode === 'profile' ? 'profile posts' : 'Following'}…`
-      : state.feedFailedSources && !state.casts.length ? `Could not check ${state.feedFailedSources} followed ${state.feedFailedSources === 1 ? 'account' : 'accounts'}`
+      : state.feedFailedSources && !state.casts.length ? `Could not check ${state.feedFailedSources} ${state.feedMode === 'friends' ? 'people' : 'followed accounts'}`
       : !state.nodeInfo && nodeKind === 'bad' ? 'Waiting for the node'
-        : state.casts.length ? `${state.casts.length} recent ${state.casts.length === 1 ? 'post' : 'posts'} loaded`
+      : state.feedMode === 'friends' && state.casts.length ? `${new Set(state.casts.map((message) => Number(message?.data?.fid)).filter((fid) => fid > 0)).size} active people · ${state.casts.length} recent posts`
+          : state.feedMode === 'following' && state.casts.length ? `${state.casts.length} recent posts · ${state.feedSourceOffset} of ${state.feedFollowComplete ? state.feedFollowTotal : `at least ${state.feedFollowTotal}`} follows checked`
+            : state.casts.length ? `${state.casts.length} recent ${state.casts.length === 1 ? 'post' : 'posts'} loaded`
           : 'No recent posts loaded');
   activity.title = maxDelay !== null && maxDelay > 10
     ? `Node data is ${formatNodeDelay(maxDelay)} behind; feed posts and follow relationships may be incomplete.`
@@ -1045,9 +1067,9 @@ function feedWindowTitle() {
 }
 
 function feedDescription(mode = state.feedMode) {
-  if (mode === 'friends') return `Your handpicked shortlist · ${state.feedSort === 'popular' ? 'popular among loaded posts' : 'newest first'} · last 30 days.`;
+  if (mode === 'friends') return `Your picks plus active people from your follow graph · ${state.feedSort === 'popular' ? 'popular among loaded posts' : 'newest first'} · up to 2 posts per person.`;
   if (mode === 'profile') return 'Recent posts from this profile.';
-  return state.feedSort === 'popular' ? 'Most liked and recast among loaded posts from your follows · last 30 days.' : 'Recent posts from people you follow · newest first.';
+  return state.feedSort === 'popular' ? 'Most liked and recast among recent posts from your follows · last 30 days.' : 'Recent posts from people you follow · newest first.';
 }
 
 function recentFeedStartTimestamp(nowMs = Date.now()) { return profileRecentStartTimestamp(nowMs, 30); }
@@ -1070,23 +1092,19 @@ async function loadPopularScores(messages) {
 
 async function selectFeedSort(sort) {
   if (!['recent', 'popular'].includes(sort) || state.feedMode === 'profile' || state.boardMode !== 'signals') return;
+  if (sort === state.feedSort) return;
   const requestId = state.feedRequest;
   if (sort === 'popular') {
     const candidates = state.casts;
     if (candidates.length) {
-      $('#show-popular').disabled = true;
-      $('#show-popular').textContent = 'Ranking…';
+      document.querySelectorAll('.feed-sort-switch .board-tab').forEach((button) => { button.disabled = true; });
+      if ($('#show-popular')) $('#show-popular').textContent = 'Ranking…';
       await loadPopularScores(candidates);
-      if (requestId !== state.feedRequest) return;
-      $('#show-popular').disabled = false;
-      $('#show-popular').textContent = 'Popular';
+      if (requestId !== state.feedRequest) { updateFeedTabs(); return; }
     }
   }
   state.feedSort = sort;
-  $('#show-popular')?.classList.toggle('is-active', sort === 'popular');
-  $('#show-popular')?.setAttribute('aria-pressed', String(sort === 'popular'));
-  $('#show-popular')?.setAttribute('aria-label', sort === 'popular' ? 'Show newest posts' : 'Show popular posts');
-  $('#show-popular')?.setAttribute('title', sort === 'popular' ? 'Switch to newest posts' : 'Switch to popular posts');
+  updateFeedTabs();
   $('#feed-caption').textContent = sort === 'popular' ? 'Most liked and recast among loaded posts · last 30 days.' : feedDescription();
   renderFeed();
 }
@@ -1811,6 +1829,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   };
   let fid;
   let partialLoadFailures = 0;
+  let friendGraphFailed = false;
   try {
     fid = asFid(fidValue);
     if (mode !== 'profile' && fid !== Number(state.fid)) throw new Error('Feeds can only be opened for the connected Farcaster account.');
@@ -1833,6 +1852,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   state.feedSources = [];
   state.feedFailedSources = 0;
   state.feedSourceOffset = 0;
+  state.feedCastPageTokens = new Map();
   state.feedFollowNextPageToken = '';
   state.feedFollowComplete = true;
   state.profileNextPageToken = '';
@@ -1867,12 +1887,14 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     $('#feed-caption').textContent = state.feedMode === 'profile' ? 'Last 30 days · newest first.' : feedDescription(state.feedMode);
   }
   if (!retainExistingPosts) {
-    renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : 'Checking followed people in small groups for recent posts.');
+    renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : state.feedMode === 'friends' ? 'Checking your picks and finding active accounts from your follow graph.' : 'Checking followed people in small groups for recent posts.');
   }
   try {
     if (!state.nodeInfo) checkNode();
     const [followGraph, profile] = await Promise.all([
-      state.feedMode === 'following' ? fetchFollowGraph(fid, { maxPages: 1, maxFollows: 100 }, { fresh }) : Promise.resolve({ fids: [], complete: true, nextPageToken: '' }),
+      state.feedMode === 'following' ? fetchFollowGraph(fid, { maxPages: 100, maxFollows: 10_000 }, { fresh })
+        : state.feedMode === 'friends' ? fetchFollowGraph(fid, { maxPages: 4, maxFollows: 400 }, { fresh }).catch(() => { friendGraphFailed = true; return { fids: [], complete: false, nextPageToken: '' }; })
+          : Promise.resolve({ fids: [], complete: true, nextPageToken: '' }),
       state.feedMode === 'profile' ? fetchProfile(fid, { fresh }) : Promise.resolve(null),
     ]);
     const followFids = followGraph.fids;
@@ -1883,11 +1905,14 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
       state.feedFollowComplete = followGraph.complete;
       state.feedFollowNextPageToken = followGraph.nextPageToken || '';
     }
+    const friendCandidates = state.feedMode === 'friends'
+      ? [...new Set([...state.friendFids, ...spreadFids(followFids, Math.max(12, 36 - state.friendFids.length))])].slice(0, 36)
+      : [];
     const uniqueFids = state.feedMode === 'profile' ? [fid]
-      : state.feedMode === 'friends' ? [...state.friendFids]
+      : state.feedMode === 'friends' ? friendCandidates
         : [...new Set(followFids)];
     const limitedFids = [...new Set(uniqueFids)].filter((target) => Number.isSafeInteger(target) && target > 0);
-    state.feedSources = state.feedMode === 'following' ? limitedFids : [];
+    state.feedSources = ['following', 'friends'].includes(state.feedMode) ? limitedFids : [];
     state.feedSourceOffset = 0;
     state.feedFollowTotal = state.feedMode === 'following' ? state.following.size : 0;
     if (state.suggestionsLoadedFor !== Number(state.fid)) state.suggestedPeople = [];
@@ -1899,6 +1924,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     }
     if (!limitedFids.length && state.feedMode === 'friends') {
       state.casts = [];
+      state.feedFailedSources = friendGraphFailed ? 1 : 0;
       renderFeed();
       $('#feed-filters').hidden = false;
       restoreFeedScroll();
@@ -1906,22 +1932,39 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     }
     let castGroups;
     if (state.feedMode === 'following') {
-      const timeline = await loadFollowedTimeline(limitedFids, async (target) => {
-        const response = await nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh });
-        return unwrapMessages(response).filter((message) => message?.data?.castAddBody);
-      }, { minPosts: 30, maxSources: limitedFids.length, batchSize: 6 });
-      partialLoadFailures = timeline.failedFids.length;
+      const initialSources = limitedFids.slice(0, 12);
+      const loadedGroups = await mapLimit(initialSources, 6, async (target) => {
+        try {
+          const response = await nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh });
+          if (requestId !== state.feedRequest) return null;
+          const messages = unwrapMessages(response).filter((message) => message?.data?.castAddBody);
+          const oldestTimestamp = messages.reduce((oldest, message) => Math.min(oldest, Number(message?.data?.timestamp) || Infinity), Infinity);
+          const nextPageToken = messages.length && oldestTimestamp >= recentFeedStartTimestamp() ? String(response?.nextPageToken || response?.next_page_token || '') : '';
+          if (nextPageToken) state.feedCastPageTokens.set(target, nextPageToken);
+          return { fid: target, messages };
+        } catch {
+          partialLoadFailures += 1;
+          return { fid: target, messages: [] };
+        }
+      });
+      const firstUnloaded = loadedGroups.findIndex((group) => !group);
+      state.feedSourceOffset = firstUnloaded < 0 ? initialSources.length : firstUnloaded;
       state.feedFailedSources = partialLoadFailures;
-      state.feedSourceOffset = timeline.sourceOffset;
-      castGroups = [{ messages: timeline.messages }];
+      castGroups = loadedGroups.filter(Boolean);
     } else {
-      castGroups = await mapLimit(limitedFids, 6, async (target) => {
+      castGroups = await mapLimit(limitedFids, state.feedMode === 'friends' ? 8 : 6, async (target) => {
         if (state.feedMode === 'profile') {
           const [page, profileData] = await Promise.all([fetchProfileRecentPages(target, { fresh }), fetchProfile(target, { fresh })]);
           return { ...page, profileData };
         }
-        const response = await nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh });
-        return { messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '', seenPageTokens: new Set() };
+        try {
+          const response = await nodeRequest('casts', { fid: target, pageSize: state.feedMode === 'friends' ? 25 : 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }, { fresh });
+          return { fid: target, messages: unwrapMessages(response).filter((message) => message?.data?.castAddBody), nextPageToken: response?.nextPageToken || '', seenPageTokens: new Set() };
+        } catch (error) {
+          if (state.feedMode !== 'friends') throw error;
+          partialLoadFailures += 1;
+          return { fid: target, messages: [], nextPageToken: '', seenPageTokens: new Set() };
+        }
       });
     }
     if (requestId !== state.feedRequest) return false;
@@ -1931,9 +1974,18 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     }
     const recentStart = state.feedMode === 'profile' ? state.profileWindowStart : recentFeedStartTimestamp();
     const recentEnd = profileRecentStartTimestamp(Date.now(), 0);
+    const activeFriendFids = state.feedMode === 'friends'
+      ? rankActiveFeedSources(castGroups, { ownFid: fid, pinnedFids: state.friendFids, limit: 36, activeSince: recentEnd - (7 * 86_400) })
+      : [];
+    if (state.feedMode === 'friends') {
+      state.feedSources = activeFriendFids;
+      state.feedFailedSources = partialLoadFailures + (friendGraphFailed ? 1 : 0);
+    }
+    const activeFriendSet = new Set(activeFriendFids);
     const knownCastIds = new Set();
     const newestFirst = castGroups.flatMap((group) => group.messages)
       .filter((message) => {
+        if (state.feedMode === 'friends' && !activeFriendSet.has(Number(message?.data?.fid))) return false;
         const timestamp = Number(message?.data?.timestamp);
         const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
         if (timestamp < recentStart || timestamp > recentEnd || knownCastIds.has(key)) return false;
@@ -1941,7 +1993,9 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
         return true;
       })
       .sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
-    const fetchedMessages = state.feedMode === 'profile' ? newestFirst : newestFirst.slice(0, 30);
+    const fetchedMessages = state.feedMode === 'profile' ? newestFirst
+      : state.feedMode === 'friends' ? mixAuthorTimeline(newestFirst, { maxPerAuthor: 2 }).slice(0, 30)
+        : newestFirst;
     // A caught-up cache may be more useful than a successful but empty reply
     // from a node that is still behind. Keep it until the node can return posts.
     const keepPreviousWhileNodeCatchesUp = state.feedMode === 'following'
@@ -1955,7 +2009,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     if (Number($('#source-fid').value) > 0) await loadSignerSources(messages);
     const profileFids = [...new Set(messages.flatMap((message) => [
       Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid),
-    ]).filter((value) => value > 0))];
+    ]).filter((value) => value > 0))].slice(0, 80);
     const missingProfiles = profileFids.filter((target) => !state.people.has(target));
     const missingPins = state.deskPins.filter((target) => !state.people.has(target));
     renderDesk();
@@ -1965,7 +2019,9 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     if (!messages.length) $('#feed-count').textContent = '0 POSTS';
     renderFeedMore();
     updateFollowingCoverage();
-    if (partialLoadFailures) setNotice(`Loaded what was available. ${partialLoadFailures} followed ${partialLoadFailures === 1 ? 'account could' : 'accounts could'} not be checked; use refresh to retry.`, 'error');
+    if (friendGraphFailed && state.feedMode === 'friends') setNotice('Could not read the full follow graph. Showing active posts from your local Top people picks; refresh when the node is reachable.', 'error');
+    else if (partialLoadFailures && state.feedMode === 'friends') setNotice(`Loaded the active accounts the node returned. ${partialLoadFailures} Top people ${partialLoadFailures === 1 ? 'source could' : 'sources could'} not be checked; refresh to retry.`, 'error');
+    else if (partialLoadFailures) setNotice(`Loaded what was available. ${partialLoadFailures} followed ${partialLoadFailures === 1 ? 'account could' : 'accounts could'} not be checked; use refresh to retry.`, 'error');
     else if (keepPreviousWhileNodeCatchesUp) setNotice(`The node returned no recent posts. Keeping the ${messages.length} posts already loaded while it catches up.`, 'info');
     restoreFeedScroll();
     // Show posts as soon as the cast requests finish. Hydrate names and avatars
@@ -2025,19 +2081,17 @@ function renderFeedMore() {
   if (!footer || !button) return false;
   const hasProfileMore = state.boardMode === 'signals' && state.feedMode === 'profile'
     && (!!state.profileNextPageToken || !state.profileArchiveMode);
-  const hasMore = state.boardMode === 'signals' && ((state.feedMode === 'following' && (state.feedSourceOffset < state.feedSources.length || !!state.feedFollowNextPageToken)) || hasProfileMore);
+  const hasMore = state.boardMode === 'signals' && ((state.feedMode === 'following' && (state.feedCastPageTokens.size > 0 || !!state.feedFollowNextPageToken)) || hasProfileMore);
   button.hidden = !hasMore;
   button.disabled = state.feedMoreBusy;
-  const moreCount = Math.min(6, state.feedSources.length - state.feedSourceOffset);
   button.textContent = state.feedMoreBusy
-    ? (state.feedMode === 'profile' ? 'Loading older posts…' : 'Loading more people…')
+    ? (state.feedMode === 'profile' ? 'Loading older posts…' : 'Loading recent posts…')
     : hasProfileMore ? (state.profileArchiveMode ? 'Load older posts' : state.profileNextPageToken ? 'More from this month' : 'Load earlier posts')
-      : state.feedSourceOffset < state.feedSources.length ? `Load posts from ${moreCount} more ${moreCount === 1 ? 'person' : 'people'}`
-        : 'Check more followed accounts';
+      : 'Load more recent posts';
   if (label) {
     label.hidden = hasMore;
     label.textContent = hasProfileMore ? (state.profileArchiveMode ? 'MORE POSTS BELOW' : 'LAST 30 DAYS · MORE BELOW') : state.feedMode === 'following' && state.feedFollowTotal > 0
-      ? `${state.feedFollowComplete ? 'CHECKED' : 'AT LEAST'} ${state.feedFollowTotal} FOLLOWED ACCOUNTS`
+      ? `${state.feedFollowComplete ? 'CHECKED' : 'AT LEAST'} ${state.feedSourceOffset} OF ${state.feedFollowTotal} FOLLOWED ACCOUNTS · ${state.casts.length} RECENT POSTS LOADED`
       : state.feedMode === 'profile' ? 'END OF PROFILE' : 'END OF TRANSMISSION';
   }
   footer.hidden = !hasMore && state.casts.length === 0;
@@ -2089,8 +2143,8 @@ function updateFollowingCoverage() {
   const caption = $('#feed-caption');
   if (!caption || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
   const summary = state.feedSort === 'popular'
-    ? 'Popular · most liked and recast among loaded posts from your follows · last 30 days.'
-    : 'Newest first · last 30 days · checking followed accounts in small groups.';
+    ? 'Popular · most liked and recast among recent posts from your follows · last 30 days.'
+    : 'Newest first · recent posts from your followed accounts · last 30 days.';
   const maxDelay = maxNodeDelay();
   caption.textContent = maxDelay !== null && maxDelay > 10
     ? `${summary} Node data is ${formatNodeDelay(maxDelay)} behind; recent posts may be missing.`
@@ -2100,67 +2154,79 @@ function updateFollowingCoverage() {
 async function loadMoreFollowed() {
   if (state.feedMoreBusy || state.feedMode !== 'following' || state.boardMode !== 'signals') return;
   const requestId = state.feedRequest;
-  const start = state.feedSourceOffset;
-  if (start >= state.feedSources.length && state.feedFollowNextPageToken) {
-    state.feedMoreBusy = true;
-    renderFeedMore();
-    try {
-      let pagesRead = 0;
-      while (state.feedFollowNextPageToken && state.feedSourceOffset >= state.feedSources.length && pagesRead < 4) {
-        const page = await fetchFollowGraphPage(state.fid, state.feedFollowNextPageToken);
-        if (requestId !== state.feedRequest) return;
-        state.feedFollowNextPageToken = page.nextPageToken || '';
-        state.feedFollowComplete = page.complete;
-        for (const target of page.fids) {
-          if (state.following.has(target)) continue;
-          setFollowState(target, true);
-          state.feedSources.push(target);
-        }
-        state.feedFollowTotal = state.following.size;
-        pagesRead += 1;
-      }
-    } catch (error) {
-      if (requestId === state.feedRequest) setNotice(`Could not check more followed accounts. ${clientErrorText(error)}`, 'error');
-      state.feedMoreBusy = false;
-      renderFeedMore();
-      return;
-    } finally {
-      if (requestId === state.feedRequest && state.feedSourceOffset >= state.feedSources.length) {
-        state.feedMoreBusy = false;
-        renderFeedMore();
-      }
-    }
-  }
-  const batch = state.feedSources.slice(state.feedSourceOffset, state.feedSourceOffset + 6);
-  if (!batch.length) { renderFeed(); updateFollowingCoverage(); return; }
+  const recentStart = recentFeedStartTimestamp();
+  let pageFailures = 0;
   state.feedMoreBusy = true;
   renderFeedMore();
   try {
-    const groups = await mapLimit(batch, 6, async (target) => {
-      const [response] = await Promise.all([
-        nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentFeedStartTimestamp() }),
-        fetchProfile(target),
-      ]);
-      const recentStart = recentFeedStartTimestamp();
-      const recentEnd = profileRecentStartTimestamp(Date.now(), 0);
-      return unwrapMessages(response).filter((message) => message?.data?.castAddBody
-        && Number(message?.data?.timestamp) >= recentStart && Number(message?.data?.timestamp) <= recentEnd);
-    });
+    let groups;
+    let kind;
+    let batch = [];
+    const fetchRecentPage = async (target, pageToken = '') => {
+      try {
+        const response = await nodeRequest('casts', { fid: target, pageSize: 100, reverse: true, startTimestamp: recentStart, ...(pageToken ? { pageToken } : {}) });
+        if (requestId !== state.feedRequest) return null;
+        const pageMessages = unwrapMessages(response).filter((message) => message?.data?.castAddBody);
+        const oldestTimestamp = pageMessages.reduce((oldest, message) => Math.min(oldest, Number(message?.data?.timestamp) || Infinity), Infinity);
+        const nextPageToken = pageMessages.length && oldestTimestamp >= recentStart ? String(response?.nextPageToken || response?.next_page_token || '') : '';
+        if (nextPageToken) state.feedCastPageTokens.set(target, nextPageToken);
+        else state.feedCastPageTokens.delete(target);
+        return { fid: target, messages: pageMessages };
+      } catch {
+        pageFailures += 1;
+        return null;
+      }
+    };
+
+    if (state.feedSourceOffset < state.feedSources.length) {
+      kind = 'people';
+      batch = state.feedSources.slice(state.feedSourceOffset, state.feedSourceOffset + 6);
+      groups = await mapLimit(batch, 6, (target) => fetchRecentPage(target));
+      if (requestId !== state.feedRequest) return;
+      const firstUnloaded = groups.findIndex((group) => !group);
+      state.feedSourceOffset += firstUnloaded < 0 ? batch.length : firstUnloaded;
+    } else if (state.feedCastPageTokens.size) {
+      kind = 'pages';
+      const cursorBatch = [...state.feedCastPageTokens.entries()].slice(0, 6);
+      batch = cursorBatch.map(([fid]) => fid);
+      groups = await mapLimit(cursorBatch, 6, ([target, pageToken]) => fetchRecentPage(target, pageToken));
+    } else if (state.feedFollowNextPageToken) {
+      kind = 'people';
+      const page = await fetchFollowGraphPage(state.fid, state.feedFollowNextPageToken);
+      if (requestId !== state.feedRequest) return;
+      state.feedFollowNextPageToken = page.nextPageToken || '';
+      state.feedFollowComplete = page.complete;
+      batch = page.fids.filter((target) => !state.following.has(target));
+      for (const target of batch) { setFollowState(target, true); state.feedSources.push(target); }
+      state.feedFollowTotal = state.following.size;
+      const nextBatch = state.feedSources.slice(state.feedSourceOffset, state.feedSourceOffset + 6);
+      groups = await mapLimit(nextBatch, 6, (target) => fetchRecentPage(target));
+      if (requestId !== state.feedRequest) return;
+      const firstUnloaded = groups.findIndex((group) => !group);
+      state.feedSourceOffset += firstUnloaded < 0 ? nextBatch.length : firstUnloaded;
+      batch = nextBatch;
+    } else { renderFeedMore(); return; }
+
     if (requestId !== state.feedRequest) return;
     const existing = new Set(state.casts.map((message) => `${Number(message?.data?.fid)}:${postHash(message)}`));
-    for (const message of groups.flat()) {
+    for (const message of groups.filter(Boolean).flatMap((group) => group.messages || [])) {
       const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
       if (!existing.has(key)) { existing.add(key); state.casts.push(message); }
     }
-    state.casts = state.casts.sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0)).slice(0, 60);
-    state.feedSourceOffset += batch.length;
+    state.casts.sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0));
     if (state.feedSort === 'popular') await loadPopularScores(state.casts);
     if (requestId !== state.feedRequest) return;
     await mapLimit([...new Set(state.casts.flatMap((message) => [Number(message?.data?.fid), Number(message?.data?.castAddBody?.parentCastId?.fid)]).filter((fid) => fid > 0 && !state.people.has(fid)))], 6, fetchProfile);
     if (requestId !== state.feedRequest) return;
     renderFeed();
     updateFollowingCoverage();
-    setNotice(`Loaded posts from ${batch.length} more ${batch.length === 1 ? 'person' : 'people'}.`, 'success');
+    const added = state.casts.length - existing.size;
+    const checkedNow = groups.filter(Boolean).length;
+    setNotice(pageFailures
+      ? `${pageFailures} followed ${pageFailures === 1 ? 'account could' : 'accounts could'} not be checked. Kept their place in the queue; tap Load more recent posts to retry.`
+      : kind === 'people'
+      ? `Checked ${checkedNow} more followed ${checkedNow === 1 ? 'account' : 'accounts'} and loaded ${added} recent ${added === 1 ? 'post' : 'posts'}. ${state.feedSourceOffset} of ${state.feedFollowTotal} follows checked.`
+      : `Loaded ${added} more recent ${added === 1 ? 'post' : 'posts'}. ${state.casts.length} posts are now in this timeline.`, pageFailures ? 'error' : 'success');
   } catch (error) {
     if (requestId === state.feedRequest) setNotice(`Could not load more of your Following feed. ${error.message}`, 'error');
   } finally {
@@ -2257,8 +2323,11 @@ function renderFeed() {
       const isRepliesTab = state.profileTab === 'replies';
       const handle = profile?.username ? `@${profile.username}` : 'this profile';
       renderEmpty(isMediaTab ? 'No media yet.' : isRepliesTab ? 'No replies yet.' : 'No original posts yet.', `Nothing to show for ${handle}.`, isMediaTab ? null : { type: 'search', label: 'Search another profile' });
-    } else if (state.feedMode === 'friends' && !state.friendFids.length) {
-      renderEmpty('Your Top people list is empty.', 'Add people from posts or discover accounts your follows know. This shortlist stays on this device.', [
+    } else if (state.feedMode === 'friends' && !state.friendFids.length && !state.feedSources.length) {
+      const detail = state.feedFailedSources
+        ? 'The node could not check your follow graph. Try refreshing, or search for people to add to your local shortlist.'
+        : 'Follow a few people and this feed will surface the most active accounts in their graph. You can also add your own picks from any post.';
+      renderEmpty('Looking for active people.', detail, [
         { type: 'discover', label: 'Discover people' },
         { type: 'search', label: 'Search people' },
       ]);
@@ -2300,7 +2369,9 @@ function renderFeed() {
   }
   $('#feed-count').textContent = state.boardMode === 'flight-log'
     ? `${messages.length} SAVED`
-    : `${requestedSource ? `${messages.length} OF ${state.casts.length}` : messages.length} POSTS${repeatedGroupCount ? ` · ${repeatedGroupCount} GROUPED` : ''}`;
+    : state.feedMode === 'following' && !requestedSource
+      ? `${state.casts.length} RECENT · ${messages.length} SHOWN${repeatedGroupCount ? ` · ${repeatedGroupCount} GROUPED` : ''}`
+      : `${requestedSource ? `${messages.length} OF ${state.casts.length}` : messages.length} POSTS${repeatedGroupCount ? ` · ${repeatedGroupCount} GROUPED` : ''}`;
   $('#feed-end').hidden = false;
   const fragment = document.createDocumentFragment();
   groups.forEach((group, index) => {
@@ -4029,7 +4100,17 @@ function setComposerExpanded(expanded, { focus = false } = {}) {
   toggle.setAttribute('aria-expanded', String(open));
   const mark = toggle.querySelector('.composer-toggle-mark');
   if (mark) mark.textContent = open ? '−' : '＋';
-  if (focus && open) requestAnimationFrame(() => $('#composer-text')?.focus({ preventScroll: true }));
+  if (focus && open) focusComposerInput();
+}
+
+function focusComposerInput() {
+  const field = $('#composer-text');
+  if (!field) return;
+  const touchInput = matchMedia('(pointer: coarse)').matches;
+  // Keep mobile focus in the original tap gesture so iOS and Android open the
+  // software keyboard. A smooth scroll immediately after focus can dismiss it.
+  field.focus({ preventScroll: !touchInput });
+  if (!touchInput) $('#composer')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function restoreComposerDraft(fid) {
@@ -4375,7 +4456,8 @@ document.querySelector('[data-saved-feed]')?.addEventListener('click', (event) =
   setBoardMode('flight-log');
   document.querySelector('.nav-more')?.removeAttribute('open');
 });
-$('#show-popular')?.addEventListener('click', () => selectFeedSort(state.feedSort === 'popular' ? 'recent' : 'popular'));
+$('#show-recent')?.addEventListener('click', () => selectFeedSort('recent'));
+$('#show-popular')?.addEventListener('click', () => selectFeedSort('popular'));
 $('#refresh-node').addEventListener('click', checkNode);
 $('#refresh-node-large')?.addEventListener('click', checkNode);
 $('#node-journey-check')?.addEventListener('click', async (event) => {
@@ -5237,7 +5319,7 @@ document.addEventListener('click', async (event) => {
       $('#composer').hidden = false;
       setComposerExpanded(true);
       $('#composer-text').placeholder = `Replying to ${profileLabel(state.people.get(targetFid), targetFid)}…`;
-      $('#composer-text').focus(); $('#composer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      focusComposerInput();
       return;
     }
     if (button.dataset.action === 'quote-cast') {

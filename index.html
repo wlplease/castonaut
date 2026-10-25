@@ -48,13 +48,13 @@
           <span><strong>castonaut</strong><small>FARCASTER · CLIENT</small></span>
         </a>
         <nav class="nav-list" aria-label="Castonaut destinations">
-          <a class="nav-item nav-destination nav-feed-destination" href="#feed" data-feed-destination="following" aria-label="Following"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span><small>Recent posts from follows</small></a>
-          <a class="nav-item nav-destination nav-feed-destination" href="#feed" data-feed-destination="friends" aria-label="Top people"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span><span class="nav-count" id="friend-count" hidden>0</span><small>Your handpicked circle</small></a>
-          <a class="nav-item nav-destination nav-feed-destination" href="#feed" data-feed-destination="discover" aria-label="Discover"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span><small>Find people through your graph</small></a>
           <p class="rail-label nav-section-label" aria-hidden="true">PERSONAL</p>
           <a class="nav-item" href="#my-desk" data-view="desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
           <a class="nav-item" href="#people-search" data-view="search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span><kbd id="search-shortcut-hint" aria-hidden="true">⌘K</kbd></a>
           <a class="nav-item" href="#profile" data-view="profile" aria-label="Your profile" title="Your profile and local appearance"><span class="nav-symbol" aria-hidden="true">◉</span><span>Profile</span></a>
+          <a class="nav-item nav-mobile-feed-destination" href="#feed" data-feed-destination="following" aria-label="Following"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span></a>
+          <a class="nav-item nav-mobile-feed-destination" href="#feed" data-feed-destination="friends" aria-label="Top people"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span><span class="nav-count" data-friend-count hidden>0</span></a>
+          <a class="nav-item nav-mobile-feed-destination" href="#feed" data-feed-destination="discover" aria-label="Discover"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span></a>
           <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><a class="nav-more-link nav-more-mobile" href="#my-desk" data-view="desk"><span>Desk</span><small>Your saved people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#people-search" data-view="search"><span>Search</span><small>Find people and posts</small></a><a class="nav-more-link nav-more-mobile" href="#profile" data-view="profile"><span>Profile</span><small>Your profile and settings</small></a><a class="nav-more-link" href="#feed" data-saved-feed><span>Saved posts</span><small>Posts saved on this device</small></a><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>How Castonaut works</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Community notes</small></a><a class="nav-more-link" href="#about" data-view="node"><span>Node</span><small>Connection and setup</small></a><a class="nav-more-link nav-more-mobile" href="/privacy.html"><span>Privacy</span></a><a class="nav-more-link nav-more-mobile" href="/terms.html"><span>Terms</span></a><a class="nav-more-link nav-more-mobile" href="/tutorial.html#security"><span>Security</span></a></div></details>
         </nav>
       </aside>
@@ -253,7 +253,7 @@
                 <div class="feed-toolbar">
                   <div><h2 id="feed-title">Following</h2><p id="feed-caption">Newest first.</p></div>
                   <div class="feed-toolbar-actions">
-                    <div class="feed-view-controls" role="group" aria-label="Feed sorting"><button type="button" class="board-tab" id="show-popular" aria-pressed="false" aria-label="Show popular posts" title="Switch between newest and popular posts">Popular</button></div>
+                    <div class="feed-view-controls feed-sort-switch" role="group" aria-label="Sort feed"><button type="button" class="board-tab" id="show-recent" aria-pressed="true">Newest</button><button type="button" class="board-tab" id="show-popular" aria-pressed="false">Popular</button></div>
                     <span class="feed-count" id="feed-count">0 POSTS</span><button type="button" class="icon-button feed-refresh-button" id="feed-refresh" aria-label="Refresh this view">↻</button>
                   </div>
                 </div>
@@ -281,7 +281,7 @@
                   <button type="button" class="composer-toggle" id="composer-toggle" aria-expanded="false" aria-controls="composer-content"><span>Write a cast</span><span class="composer-toggle-mark" aria-hidden="true">＋</span></button>
                   <div class="composer-content" id="composer-content">
                   <label class="composer-label" id="composer-label" for="composer-text">Write a cast</label>
-                  <textarea id="composer-text" rows="3" placeholder="What’s on your mind?"></textarea>
+                  <textarea id="composer-text" rows="3" inputmode="text" enterkeyhint="send" autocapitalize="sentences" spellcheck="true" placeholder="What’s on your mind?"></textarea>
                   <section class="composer-media" id="composer-media" hidden>
                     <div class="media-url-field"><label for="composer-media-url">Attach a direct image or GIF</label><input id="composer-media-url" type="url" inputmode="url" maxlength="256" placeholder="Paste a direct https://…gif link" autocomplete="url" /><p id="composer-media-note">Castonaut does not upload media. Previews are on by default; turn them off in Profile → Customize. Farcaster embeds allow up to 256 bytes per link.</p></div>
                     <button type="button" id="composer-media-clear" class="media-clear">Remove attachment</button>

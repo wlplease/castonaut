@@ -48,6 +48,49 @@ export function paceByAuthor(messages, maxRun = 2) {
   return result;
 }
 
+// Rank recent accounts by activity, while keeping the reader's own Top people
+// picks at the front of the source set.
+export function rankActiveFeedSources(groups, { ownFid, pinnedFids = [], limit = 48, activeSince = 0 } = {}) {
+  const own = Number(ownFid);
+  const pinned = [...new Set((pinnedFids || []).map(Number).filter((fid) => Number.isSafeInteger(fid) && fid > 0 && fid !== own))];
+  const activity = new Map();
+  for (const group of groups || []) {
+    const groupFid = Number(group?.fid);
+    for (const message of group?.messages || []) {
+      const fid = authorFid(message) || groupFid;
+      const createdAt = timestamp(message);
+      if (!Number.isSafeInteger(fid) || fid <= 0 || fid === own || createdAt < activeSince) continue;
+      const current = activity.get(fid) || { fid, posts: 0, latest: 0 };
+      current.posts += 1;
+      current.latest = Math.max(current.latest, createdAt);
+      activity.set(fid, current);
+    }
+  }
+  const active = [...activity.values()]
+    .sort((a, b) => b.posts - a.posts || b.latest - a.latest || a.fid - b.fid)
+    .map((person) => person.fid)
+    .filter((fid) => !pinned.includes(fid));
+  return [...pinned, ...active].slice(0, Math.max(pinned.length, Math.floor(Number(limit) || 48)));
+}
+
+// Interleave authors in a blended timeline and keep prolific accounts from
+// filling the first screen.
+export function mixAuthorTimeline(messages, { maxPerAuthor = 2 } = {}) {
+  const counts = new Map();
+  const limit = Math.max(1, Math.floor(Number(maxPerAuthor) || 2));
+  const balanced = [];
+  for (const message of messages || []) {
+    const fid = authorFid(message);
+    const count = counts.get(fid) || 0;
+    if (count >= limit) continue;
+    counts.set(fid, count + 1);
+    balanced.push(message);
+  }
+  // The input order is already chronological (or ranked by engagement). Keep
+  // that order intact; the per-author cap provides the mix without distorting it.
+  return balanced;
+}
+
 // Count how many distinct followed accounts independently follow each person.
 export function rankFollowRecommendations(linkGroups, { ownFid, followingFids, limit = 5 } = {}) {
   const excluded = new Set([Number(ownFid), ...[...(followingFids || [])].map(Number)]);

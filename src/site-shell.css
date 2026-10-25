@@ -94,6 +94,28 @@ html[data-theme="night-radio"] .site-nav a:hover { background: #211b2c; }
 html[data-theme="night-radio"] .site-footer nav a { color: #c4bdce; }
 html[data-theme="night-radio"] .site-brand strong { color: #eeeaf4; }
 
+html[data-theme="cyberpunk"] {
+  --shell-ink:#edf0fc;--shell-muted:#aeb8d0;--shell-line:#30364a;
+  --shell-paper:#090b12;--shell-accent:#83f7ff;--shell-accent-soft:#1b2031;
+}
+html[data-theme="cyberpunk"] .site-header { background:#0d101beF;box-shadow:0 6px 24px #0005; }
+html[data-theme="cyberpunk"] .site-nav a { color:#b2bdd1; }
+html[data-theme="cyberpunk"] .site-nav a:hover,
+html[data-theme="cyberpunk"] .site-nav a[aria-current="page"] { border-color:#30364a;background:#1b2031;color:#83f7ff; }
+html[data-theme="cyberpunk"] .site-footer nav a { color:#b2bdd1; }
+html[data-theme="cyberpunk"] .site-brand strong { color:#edf0fc; }
+
+html[data-theme="manga-ink"] {
+  --shell-ink:#111;--shell-muted:#555;--shell-line:#252525;
+  --shell-paper:#f7f7f4;--shell-accent:#171717;--shell-accent-soft:#e9e9e6;
+}
+html[data-theme="manga-ink"] .site-header { background:#fffffff0;box-shadow:0 2px 0 #1112; }
+html[data-theme="manga-ink"] .site-nav a { color:#484848; }
+html[data-theme="manga-ink"] .site-nav a:hover,
+html[data-theme="manga-ink"] .site-nav a[aria-current="page"] { border-color:#777;background:#e9e9e6;color:#111; }
+html[data-theme="manga-ink"] .site-footer nav a { color:#484848; }
+html[data-theme="manga-ink"] .site-brand strong { color:#111; }
+
 /* Shared site chrome follows Castonaut's original Spacebar palette. */
 html[data-theme="atlas"] {
   --shell-ink:#272631;

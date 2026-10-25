@@ -134,6 +134,18 @@ html[data-theme="night-radio"] {
   --paper:#0d151b;--card:#141f27;--soft:#1b302e;--accent:#79d6b0;--accent-soft:#1b302e;
   --mono:'DM Mono',Consolas,monospace;--display:'Space Grotesk','DM Sans Variable',sans-serif;
 }
+html[data-theme="cyberpunk"] {
+  color-scheme:dark;
+  --ink:#edf0fc;--copy:#c5cde0;--muted:#a8b2c7;--line:#30364a;
+  --paper:#090b12;--card:#111522;--soft:#1b2031;--accent:#83f7ff;--accent-soft:#25203a;
+  --mono:'DM Mono',Consolas,monospace;--display:'Space Grotesk','DM Sans Variable',sans-serif;
+}
+html[data-theme="manga-ink"] {
+  color-scheme:light;
+  --ink:#111;--copy:#292929;--muted:#555;--line:#252525;
+  --paper:#f7f7f4;--card:#fff;--soft:#e9e9e6;--accent:#171717;--accent-soft:#e2e2df;
+  --mono:'DM Mono',Consolas,monospace;--display:'Space Grotesk','DM Sans Variable',sans-serif;
+}
 html[data-theme] body:has(.guide-frame),html[data-theme] body:has(.endorse-shell) {
   --page-ink:var(--ink);--page-copy:var(--copy);--page-muted:var(--muted);
   --page-line:var(--line);--page-paper:var(--paper);--page-card:var(--card);
@@ -152,6 +164,14 @@ html[data-theme="soft-reset"] body:has(.endorse-shell),html[data-theme="soft-res
 html[data-theme="night-radio"] body:has(.endorse-shell),html[data-theme="night-radio"] body:has(.legal-shell) {
   background-image:radial-gradient(circle at 1px 1px,#c4eed20a .8px,transparent .9px),radial-gradient(ellipse at 76% 0%,#21534b55,transparent 42%);
   background-size:22px 22px,100% 720px;
+}
+html[data-theme="cyberpunk"] body:has(.guide-frame),html[data-theme="cyberpunk"] body:has(.endorse-shell),html[data-theme="cyberpunk"] body:has(.legal-shell) {
+  background-image:linear-gradient(120deg,#ff4fd808 1px,transparent 1px),radial-gradient(ellipse at 75% 0%,#34205b66,transparent 42%);
+  background-size:36px 36px,100% 720px;
+}
+html[data-theme="manga-ink"] body:has(.guide-frame),html[data-theme="manga-ink"] body:has(.endorse-shell),html[data-theme="manga-ink"] body:has(.legal-shell) {
+  background-image:radial-gradient(#1112 .65px,transparent .8px),linear-gradient(180deg,#fff9,#f7f7f400 40%);
+  background-size:7px 7px,100% 100%;
 }
 .legal-shell,.endorse-shell { color:var(--ink); }
 .legal-hero h1,.legal-section h2,.legal-section h3,.legal-section strong,

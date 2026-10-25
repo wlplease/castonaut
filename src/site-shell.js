@@ -58,10 +58,30 @@ const siteNav = document.createElement('nav');
 siteNav.className = 'site-nav';
 siteNav.setAttribute('aria-label', 'Main navigation');
 if (!isClient) siteNav.append(link('Client', '/#feed', { 'data-site-link': 'client' }));
-siteNav.append(
-  link('Guide', '/tutorial.html#quickstart', { 'data-site-link': 'guide' }),
-  link('Field notes', '/endorsements.html', { 'data-site-link': 'notes' }),
-);
+if (isClient) {
+  siteNav.append(
+    link('Following', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'following' }),
+  );
+  const topPeople = link('Top people', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'friends' });
+  const topPeopleCount = document.createElement('span');
+  topPeopleCount.className = 'app-menu-count';
+  topPeopleCount.dataset.friendCount = '';
+  topPeopleCount.hidden = true;
+  topPeopleCount.textContent = '0';
+  topPeople.append(topPeopleCount);
+  siteNav.append(
+    topPeople,
+    link('Discover', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'discover' }),
+    link('Guide', '/tutorial.html#quickstart', { 'data-site-link': 'guide' }),
+    link('Field notes', '/endorsements.html', { 'data-site-link': 'notes' }),
+    link('About', '/#about', { 'data-site-link': 'about' }),
+  );
+} else {
+  siteNav.append(
+    link('Guide', '/tutorial.html#quickstart', { 'data-site-link': 'guide' }),
+    link('Field notes', '/endorsements.html', { 'data-site-link': 'notes' }),
+  );
+}
 if (!isClient) siteNav.append(link('About', '/#about', { 'data-site-link': 'about' }));
 
 const tools = document.createElement('div');
@@ -79,7 +99,7 @@ accountToolsSlot.className = 'site-account-tools';
 if (!isClient) {
   const themePicker = document.createElement('label');
   themePicker.className = 'theme-picker site-theme-picker';
-  themePicker.innerHTML = '<span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Spacebar · Platinum</option><option value="soft-reset">Lilac Spacebar</option><option value="night-radio">Night Radio</option></select>';
+  themePicker.innerHTML = '<span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Light</option><option value="night-radio">Dark</option><optgroup label="More themes"><option value="soft-reset">Lilac Spacebar</option><option value="cyberpunk">Neon Circuit</option><option value="manga-ink">Manga Ink</option></optgroup></select>';
   accountToolsSlot.append(themePicker);
 }
 tools.append(context, accountToolsSlot);
@@ -130,7 +150,7 @@ if (route === 'privacy' || route === 'terms') header.querySelector('[data-site-l
 const THEME_STORAGE = 'castonaut.theme.v1';
 const themeSelect = header.querySelector('#theme-select');
 function applyTheme(value) {
-  const theme = ['soft-reset', 'night-radio'].includes(value) ? value : 'atlas';
+  const theme = ['soft-reset', 'night-radio', 'cyberpunk', 'manga-ink'].includes(value) ? value : 'atlas';
   document.documentElement.dataset.theme = theme;
   if (themeSelect && themeSelect.value !== theme) themeSelect.value = theme;
 }
