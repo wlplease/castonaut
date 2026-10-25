@@ -15,10 +15,10 @@
 You can browse the hosted client without setting up a node or entering an API key. Bring an existing Farcaster account when you’re ready to follow, react, or post.
 
 <p align="center">
-  <img src="docs/screenshots/desktop.png" alt="Castonaut desktop view with its Finder-like sidebar, sample timeline, and personal Desk preview" width="900">
+  <img src="docs/screenshots/desktop.png" alt="Castonaut desktop preview showing the Farcaster sample timeline, personal Desk, and how a signed cast travels through a read node to validators" width="900">
 </p>
 
-<p align="center"><em>The public preview: explore the layout and sample timeline before connecting an account.</em></p>
+<p align="center"><em>Explore a sample timeline and the read path before connecting an account. The people and posts shown here are sample content.</em></p>
 
 ## A familiar place for your Farcaster life
 
@@ -30,10 +30,30 @@ You can browse the hosted client without setting up a node or entering an API ke
 - **A Mac-inspired interface:** light and dark moods, careful typography, compact status details, responsive navigation, and keyboard access for common actions.
 
 <p align="center">
-  <img src="docs/screenshots/mobile.png" alt="Castonaut's compact layout with the navigation sidebar, Desk preview, sample feed, and fixed bottom dock" width="560">
+  <img src="docs/screenshots/mobile.png" alt="Castonaut landing page and sample timeline at a narrow 650-pixel viewport" width="420">
 </p>
 
-## Start in three steps
+<p align="center"><em>A narrow-screen preview of the landing page and sample feed.</em></p>
+
+## Run your own client and read node
+
+The hosted preview is the fastest way to explore. To run the complete self-hosted path, first install Node.js 22, the Google Cloud CLI, and this repo’s dependencies with `npm ci`; sign in to a billing-enabled Google Cloud project and select it. Then these three commands provision a Snapchain read node, start it, and point your local Castonaut client at it:
+
+```sh
+npm run provision -- us-central1-a
+npm run node -- us-central1-a
+npm run client -- --zone us-central1-a
+```
+
+The node’s first sync can take hours. Check readiness with `npm run node:check -- us-central1-a` before relying on fresh data. A read node follows and serves network state; it does not vote on blocks. It can relay signed messages to validators, so Castonaut checks the message back against network state before showing it as confirmed. Read the [three-step quickstart](https://castonaut.vercel.app/tutorial.html#quickstart) for prerequisites, cost controls, account setup, and cleanup. For a hosted deployment, set `SNAPCHAIN_URL` as a server-side environment variable and check node readiness before inviting people to use it; never expose node credentials through a `VITE_` variable.
+
+### Why run your own Snapchain read node?
+
+It gives your client a read path that you operate instead of making every feed request depend on a third-party data API. A Snapchain read node stores network state, serves the HTTP and gRPC APIs, and verifies decided blocks against validator commit certificates. Castonaut reads through that endpoint and confirms writes by reading them back after the network merges them. You can inspect readiness, shard heights, and sync delay with `npm run node:status`.
+
+This is practical infrastructure ownership, not validator status: read nodes do not propose or vote on blocks, and a node that is behind can serve stale data. Casts, follows, and reactions remain public Farcaster protocol activity. In local mode, the node can also see your computer’s public egress IP. Keep the node current, set a cloud budget alert, and shut it down when you no longer need it. See Snapchain’s [node roles](https://snapchain.farcaster.xyz/node-types), [HTTP API](https://snapchain.farcaster.xyz/reference/httpapi/httpapi), and [official node guide](https://snapchain.farcaster.xyz/guides/running-a-node).
+
+## Try Castonaut in three steps
 
 1. **Browse.** Open [castonaut.vercel.app](https://castonaut.vercel.app/) and read the public sample feed.
 2. **Connect when ready.** Use an existing Farcaster account’s recovery phrase to authorize a separate, limited app signer in this browser. The phrase is processed in the page and cleared after use; only continue on a deployment and device you trust. The app signer can perform social actions but cannot move funds. Review the account and authorization details before approving.
@@ -61,10 +81,6 @@ npm run build       # production client build
 npm test            # project checks
 npm run node:status # check your configured node
 ```
-
-## Run your own node
-
-Castonaut works as a client without a self-hosted node. If you want to operate one, the guide walks through the Snapchain setup and how the client’s signed messages and reads travel through it. Set `SNAPCHAIN_URL` on the server deployment, keep the node caught up, and check readiness before inviting people to use it. The node is public protocol infrastructure; the app’s rate limits are best-effort and are not a substitute for network-level abuse protection.
 
 ## Optional integrations
 
