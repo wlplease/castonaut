@@ -54,13 +54,12 @@
           <a class="nav-item" href="#my-desk" data-view="desk" aria-label="Your Desk"><span class="nav-symbol" aria-hidden="true">⌖</span><span>Desk</span></a>
           <a class="nav-item" href="#people-search" data-view="search" aria-label="Find people"><span class="nav-symbol" aria-hidden="true">⌕</span><span>Search</span><kbd id="search-shortcut-hint" aria-hidden="true">⌘K</kbd></a>
           <a class="nav-item" href="#profile" data-view="profile" aria-label="Your profile" title="Your profile and local appearance"><span class="nav-symbol" aria-hidden="true">◉</span><span>Profile</span></a>
-          <p class="rail-label nav-section-label" aria-hidden="true">STUDIO</p>
-          <a class="nav-item" href="#play-tools" data-view="tools" aria-label="Play and tools"><span class="nav-symbol" aria-hidden="true">✳</span><span>Play &amp; tools</span></a>
+          <a class="nav-item nav-node-direct" href="#about" data-view="node" aria-label="Node status"><span class="nav-symbol" aria-hidden="true">⌘</span><span>Node</span></a>
           <p class="rail-label nav-section-label nav-timelines-label" aria-hidden="true">TIMELINES</p>
           <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="following" aria-label="Following"><span class="nav-symbol" aria-hidden="true">⌂</span><span>Following</span></a>
           <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="friends" aria-label="Top people"><span class="nav-symbol" aria-hidden="true">✳</span><span>Top people</span><span class="nav-count" data-friend-count hidden>0</span></a>
           <a class="nav-item nav-destination nav-mobile-feed-destination" href="#feed" data-feed-destination="discover" aria-label="Discover"><span class="nav-symbol" aria-hidden="true">✧</span><span>Discover</span></a>
-          <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><span class="nav-more-heading nav-more-mobile">PERSONAL</span><a class="nav-more-link nav-more-mobile" href="#my-desk" data-view="desk"><span>Desk</span><small>Your saved people, posts, and topics</small></a><a class="nav-more-link nav-more-mobile" href="#people-search" data-view="search"><span>Search</span><small>Find accounts, posts, and channels</small></a><a class="nav-more-link nav-more-mobile" href="#profile" data-view="profile"><span>Profile</span><small>Your public profile and local settings</small></a><span class="nav-more-heading">REFERENCE</span><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>Set up your account and client</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Project notes and community context</small></a><a class="nav-more-link" href="#about" data-view="node"><span>Node</span><small>Connection status and setup</small></a><span class="nav-more-heading nav-more-mobile">POLICIES</span><a class="nav-more-link nav-more-mobile" href="/privacy.html"><span>Privacy</span><small>Data use and your choices</small></a><a class="nav-more-link nav-more-mobile" href="/terms.html"><span>Terms</span><small>Terms for the hosted client</small></a><a class="nav-more-link nav-more-mobile" href="/tutorial.html#security"><span>Security</span><small>Signer and device safety</small></a></div></details>
+          <details class="nav-more"><summary class="nav-item" aria-label="More destinations"><span class="nav-symbol" aria-hidden="true">•••</span><span>More</span></summary><div class="nav-more-menu"><span class="nav-more-heading nav-more-mobile" aria-hidden="true">PERSONAL</span><a class="nav-more-link nav-more-mobile" href="#my-desk" data-view="desk"><span>Desk</span><small>Your saved people, posts, and topics</small></a><a class="nav-more-link nav-more-mobile" href="#people-search" data-view="search"><span>Search</span><small>Find accounts, posts, and channels</small></a><a class="nav-more-link nav-more-mobile" href="#profile" data-view="profile"><span>Profile</span><small>Your public profile and local settings</small></a><a class="nav-more-link nav-more-mobile" href="#about" data-view="node"><span>Node</span><small>Connection status and setup</small></a><span class="nav-more-heading">REFERENCE</span><a class="nav-more-link" href="/tutorial.html"><span>Guide</span><small>Set up your account and client</small></a><a class="nav-more-link" href="/endorsements.html"><span>Field notes</span><small>Project notes and community context</small></a><span class="nav-more-heading nav-more-mobile">POLICIES</span><a class="nav-more-link nav-more-mobile" href="/privacy.html"><span>Privacy</span><small>Data use and your choices</small></a><a class="nav-more-link nav-more-mobile" href="/terms.html"><span>Terms</span><small>Terms for the hosted client</small></a><a class="nav-more-link nav-more-mobile" href="/tutorial.html#security"><span>Security</span><small>Signer and device safety</small></a></div></details>
         </nav>
       </aside>
 
@@ -68,8 +67,35 @@
         <header class="topbar">
           <a class="mobile-brand" href="/" aria-label="Castonaut home"><img src="/favicon.svg" alt="" /><span><strong>castonaut</strong><small>FARCASTER · CLIENT</small></span></a>
           <div class="crumb"><span class="crumb-dot"></span><span id="page-label">HOME</span></div>
+          <nav class="classic-app-menus" aria-label="Application menus">
+            <details class="classic-app-menu">
+              <summary>File</summary>
+              <div class="classic-menu-panel">
+                <button type="button" data-app-menu-action="compose">Write a cast <kbd>C</kbd></button>
+                <button type="button" data-app-menu-action="refresh">Refresh feed</button>
+                <button type="button" data-app-menu-action="saved">Saved posts</button>
+                <span class="classic-menu-divider" aria-hidden="true"></span>
+                <button type="button" data-app-menu-action="account">Account &amp; signer…</button>
+              </div>
+            </details>
+            <details class="classic-app-menu">
+              <summary>Help</summary>
+              <div class="classic-menu-panel">
+                <a href="/tutorial.html">Quickstart guide <span>↗</span></a>
+                <a href="/endorsements.html">Field notes <span>↗</span></a>
+                <a href="/tutorial.html#security">Security guide <span>↗</span></a>
+                <span class="classic-menu-divider" aria-hidden="true"></span>
+                <a href="/privacy.html">Privacy <span>↗</span></a>
+                <a href="/terms.html">Terms <span>↗</span></a>
+              </div>
+            </details>
+          </nav>
+          <nav class="classic-feed-menu" aria-label="Feed destinations">
+            <a href="#feed" data-feed-destination="following" title="Recent posts from people you follow"><span aria-hidden="true">⌂</span> Following</a>
+            <a href="#feed" data-feed-destination="friends" title="A mixed timeline from your Top people"><span aria-hidden="true">✳</span> Top people</a>
+            <a href="#feed" data-feed-destination="discover" title="Find people through your follow graph"><span aria-hidden="true">✧</span> Discover</a>
+          </nav>
           <div class="top-actions">
-            <a class="top-link" href="/tutorial.html">Guide <span>↗</span></a>
             <button type="button" class="icon-button command-open" id="command-open" aria-label="Jump to a page" title="Jump to a page · Ctrl/⌘ K">⌕</button>
             <label class="theme-picker" for="theme-select"><span aria-hidden="true">✦</span><span class="sr-only">Appearance theme</span><select id="theme-select" aria-label="Appearance theme"><option value="atlas">Light</option><option value="night-radio">Dark</option><optgroup label="More themes"><option value="soft-reset">Lilac Spacebar</option><option value="cyberpunk">Neon Circuit</option><option value="manga-ink">Manga Ink</option></optgroup></select></label>
             <button class="avatar-button" id="open-account" aria-label="Account and signer settings"><span id="avatar-initial">?</span></button>
@@ -251,7 +277,7 @@
               </section>
               </div>
               <details class="desk-accessories">
-                <summary><span>Desk tools</span><small>Orbit map · Notepad</small></summary>
+                <summary><span>Desk accessories</span><small>Notepad · Orbit Map · this device</small></summary>
                 <div class="desk-accessory-grid">
                   <details class="desk-atlas" id="desk-atlas">
                     <summary><span><strong>Orbit map</strong><small>Pinned people</small></span><span class="atlas-count" id="desk-atlas-count">0</span></summary>
@@ -394,6 +420,7 @@
                   </div>
                 </div>
                 <div class="feed-end" id="feed-end" hidden><span></span><span class="feed-end-label">END OF TRANSMISSION</span><button type="button" class="feed-more-button" id="feed-more" hidden>Load posts from more people</button><span></span></div>
+                <div class="profile-game-link" id="profile-game-link" hidden><span class="profile-game-mark" aria-hidden="true">✳</span><span class="profile-game-copy"><strong>Neon Rush</strong><small>A quick arcade run · score stays on this device</small></span><button type="button" class="button button-outline" id="profile-neon-rush-open">Play</button></div>
               </section>
 
               <aside class="right-column" aria-label="Your account and connection details">
@@ -473,7 +500,6 @@
         <button type="button" class="command-item" data-command-feed-destination="friends"><span class="command-icon">✳</span><span><strong>Top people</strong><small>Your handpicked circle</small></span></button>
         <button type="button" class="command-item" data-command-feed-destination="discover"><span class="command-icon">✧</span><span><strong>Discover</strong><small>Find people through your follow graph</small></span></button>
         <button type="button" class="command-item" data-command-view="desk"><span class="command-icon">⌖</span><span><strong>Desk</strong><small>Pinned people and saved posts</small></span></button>
-        <button type="button" class="command-item" data-command-view="tools"><span class="command-icon">✳</span><span><strong>Play &amp; tools</strong><small>Games and Mini Apps</small></span></button>
         <button type="button" class="command-item" data-command-view="search"><span class="command-icon">⌕</span><span><strong>Search</strong><small>Find a profile or loaded post</small></span></button>
         <button type="button" class="command-item" data-command-view="profile"><span class="command-icon">◉</span><span><strong>Your profile</strong><small>Posts and local profile settings</small></span></button>
         <button type="button" class="command-item" data-command-view="node"><span class="command-icon">⌘</span><span><strong>Node</strong><small>Connection and setup</small></span></button>

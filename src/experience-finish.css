@@ -526,6 +526,7 @@ html[data-theme="manga-ink"] :focus-visible { outline-color:#c43d2d; }
   .desk-leader-picker>summary { flex-wrap:wrap; gap:4px 7px; }
   .desk-leader-picker>summary small { margin-left:0; }
   .desk-leader-list { grid-template-columns:minmax(0,1fr); max-height:260px; }
+  .sidebar .nav-list>.nav-node-direct { display:none; }
 }
 
 /* Feed filters use the same quiet system panel and compact grouped controls. */
@@ -794,4 +795,133 @@ html[data-theme="manga-ink"] :focus-visible { outline-color:#c43d2d; }
 }
 @media (prefers-reduced-motion: reduce) {
   .onboarding-terminal-cursor { animation: none; }
+}
+
+/* Phone dock: a compact control strip, with the Desk one tap away. */
+@media (max-width: 620px) {
+  .app-frame { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .feed-window > .feed-toolbar { align-items: start; }
+  .feed-window > .feed-toolbar > div:first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    justify-content: start;
+    gap: 2px;
+  }
+  .feed-window > .feed-toolbar h2 { font-size: 21px; line-height: 1.12; }
+  .feed-window > .feed-toolbar #feed-caption {
+    display: -webkit-box;
+    max-width: 40ch;
+    margin: 0;
+    overflow: hidden;
+    color: var(--station-copy-muted);
+    font-size: 9px;
+    line-height: 1.35;
+    text-align: left;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .feed-window > .feed-toolbar .feed-updated { display: none; }
+  .sidebar {
+    height: calc(62px + env(safe-area-inset-bottom));
+    padding: 5px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
+    border-top: 1px solid var(--station-line);
+    background-color: color-mix(in srgb, var(--station-card) 96%, transparent);
+    background-image: repeating-linear-gradient(0deg, color-mix(in srgb, var(--station-ink) 3%, transparent) 0 1px, transparent 1px 3px);
+    box-shadow: 0 -3px 12px color-mix(in srgb, var(--station-ink) 7%, transparent), inset 0 1px color-mix(in srgb, var(--station-card) 82%, white);
+  }
+  .sidebar .nav-list {
+    height: 50px;
+    max-height: 50px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .sidebar .nav-list > .nav-item[data-view="desk"] { display: flex; order: 4; }
+  .sidebar .nav-list > .nav-destination[data-feed-destination="following"] { order: 1; }
+  .sidebar .nav-list > .nav-destination[data-feed-destination="friends"] { order: 2; }
+  .sidebar .nav-list > .nav-destination[data-feed-destination="discover"] { order: 3; }
+  .sidebar .nav-list > .nav-more { order: 5; }
+  .sidebar .nav-list .nav-item {
+    height: 48px;
+    min-height: 46px;
+    gap: 2px;
+    padding: 3px 1px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--station-copy-muted);
+    font-size: 8px;
+    touch-action: manipulation;
+  }
+  .sidebar .nav-list .nav-item .nav-symbol { height: 18px; font-size: 15px; line-height: 18px; }
+  .sidebar .nav-list .nav-item span:not(.nav-symbol) { font-size: 8px; }
+  .sidebar .nav-list .nav-item.active {
+    border-color: color-mix(in srgb, var(--station-accent) 20%, var(--station-line));
+    background: color-mix(in srgb, var(--station-accent) 7%, var(--station-card));
+    color: var(--station-ink);
+    box-shadow: inset 0 2px var(--station-accent);
+  }
+  .sidebar .nav-list > .nav-more .nav-more-mobile[href="#my-desk"] { display: none; }
+  .nav-more > summary { height: 48px; min-height: 46px; border: 1px solid transparent; border-radius: 5px; }
+  .nav-more[data-active] > summary,
+  .nav-more[open] > summary { border-color: color-mix(in srgb, var(--station-accent) 20%, var(--station-line)); background: color-mix(in srgb, var(--station-accent) 7%, var(--station-card)); }
+  .nav-more-menu { bottom: calc(100% + 7px); }
+
+  .feed-statusbar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px 7px;
+    min-height: 40px;
+    padding: 5px 8px;
+  }
+  .feed-status-account,
+  .feed-status-network { min-width: 0; }
+  .feed-status-account { gap: 5px; }
+  .feed-status-account small { font-size: 6px; letter-spacing: .04em; }
+  .feed-status-account strong,
+  .feed-status-network strong { font-size: 8px; }
+  .feed-status-network { overflow: hidden; }
+  .feed-status-open { display: none; }
+  .feed-status-media { grid-column: 1; grid-row: 2; min-height: 22px; padding-inline: 6px; font-size: 7px; }
+  .feed-status-activity { grid-column: 2; grid-row: 2; font-size: 7px; }
+
+  .feed-window > .feed-list > .post-card,
+  .feed-window > .feed-list > .repeat-cluster > .post-card { border-radius: 3px; }
+  .feed-window .post-copy { max-width: 66ch; line-height: 1.58; }
+  .feed-window .post-actions .post-action { min-width: 36px; min-height: 36px; touch-action: manipulation; }
+  .feed-window .post-reference-card,
+  .feed-window .post-link-preview,
+  .feed-window .post-image-frame { min-width: 0; max-width: 100%; }
+
+  .desk-accessories > summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-content: center;
+    justify-content: initial;
+    gap: 3px 8px;
+    min-height: 48px;
+    padding: 6px 9px;
+  }
+  .desk-accessories > summary > span:first-child { grid-column: 1; grid-row: 1; }
+  .desk-accessories > summary small { grid-column: 1; grid-row: 2; margin: 0; font-size: 7px; }
+  .desk-accessories > summary::after { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+}
+
+@media (max-width: 380px) {
+  .sidebar .nav-list { gap: 1px; }
+  .sidebar .nav-list .nav-item,
+  .nav-more > summary { font-size: 7px; }
+  .sidebar .nav-list .nav-item span:not(.nav-symbol) { font-size: 7px; }
+  .feed-status-account small { display: none; }
+  .feed-status-activity { font-size: 6px; }
+  .feed-window .post-actions .post-action { min-width: 34px; min-height: 36px; }
+}
+
+/* Touch controls get a clear pressed response, like a button on a small Mac. */
+@media (hover: none) and (pointer: coarse) {
+  :is(.button, .icon-button, .post-action, .board-tab, .profile-tab,
+      .desk-stack-tab, .nav-item, .nav-more > summary):active {
+    transform: translateY(1px);
+    filter: brightness(.96);
+    transition: none;
+  }
 }

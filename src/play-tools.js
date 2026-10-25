@@ -114,6 +114,7 @@ export function refreshMiniAppShelf(messages) { renderMiniApps(messages); }
 export function initPlayTools({ onShareScore }) {
   paintBest();
   $('#neon-rush-open')?.addEventListener('click', openGame);
+  $('#profile-neon-rush-open')?.addEventListener('click', openGame);
   $('#neon-rush-close')?.addEventListener('click', () => $('#neon-rush-dialog').close());
   $('#neon-rush-dialog')?.addEventListener('close', closeGame);
   document.addEventListener('visibilitychange', () => {

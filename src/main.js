@@ -2950,12 +2950,15 @@ function renderProfileSummary() {
   const card = $('#profile-summary');
   if (!card) return;
   const timelineControls = $('#profile-timeline-controls');
+  const gameLink = $('#profile-game-link');
   const isProfile = state.boardMode === 'signals' && state.feedMode === 'profile' && state.feedTargetFid;
   card.hidden = !isProfile;
   if (timelineControls) timelineControls.hidden = !isProfile;
+  if (gameLink) gameLink.hidden = true;
   if (!isProfile) return;
   const profile = state.people.get(state.feedTargetFid) || { fid: state.feedTargetFid, name: `Farcaster ${state.feedTargetFid}`, username: `fid-${state.feedTargetFid}`, avatar: '', bio: '' };
   const isOwnProfile = !!state.signerReady && Number(profile.fid) === Number(state.fid);
+  if (gameLink) gameLink.hidden = !isOwnProfile;
   const local = state.profileNotes[profile.fid] || {};
   const shell = document.createElement('div'); shell.className = 'profile-summary-main';
   const cover = document.createElement('div');
@@ -5663,6 +5666,48 @@ $('#command-items').addEventListener('click', (event) => {
   if (item.dataset.commandAction === 'saved') { navigate('feed'); setBoardMode('flight-log'); return; }
   if (item.dataset.commandFeedDestination) { void openFeedDestination(item.dataset.commandFeedDestination); return; }
   document.querySelector(`[data-view="${item.dataset.commandView}"]`)?.click();
+});
+document.querySelectorAll('.classic-app-menu').forEach((menu) => {
+  menu.addEventListener('toggle', () => {
+    if (!menu.open) return;
+    document.querySelectorAll('.classic-app-menu').forEach((other) => { if (other !== menu) other.open = false; });
+  });
+  menu.querySelector('summary')?.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    menu.open = true;
+    requestAnimationFrame(() => menu.querySelector('.classic-menu-panel a, .classic-menu-panel button')?.focus());
+  });
+  menu.addEventListener('keydown', (event) => {
+    const items = [...menu.querySelectorAll('.classic-menu-panel a, .classic-menu-panel button')];
+    const index = items.indexOf(document.activeElement);
+    if (index < 0) return;
+    const next = event.key === 'ArrowDown' ? (index + 1) % items.length
+      : event.key === 'ArrowUp' ? (index - 1 + items.length) % items.length
+        : event.key === 'Home' ? 0
+          : event.key === 'End' ? items.length - 1 : -1;
+    if (next < 0) return;
+    event.preventDefault();
+    items[next].focus();
+  });
+  menu.addEventListener('click', (event) => {
+    if (event.target.closest('.classic-menu-panel a')) { menu.open = false; return; }
+    const action = event.target.closest('[data-app-menu-action]');
+    if (!action) return;
+    menu.open = false;
+    document.querySelector(`#command-items [data-command-action="${action.dataset.appMenuAction}"]`)?.click();
+  });
+});
+document.addEventListener('click', (event) => {
+  if (event.target.closest('.classic-app-menus')) return;
+  document.querySelectorAll('.classic-app-menu[open]').forEach((menu) => { menu.open = false; });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const menu = document.querySelector('.classic-app-menu[open]');
+  if (!menu) return;
+  menu.open = false;
+  menu.querySelector('summary')?.focus();
 });
 commandPalette.addEventListener('click', (event) => { if (event.target === commandPalette) commandPalette.close(); });
 document.addEventListener('keydown', (event) => {

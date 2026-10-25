@@ -1,6 +1,142 @@
 /* Castonaut's desktop layer: a quiet menu bar, clear navigation rail,
    and readable paper windows. Theme colors still come from the active palette. */
 
+.classic-feed-menu { display:none; }
+.classic-app-menus { display:none; }
+
+@media (min-width: 981px) {
+  .classic-app-menus {
+    display:flex;
+    align-items:center;
+    gap:1px;
+    flex:0 0 auto;
+  }
+
+  .classic-app-menu { position:relative; }
+  .classic-app-menu>summary {
+    display:flex;
+    align-items:center;
+    min-height:34px;
+    padding:0 9px;
+    border:1px solid transparent;
+    border-radius:3px;
+    color:var(--station-ink);
+    font:500 11px/1 var(--display);
+    list-style:none;
+    cursor:pointer;
+  }
+  .classic-app-menu>summary::-webkit-details-marker { display:none; }
+  .classic-app-menu[open]>summary,
+  .classic-app-menu>summary:hover,
+  .classic-app-menu>summary:focus-visible {
+    border-color:var(--station-line);
+    background:var(--station-card);
+    outline-color:var(--station-accent);
+  }
+
+  .classic-menu-panel {
+    position:absolute;
+    z-index:80;
+    top:calc(100% + 3px);
+    left:0;
+    display:grid;
+    min-width:205px;
+    padding:4px;
+    border:1px solid var(--station-line);
+    border-radius:4px;
+    background:var(--station-card);
+    box-shadow:2px 3px 0 color-mix(in srgb,var(--station-ink) 8%,transparent),0 9px 22px color-mix(in srgb,var(--station-ink) 16%,transparent);
+  }
+
+  .classic-menu-panel button,
+  .classic-menu-panel a {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    min-height:32px;
+    padding:0 9px;
+    border:0;
+    border-radius:2px;
+    background:transparent;
+    color:var(--station-ink);
+    font:450 11px/1.2 var(--display);
+    text-align:left;
+    cursor:pointer;
+  }
+  .classic-menu-panel button:hover,
+  .classic-menu-panel a:hover,
+  .classic-menu-panel button:focus-visible,
+  .classic-menu-panel a:focus-visible {
+    background:var(--station-soft);
+    color:var(--station-accent);
+    outline:none;
+  }
+  .classic-menu-panel kbd { color:var(--station-copy-muted); font:9px var(--mono); }
+  .classic-menu-panel a span { color:var(--station-copy-muted); font:9px var(--mono); }
+  .classic-menu-divider { height:1px; margin:3px 5px; background:var(--station-line); }
+
+  .classic-feed-menu {
+    display:flex;
+    align-items:center;
+    gap:2px;
+    min-width:0;
+    margin-inline:auto;
+    padding:3px;
+    border:1px solid var(--station-line);
+    border-radius:5px;
+    background:color-mix(in srgb,var(--station-soft) 30%,var(--station-paper));
+  }
+
+  .classic-feed-menu a {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    min-height:34px;
+    padding:0 13px;
+    border:1px solid transparent;
+    border-radius:3px;
+    color:var(--station-copy-muted);
+    font:550 11px/1 var(--display);
+    white-space:nowrap;
+    transition:background-color .14s ease,color .14s ease,border-color .14s ease;
+  }
+
+  .classic-feed-menu a>span {
+    color:var(--station-accent);
+    font:12px/1 var(--mono);
+  }
+
+  .classic-feed-menu a:hover {
+    border-color:var(--station-line);
+    background:var(--station-card);
+    color:var(--station-ink);
+  }
+
+  .classic-feed-menu a.active {
+    border-color:color-mix(in srgb,var(--station-accent) 23%,var(--station-line));
+    background:var(--station-card);
+    color:var(--station-ink);
+    box-shadow:inset 0 -2px var(--station-accent);
+  }
+
+  .sidebar .nav-list>.nav-timelines-label,
+  .sidebar .nav-list>.nav-destination,
+  .sidebar .nav-list>.nav-more { display:none; }
+}
+
+@media (max-width: 980px) {
+  .classic-feed-menu { display:none; }
+  .classic-app-menus { display:none; }
+}
+
+@media (min-width: 981px) and (max-width: 1120px) {
+  .topbar .crumb,
+  .topbar .top-link { display:none; }
+  .classic-feed-menu a { gap:5px; padding-inline:9px; font-size:10px; }
+}
+
 .site-header {
   min-height: 66px;
   border-bottom: 1px solid var(--shell-line);
