@@ -9,6 +9,12 @@
     },
     "api/giphy.js": {
       "maxDuration": 10
+    },
+    "api/neynar-auth.js": {
+      "maxDuration": 30
+    },
+    "api/neynar-write.js": {
+      "maxDuration": 30
     }
   },
   "headers": [

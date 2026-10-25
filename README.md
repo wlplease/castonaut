@@ -20,7 +20,24 @@ Public feed/profile reads also use a bounded device cache (up to 32 responses, 1
 
 Open the [client](https://castonaut.vercel.app/). Reading the sample preview does not require an account. To post, follow, or personalize the Desk, sign in with an existing Farcaster account that has storage.
 
-Sign in with an existing Farcaster account that has storage by entering its Farcaster recovery phrase. Castonaut derives and checks the account locally, clears the field, then asks you to authorize a separate, limited app key. The phrase is not saved or sent to Castonaut’s server, though page code can read it while you enter it; use phrase sign-in only on a site and device you trust. The app key stays in this browser. “Forget this browser” deletes the local key, while revoking the protocol signer must be done separately in Farcaster account settings. App-key authorization is gasless and does not require an Optimism transaction. Farcaster’s signer label may remain generic until Castonaut has a registered app FID and custody-signed app-request metadata.
+The client supports two sign-in paths. The existing browser-key path checks your recovery phrase in the tab, clears the field, then asks you to authorize a limited key kept in this browser. The optional Neynar managed-signer path lets you approve Castonaut in a Farcaster client without entering your phrase here; once enabled, it routes social writes through Castonaut’s server and Neynar. Both paths use revocable social signers, and neither grants access to funds or account custody. “Forget this browser” signs out or deletes the local key; revoke the Farcaster signer separately in account settings.
+
+### Optional Neynar managed sign-in
+
+This path is off until the operator configures it. Create a Neynar API key and set these values as **server-only** environment variables in Vercel (or in `.env.local` for local development):
+
+```text
+NEYNAR_API_KEY=...
+CASTONAUT_APP_FID=...
+CASTONAUT_APP_PRIVATE_KEY=0x...
+CASTONAUT_SESSION_SECRET=...
+```
+
+`CASTONAUT_APP_FID` and `CASTONAUT_APP_PRIVATE_KEY` must belong to the Castonaut developer Farcaster account. The private key signs managed-signer authorization requests; it must never be exposed to browser code or committed. Generate a unique session secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`. Never use a `VITE_` prefix for any of these values. After setting the values, restart local Vite or redeploy through the operator’s normal release process. The connect dialog checks server configuration and only shows managed sign-in when the endpoint is ready.
+
+Managed sessions expire after seven days. In production, the session cookie is `HttpOnly`, `Secure`, `SameSite=Lax`, and host-only; changing `CASTONAUT_SESSION_SECRET` logs out existing managed sessions. The API checks the approved signer before every write and accepts only the Castonaut actions listed above. Keep the hosting account and its environment-variable access limited to trusted operators. The built-in request limits are per server process; for high traffic, add a shared edge or Redis rate limiter to protect the Neynar API key across serverless instances.
+
+Neynar’s managed signer approval authorizes social actions in the Farcaster app. The Castonaut server keeps only an HTTP-only signed session and signer identifier; it never receives the user’s recovery phrase or the signer’s private key. Managed writes use Neynar’s APIs for casts, replies, follows, likes, and recasts. Reads and confirmation indicators still come from the configured Snapchain node, so a delayed node can take time to display a newly accepted write. See [Neynar’s managed signer guide](https://docs.neynar.com/docs/integrate-managed-signers).
 
 ## Run locally
 

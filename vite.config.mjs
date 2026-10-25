@@ -196,6 +196,32 @@ function localGiphyAdapter(serverEnv) {
   };
 }
 
+function localNeynarAdapter(serverEnv) {
+  return {
+    name: 'castonaut-local-neynar-adapter',
+    configureServer(server) {
+      for (const key of ['NEYNAR_API_KEY', 'CASTONAUT_APP_FID', 'CASTONAUT_APP_PRIVATE_KEY', 'CASTONAUT_SESSION_SECRET']) {
+        if (!process.env[key] && serverEnv[key]) process.env[key] = serverEnv[key];
+      }
+      const handlers = new Map();
+      const dispatch = (modulePath) => async (req, res) => {
+        try {
+          if (!handlers.has(modulePath)) handlers.set(modulePath, server.ssrLoadModule(modulePath).then((module) => module.default));
+          const handler = await handlers.get(modulePath);
+          res.status = (code) => { res.statusCode = code; return res; };
+          res.json = (body) => { if (!res.headersSent) res.setHeader('content-type', 'application/json; charset=utf-8'); res.end(JSON.stringify(body)); return res; };
+          await handler(req, res);
+        } catch (error) {
+          if (!res.headersSent) sendJson(res, 500, { error: 'Local managed sign-in could not start. Check the server console.' });
+          server.config.logger.error(`[castonaut local API] ${error.stack || error.message}`);
+        }
+      };
+      server.middlewares.use('/api/neynar-auth', dispatch('/api/neynar-auth.js'));
+      server.middlewares.use('/api/neynar-write', dispatch('/api/neynar-write.js'));
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // Vite does not put .env values in process.env for config plugins. Read them
   // here, and pass only the server-side Snapchain settings to the adapter.
@@ -206,13 +232,18 @@ export default defineConfig(({ mode }) => {
     SNAPCHAIN_HTTP_USER: process.env.SNAPCHAIN_HTTP_USER || loaded.SNAPCHAIN_HTTP_USER || '',
     SNAPCHAIN_HTTP_PASS: process.env.SNAPCHAIN_HTTP_PASS || loaded.SNAPCHAIN_HTTP_PASS || '',
     GIPHY_PROXY_URL: process.env.GIPHY_PROXY_URL || loaded.GIPHY_PROXY_URL || 'https://castonaut.vercel.app/api/giphy',
+    NEYNAR_API_KEY: process.env.NEYNAR_API_KEY || loaded.NEYNAR_API_KEY || '',
+    CASTONAUT_APP_FID: process.env.CASTONAUT_APP_FID || loaded.CASTONAUT_APP_FID || '',
+    CASTONAUT_APP_PRIVATE_KEY: process.env.CASTONAUT_APP_PRIVATE_KEY || loaded.CASTONAUT_APP_PRIVATE_KEY || '',
+    CASTONAUT_SESSION_SECRET: process.env.CASTONAUT_SESSION_SECRET || loaded.CASTONAUT_SESSION_SECRET || '',
   };
 
   return {
-    plugins: [localSnapchainAdapter(serverEnv), localGiphyAdapter(serverEnv)],
+    plugins: [localSnapchainAdapter(serverEnv), localGiphyAdapter(serverEnv), localNeynarAdapter(serverEnv)],
     resolve: {
       alias: [{ find: /^@faker-js\/faker$/, replacement: resolve(process.cwd(), 'src/faker-compat.js') }],
     },
+    ssr: { noExternal: ['@farcaster/core'] },
     publicDir: 'public',
     build: {
       outDir: 'dist',

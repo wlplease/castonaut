@@ -96,15 +96,15 @@ function renderMiniApps(messages) {
     return;
   }
   for (const app of entries) {
-    const link = document.createElement('a');
+    const link = document.createElement('button');
+    link.type = 'button';
     link.className = 'mini-app-card';
-    link.href = app.url.href;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
+    link.dataset.miniAppUrl = app.url.href;
+    link.setAttribute('aria-label', `Open ${app.title} inside Castonaut`);
     const mark = document.createElement('span'); mark.className = 'mini-app-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = '✳';
     const copy = document.createElement('span'); copy.className = 'mini-app-copy';
     const title = document.createElement('strong'); title.textContent = app.title;
-    const detail = document.createElement('small'); detail.textContent = `${app.url.hostname} · Open Mini App ↗`;
+    const detail = document.createElement('small'); detail.textContent = `${app.url.hostname} · Open in Castonaut`;
     copy.append(title, detail); link.append(mark, copy); shelf.append(link);
   }
 }

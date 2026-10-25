@@ -59,20 +59,6 @@ siteNav.className = 'site-nav';
 siteNav.setAttribute('aria-label', 'Main navigation');
 if (!isClient) siteNav.append(link('Client', '/#feed', { 'data-site-link': 'client' }));
 if (isClient) {
-  siteNav.append(
-    link('Following', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'following', title: 'Recent posts from people you follow' }),
-  );
-  const topPeople = link('Top people', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'friends', title: 'Your picks and active people in your follow graph' });
-  const topPeopleCount = document.createElement('span');
-  topPeopleCount.className = 'app-menu-count';
-  topPeopleCount.dataset.friendCount = '';
-  topPeopleCount.hidden = true;
-  topPeopleCount.textContent = '0';
-  topPeople.append(topPeopleCount);
-  siteNav.append(
-    topPeople,
-    link('Discover', '/#feed', { class: 'app-menu-link', 'data-feed-destination': 'discover', title: 'Find people through your follow graph' }),
-  );
   const more = document.createElement('details');
   more.className = 'site-menu-more';
   const summary = document.createElement('summary');

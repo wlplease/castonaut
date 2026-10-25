@@ -56,6 +56,187 @@ function trackPageview(route) {
 try { if (localStorage.getItem(ANALYTICS_CONSENT_STORAGE) === 'yes') enableAnalytics(); } catch { /* Analytics stays off when consent cannot be read. */ }
 
 const $ = (selector) => document.querySelector(selector);
+async function managedAuthRequest(action, options = {}) {
+  const response = await fetch(`/api/neynar-auth?action=${encodeURIComponent(action)}`, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    ...options,
+    headers: { ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) },
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || `Managed sign-in failed (${response.status}).`);
+  return body;
+}
+
+async function managedWrite(payload) {
+  const response = await fetch('/api/neynar-write', {
+    method: 'POST', credentials: 'same-origin', cache: 'no-store',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || `Farcaster action failed (${response.status}).`);
+  return body;
+}
+
+async function refreshManagedAuthOption() {
+  const section = $('#managed-signin');
+  if (!section) return;
+  try {
+    const response = await fetch('/api/neynar-auth?action=config', { credentials: 'same-origin', cache: 'no-store' });
+    const config = await response.json();
+    const enabled = response.ok && config.enabled === true;
+    section.hidden = !enabled;
+    const phraseOption = document.querySelector('.connect-phrase-option');
+    if (phraseOption) phraseOption.open = !enabled;
+  } catch {
+    section.hidden = true;
+    const phraseOption = document.querySelector('.connect-phrase-option');
+    if (phraseOption) phraseOption.open = true;
+  }
+}
+
+function managedParentHash(parent) {
+  if (!parent) return '';
+  return String(parent.hash || '');
+}
+
+async function finishManagedSignIn(fid) {
+  clearInterval(startManagedSignIn.poll);
+  try { localStorage.setItem(SIGN_IN_MODE_STORAGE, 'neynar'); } catch { /* The signed server cookie still restores this session. */ }
+  state.fid = Number(fid);
+  state.signer = null;
+  state.signerMode = 'neynar';
+  state.publicKey = '';
+  state.custodyAddress = '';
+  state.hasPendingKeyAdd = false;
+  state.signerReady = true;
+  state.following.clear();
+  state.followStatusUnknown.clear();
+  loadFlightLog(state.fid);
+  loadTimeCapsules(state.fid);
+  restoreComposerDraft(state.fid);
+  $('#managed-signin-status').textContent = `Connected · FID ${state.fid.toLocaleString()}.`;
+  $('#managed-signin-approval').hidden = true;
+  $('#managed-signin-check').hidden = true;
+  renderIdentity();
+  await fetchProfile(state.fid).catch(() => null);
+  renderIdentity();
+  await loadFeed(state.fid);
+  setNotice('Farcaster account connected. Your managed Castonaut signer is ready.', 'success');
+  if ($('#connect-dialog').open) setTimeout(() => $('#connect-dialog').close(), 500);
+}
+
+async function checkManagedApproval({ quiet = false } = {}) {
+  if (state.managedAuthChecking) return;
+  state.managedAuthChecking = true;
+  const status = $('#managed-signin-status');
+  const check = $('#managed-signin-check');
+  if (check) check.disabled = true;
+  try {
+    const result = await managedAuthRequest('status');
+    if (result.status === 'approved' && Number(result.fid) > 0) {
+      await finishManagedSignIn(Number(result.fid));
+    } else if (result.status === 'pending') {
+      if (status) status.textContent = 'Waiting for approval in Farcaster…';
+    } else if (result.status === 'revoked' || result.status === 'expired' || result.status === 'none') {
+      if (status) status.textContent = result.status === 'revoked' ? 'The signer was revoked. Start a new request if you want to connect.' : 'No pending approval. Start a new request to connect.';
+      clearInterval(startManagedSignIn.poll);
+      if (result.status !== 'pending') {
+        $('#managed-signin-approval').hidden = true;
+        if (check) check.hidden = true;
+      }
+    }
+  } catch (error) {
+    if (!quiet && status) status.textContent = error.message;
+  } finally {
+    state.managedAuthChecking = false;
+    if (check) check.disabled = false;
+  }
+}
+
+async function startManagedSignIn() {
+  const start = $('#managed-signin-start');
+  const status = $('#managed-signin-status');
+  const approval = $('#managed-signin-approval');
+  const check = $('#managed-signin-check');
+  if (start) start.disabled = true;
+  if (status) status.textContent = 'Preparing a limited signer request…';
+  try {
+    const result = await managedAuthRequest('start', { method: 'POST', body: '{}' });
+    if (result.status === 'approved') {
+      await checkManagedApproval();
+      return;
+    }
+    const { approvalUrl } = result;
+    approval.href = approvalUrl;
+    approval.hidden = false;
+    if (check) check.hidden = false;
+    if (status) status.textContent = 'Open the request in Farcaster and approve Castonaut. This tab will check for confirmation.';
+    await checkManagedApproval({ quiet: true });
+    if (state.signerMode === 'neynar') return;
+    clearInterval(startManagedSignIn.poll);
+    startManagedSignIn.poll = setInterval(() => { if (!document.hidden) void checkManagedApproval({ quiet: true }); }, 5000);
+  } catch (error) {
+    if (status) status.textContent = error.message;
+  } finally {
+    if (start) start.disabled = false;
+  }
+}
+
+$('#managed-signin-start')?.addEventListener('click', startManagedSignIn);
+$('#managed-signin-check')?.addEventListener('click', () => checkManagedApproval());
+
+void refreshManagedAuthOption();
+
+function openMiniApp(value) {
+  let url;
+  try { url = new URL(value); } catch { return; }
+  if (!isFarcasterMiniAppLink(url)) return;
+  const dialog = $('#mini-app-dialog');
+  const frame = $('#mini-app-frame');
+  if (!dialog || !frame) return;
+  const rawTitle = url.pathname.split('/').filter(Boolean).at(-1) || 'Mini App';
+  let titleSlug = rawTitle;
+  try { titleSlug = decodeURIComponent(rawTitle); } catch { /* Keep the URL-safe slug as its title. */ }
+  const title = titleSlug
+    .replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  $('#mini-app-dialog-title').textContent = title;
+  $('#mini-app-dialog-host').textContent = `${url.hostname} · running inside Castonaut`;
+  $('#mini-app-open-original').href = url.href;
+  frame.title = `${title} · Farcaster Mini App`;
+  $('#mini-app-loading').hidden = false;
+  frame.src = url.href;
+  if (!dialog.open) dialog.showModal();
+}
+
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+  const appButton = target.closest('[data-mini-app-url]');
+  if (appButton) {
+    event.preventDefault();
+    openMiniApp(appButton.dataset.miniAppUrl);
+    return;
+  }
+  const link = target.closest('a[href]');
+  if (!link || link.id === 'mini-app-open-original') return;
+  let url;
+  try { url = new URL(link.href); } catch { return; }
+  if (!isFarcasterMiniAppLink(url)) return;
+  event.preventDefault();
+  openMiniApp(url.href);
+}, true);
+
+$('#mini-app-close')?.addEventListener('click', () => $('#mini-app-dialog')?.close());
+$('#mini-app-frame')?.addEventListener('load', () => { $('#mini-app-loading').hidden = true; });
+$('#mini-app-dialog')?.addEventListener('close', () => {
+  $('#mini-app-frame').removeAttribute('src');
+  $('#mini-app-loading').hidden = true;
+});
+$('#mini-app-dialog')?.addEventListener('click', (event) => {
+  if (event.target === $('#mini-app-dialog')) $('#mini-app-dialog').close();
+});
+
 const connectionDetails = $('#status-card');
 if (connectionDetails && typeof window.matchMedia === 'function') {
   const desktopLayout = window.matchMedia('(min-width: 761px)');
@@ -102,6 +283,7 @@ function isAddress(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}
 const FARCASTER_EPOCH_MS = Date.UTC(2021, 0, 1);
 const KEY_TTL_SECONDS = 30 * 24 * 60 * 60;
 const LEGACY_KEY_STORAGE = 'openroom.snapchain.signer.v1';
+const SIGN_IN_MODE_STORAGE = 'castonaut.sign-in-mode.v1';
 const SIGNER_DB = 'castonaut-security';
 const SIGNER_STORE = 'signers';
 const DESK_STORAGE = 'packet-porch.desk-pins.v1';
@@ -132,7 +314,7 @@ const LOCAL_BACKUP_VERSION = 1;
 const PORTABLE_STORAGE_KEYS = [DESK_STORAGE, DESK_CASTS_STORAGE, DESK_NOTEPAD_STORAGE, DESK_TOPICS_STORAGE, DESK_SORT_STORAGE, PROFILE_NOTES_STORAGE, FLIGHT_LOG_STORAGE, REMOTE_MEDIA_STORAGE, REPEAT_GROUPING_STORAGE, THEME_STORAGE, VOICE_STORAGE, FRIENDS_STORAGE, CREW_STORAGE, CREW_NAME_STORAGE, MUTED_AUTHORS_STORAGE, MUTED_TOPICS_STORAGE, FEED_OPTIONS_STORAGE, FEED_SCROLL_STORAGE, PROFILE_PINS_STORAGE, PROFILE_COVERS_STORAGE];
 const ID_REGISTRY_ADDRESS = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b';
 const ID_REGISTRY_ABI = [{ type: 'function', name: 'idOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'fid', type: 'uint256' }] }];
-const state = { fid: null, signer: null, publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedCastPageTokens: new Map(), feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
+const state = { fid: null, signer: null, signerMode: 'none', publicKey: '', custodyAddress: '', signerReady: false, sessionRestoring: true, hasPendingKeyAdd: false, managedAuthChecking: false, capsules: [], activeCapsule: '', nodeInfo: null, casts: [], feedFailedSources: 0, deskActivityCasts: [], deskActivityOffset: 0, deskActivityBusy: false, visibleCasts: [], messages: new Map(), people: new Map(), following: new Map(), followStatusUnknown: new Set(), sourceBySigner: new Map(), conversation: null, parent: null, threadRoot: null, threadItems: [], threadPending: null, pendingCast: null, feedQuery: '', feedBusy: false, feedMoreBusy: false, feedPending: null, feedRequest: 0, feedSources: [], feedSourceOffset: 0, feedCastPageTokens: new Map(), feedFollowTotal: 0, feedFollowComplete: true, feedFollowNextPageToken: '', profileNextPageToken: '', profileWindowStart: 0, profileArchiveMode: false, profileSeenPageTokens: new Set(), suggestedPeople: [], suggestionsBusy: false, suggestionsError: false, suggestionsLoadedFor: 0, feedMode: 'following', feedSort: 'recent', feedTargetFid: null, boardMode: 'signals', profileTab: 'posts', savedCasts: [], deskPins: [], deskCasts: [], deskTopics: [], activeDeskTopic: '', friendFids: [], mutedAuthors: [], mutedTopics: [], profilePins: {}, profileCovers: {}, profileNotes: {}, remoteMediaEnabled: false, groupRepeats: true, repliesOnly: false, mediaOnly: false, appsOnly: false, orbitOnly: false, compactMode: false, feedScroll: {} };
 function loadDeskSortPreferences() {
   let stored = {};
   try { stored = JSON.parse(localStorage.getItem(DESK_SORT_STORAGE) || '{}'); } catch { /* Use the recent-first defaults. */ }
@@ -1035,7 +1217,7 @@ function renderFeedStatusbar() {
   const handle = profile?.username && !/^fid-\d+$/.test(profile.username) ? `@${profile.username}` : '';
   setText(account, state.signerReady ? (handle || `FID ${Number(state.fid).toLocaleString()}`)
     : state.fid ? `FID ${Number(state.fid).toLocaleString()} · read-only` : 'Read-only');
-  account.title = state.signerReady ? `Active Farcaster account${state.fid ? ` · FID ${Number(state.fid)}` : ''}. Castonaut’s limited social key has no funds access.`
+  account.title = state.signerReady ? `Active Farcaster account${state.fid ? ` · FID ${Number(state.fid)}` : ''}. ${state.signerMode === 'neynar' ? 'Review the managed signer permissions in Farcaster; this key has no funds access.' : 'Castonaut’s browser key has no funds access.'}`
     : state.fid ? 'Account identified; social actions are paused until the signer is confirmed.' : 'Connect an account to post or react. Browsing is read-only.';
 
   const maxDelay = maxNodeDelay();
@@ -1062,8 +1244,9 @@ function renderFeedStatusbar() {
   $('#feed-status-node')?.setAttribute('aria-label', `${network.textContent}. Open node details.`);
 
   const activity = $('#feed-status-activity');
-  setText(activity, state.feedMoreBusy ? (state.feedMode === 'friends' ? 'Finding more active people…' : 'Checking more followed accounts…')
-    : state.feedBusy ? `Loading ${state.feedMode === 'friends' ? 'Top people' : state.feedMode === 'profile' ? 'profile posts' : 'Following'}…`
+  setText(activity, state.sessionRestoring && !state.feedBusy ? (state.fid ? 'Restoring account…' : 'Checking this browser…')
+    : state.feedMoreBusy ? (state.feedMode === 'friends' ? 'Finding more active people…' : 'Checking more followed accounts…')
+    : state.feedBusy ? (state.feedMode === 'friends' ? 'Loading Top people…' : state.feedMode === 'profile' ? 'Loading profile posts…' : 'Loading recent posts…')
       : state.feedFailedSources && !state.casts.length ? `Could not check ${state.feedFailedSources} ${state.feedMode === 'friends' ? 'people' : 'followed accounts'}`
       : !state.nodeInfo && nodeKind === 'bad' ? 'Waiting for the node'
       : state.feedFailedSources ? `${state.feedFailedSources} sources unavailable · results may be partial`
@@ -1086,9 +1269,9 @@ function feedWindowTitle() {
 }
 
 function feedDescription(mode = state.feedMode) {
-  if (mode === 'friends') return `Your picks plus active people from your follow graph · ${state.feedSort === 'popular' ? 'popular among loaded posts' : 'newest first'} · up to 2 posts per person.`;
+  if (mode === 'friends') return 'Your picks and active people · up to 2 posts each.';
   if (mode === 'profile') return 'Recent posts from this profile.';
-  return state.feedSort === 'popular' ? 'Most liked and recast among recent posts from your follows · last 30 days.' : 'Recent posts from people you follow · newest first.';
+  return '';
 }
 
 function recentFeedStartTimestamp(nowMs = Date.now()) { return profileRecentStartTimestamp(nowMs, 30); }
@@ -1124,7 +1307,7 @@ async function selectFeedSort(sort) {
   }
   state.feedSort = sort;
   updateFeedTabs();
-  $('#feed-caption').textContent = sort === 'popular' ? 'Most liked and recast among loaded posts · last 30 days.' : feedDescription();
+  $('#feed-caption').textContent = feedDescription();
   renderFeed();
 }
 
@@ -1937,7 +2120,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
   $('#conversation-view').hidden = true;
   $('#feed-list').hidden = false;
   const publicProfileRequest = mode === 'profile' && Number.isSafeInteger(Number(fidValue)) && Number(fidValue) > 0;
-  if ((!state.fid || !state.signerReady) && !publicProfileRequest) {
+  if (!state.fid && !publicProfileRequest) {
     renderEmpty('Sign in to open your feed.', 'Public profiles are open.');
     return;
   }
@@ -2009,7 +2192,7 @@ async function loadFeed(fidValue = state.fid, mode = state.feedMode, { fresh = f
     $('#feed-caption').textContent = state.feedMode === 'profile' ? 'Last 30 days · newest first.' : feedDescription(state.feedMode);
   }
   if (!retainExistingPosts) {
-    renderEmpty('Tuning in…', state.feedMode === 'profile' ? 'Loading recent posts.' : state.feedMode === 'friends' ? 'Checking your picks and finding active accounts from your follow graph.' : 'Checking followed people in small groups for recent posts.');
+    renderEmpty('Loading posts…', state.feedMode === 'profile' ? 'Getting recent posts from this profile.' : state.feedMode === 'friends' ? 'Finding active people and mixing their recent posts.' : 'Checking people you follow for recent posts.');
   }
   try {
     if (!state.nodeInfo) checkNode();
@@ -3904,11 +4087,14 @@ async function authorizeSigner(recoveryAccount = null, walletAccount = null) {
     const message = resultOrThrow(await protocol.makeKeyAdd(keyBody, { fid, network: protocol.FarcasterNetwork.MAINNET }, signer), 'Could not sign key registration');
     const signedRequest = protocol.Message.encode(message).finish();
     await storeSigner({ ...(saved || {}), fid, publicKey, custodyAddress, privateKey, signedKeyAdd: toBase64(signedRequest) });
+    try { localStorage.setItem(SIGN_IN_MODE_STORAGE, 'browser'); } catch { /* The browser key remains in IndexedDB if preferences are unavailable. */ }
+    void managedAuthRequest('logout', { method: 'POST', body: '{}' }).catch(() => {});
     state.hasPendingKeyAdd = true;
     setConnectionStatus(`Castonaut authorization signed. Sending the app-key request to Snapchain…`, { active: 'approve', completed: ['sign'], busy: true });
     state.following.clear();
     state.followStatusUnknown.clear();
     state.fid = fid;
+    state.signerMode = 'browser';
     state.suggestedPeople = [];
     state.suggestionsLoadedFor = 0;
     state.suggestionsError = false;
@@ -4135,7 +4321,7 @@ function renderIdentity() {
     ? 'Checking for your saved sign-in on this device…'
     : state.fid && !ready
     ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.'
-    : 'Connect with your Farcaster recovery phrase to post and follow.';
+    : state.signerMode === 'neynar' ? 'Connected with a revocable Farcaster signer.' : 'Connect your Farcaster account to post and follow.';
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
   const shownName = localProfileName(profile);
@@ -4153,6 +4339,28 @@ function renderIdentity() {
 }
 
 async function restoreSession() {
+  let preferredMode = '';
+  try { preferredMode = localStorage.getItem(SIGN_IN_MODE_STORAGE) || ''; } catch { /* Continue with an available authenticated session. */ }
+  // Restore the selected managed session before looking at an older local key.
+  // Do not silently switch signers if the managed session cannot be checked.
+  if (preferredMode === 'neynar' || !preferredMode) {
+    try {
+      const managed = await managedAuthRequest('me');
+      if (managed.signedIn && Number.isSafeInteger(Number(managed.fid)) && Number(managed.fid) > 0) {
+        await finishManagedSignIn(Number(managed.fid));
+        return;
+      }
+      if (preferredMode === 'neynar') {
+        setNotice('Your managed Farcaster session expired or was revoked. Sign in again to continue.');
+        return;
+      }
+    } catch (error) {
+      if (preferredMode === 'neynar') {
+        setNotice(`Could not verify your managed Farcaster session. Check your connection and retry. ${error.message}`, 'error');
+        return;
+      }
+    }
+  }
   let saved;
   try {
     saved = await loadSigner();
@@ -4169,8 +4377,11 @@ async function restoreSession() {
     setNotice(`Could not restore the browser app key. Reconnect your account to create a new one. ${error.message}`, 'error');
     return;
   }
-  if (!saved || !Number.isSafeInteger(Number(saved.fid)) || !saved.privateKey || !saved.publicKey) return;
+  if (!saved) return;
+  if (!Number.isSafeInteger(Number(saved.fid)) || !saved.privateKey || !saved.publicKey) return;
   state.hasPendingKeyAdd = Boolean(saved.signedKeyAdd);
+  state.signerMode = 'browser';
+  try { localStorage.setItem(SIGN_IN_MODE_STORAGE, 'browser'); } catch { /* IndexedDB still restores the saved browser key. */ }
   try {
     const publicKeyHex = String(saved.publicKey).replace(/^0x/i, '');
     if (!/^[0-9a-f]{64}$/i.test(publicKeyHex) || !saved.privateKey.usages?.includes('sign')) throw new Error('Stored app key has an invalid format.');
@@ -4189,29 +4400,36 @@ async function restoreSession() {
     return;
   }
   renderIdentity();
+  $('#feed-list').setAttribute('aria-busy', 'true');
+  renderEmpty('Restoring your feed…', 'Checking your saved account and loading recent posts.');
   try {
     state.signerReady = await findSigner(state.fid, saved.publicKey);
     if (state.signerReady) await clearPendingRegistration();
-    // Profile reads do not require a confirmed app signer.
-    await fetchProfile(state.fid).catch(() => null);
-    renderIdentity();
-    if (!state.signerReady) setNotice('This app key is not confirmed on the current node. Your station stays locked.');
-    else {
-      setNotice('Your account is ready. Loading your feed…', 'success');
-      await loadFeed(state.fid);
-    }
   } catch (error) {
     state.signerReady = false;
-    renderIdentity();
-    setNotice(`Could not confirm the saved app key with the app service. It remains stored in this browser. ${error.message}`);
+    setNotice(`Could not confirm the saved app key. Loading your feed in read-only mode. ${error.message}`);
   }
+  // Reading the account's feed only needs its FID. Keep the timeline useful
+  // while signer approval is pending or unavailable; writes remain locked.
+  await fetchProfile(state.fid).catch(() => null);
+  renderIdentity();
+  if (!state.signerReady) setNotice('This app key is not confirmed on the current node. Your feed is available read-only; posting and reactions are paused.');
+  else setNotice('Your account is ready. Loading your feed…', 'success');
+  await loadFeed(state.fid);
 }
 
 async function clearLocalSigner() {
   refreshSignerFlow = false;
+  const wasManaged = state.signerMode === 'neynar';
+  if (wasManaged) clearInterval(startManagedSignIn.poll);
+  if (wasManaged) {
+    try { await managedAuthRequest('logout', { method: 'POST', body: '{}' }); }
+    catch (error) { setNotice(`Could not clear the managed session on this server. ${error.message}`, 'error'); return; }
+  } else void managedAuthRequest('logout', { method: 'POST', body: '{}' }).catch(() => {});
   try { localStorage.removeItem(LEGACY_KEY_STORAGE); } catch { /* Continue clearing the current session. */ }
   const cleared = await removeStoredSigner();
-  state.fid = null; state.signer = null; state.publicKey = ''; state.signerReady = false; state.hasPendingKeyAdd = false; state.custodyAddress = ''; state.boardMode = 'signals'; state.following.clear(); state.followStatusUnknown.clear();
+  try { localStorage.removeItem(SIGN_IN_MODE_STORAGE); } catch { /* Session cleanup continues if preferences are unavailable. */ }
+  state.fid = null; state.signer = null; state.signerMode = 'none'; state.publicKey = ''; state.signerReady = false; state.hasPendingKeyAdd = false; state.custodyAddress = ''; state.boardMode = 'signals'; state.following.clear(); state.followStatusUnknown.clear();
   state.suggestedPeople = []; state.suggestionsLoadedFor = 0; state.suggestionsError = false; state.suggestionsBusy = false; renderSuggestedPeople();
   state.feedRequest += 1; state.feedPending = null; state.casts = []; state.feedTargetFid = null; state.feedMode = 'following';
   state.savedCasts = []; renderFlightLogCount();
@@ -4221,7 +4439,7 @@ async function clearLocalSigner() {
       renderEmpty('Account disconnected.', 'Sign in to open your feed.');
   renderIdentity();
   if (!cleared) { setNotice('This session is signed out, but browser storage could not delete the app key. Revoke it in Farcaster account settings and clear this site’s browser data.', 'error'); return; }
-  setNotice('This browser forgot its signing key. The Farcaster signer remains active until you revoke it from account settings or it expires.', 'pending');
+  setNotice(wasManaged ? 'Castonaut signed out on this device. Revoke its signer separately in Farcaster settings.' : 'This browser forgot its signing key. The Farcaster signer remains active until you revoke it from account settings or it expires.', 'pending');
 }
 
 function updatePrimaryNav(selection = '') {
@@ -4353,13 +4571,13 @@ function saveComposerDraft() {
     parent: state.parent && { fid: Number(state.parent.fid), hash: String(state.parent.hash).slice(0, 66) },
     root: state.threadRoot && { fid: Number(state.threadRoot.fid), hash: String(state.threadRoot.hash).slice(0, 66) },
     items: state.threadItems.slice(0, 10).map((text) => truncateUtf8(text)),
-    pending: state.threadPending && state.threadPending.encoded.length <= 100_000 ? state.threadPending : null,
-    pendingCast: state.pendingCast && state.pendingCast.encoded.length <= 100_000 ? state.pendingCast : null,
+    pending: state.threadPending && (state.threadPending.managed || state.threadPending.encoded?.length <= 100_000) ? state.threadPending : null,
+    pendingCast: state.pendingCast && (state.pendingCast.managed || state.pendingCast.encoded?.length <= 100_000) ? state.pendingCast : null,
   };
   try {
     localStorage.setItem(`${COMPOSE_STORAGE}:${state.fid}`, JSON.stringify(draft));
     $('#draft-discard').hidden = !(draft.text.trim() || draft.mediaUrl || draft.pendingCast);
-    if (status) status.textContent = draft.pendingCast ? 'Signed post saved on this device; resume it to confirm.' : 'Draft saved on this device.';
+    if (status) status.textContent = draft.pendingCast ? (draft.pendingCast.managed ? 'Post request saved on this device; resume it safely.' : 'Signed post saved on this device; resume it to confirm.') : 'Draft saved on this device.';
   } catch { if (status) status.textContent = 'Draft could not be saved in this browser.'; }
 }
 
@@ -4371,7 +4589,7 @@ function setComposerExpanded(expanded, { focus = false } = {}) {
   composer.classList.toggle('is-expanded', open);
   toggle.setAttribute('aria-expanded', String(open));
   const title = toggle.querySelector('.composer-toggle-title');
-  if (title) title.textContent = state.pendingCast && !open ? 'Signed post waiting for confirmation' : 'Write a cast';
+  if (title) title.textContent = state.pendingCast && !open ? (state.pendingCast.managed ? 'Post waiting to resume' : 'Signed post waiting for confirmation') : 'Write a cast';
   const reviewPending = $('#composer-review-pending');
   if (reviewPending) reviewPending.hidden = !state.pendingCast || open;
   const mark = toggle.querySelector('.composer-toggle-mark');
@@ -4402,11 +4620,17 @@ function restoreComposerDraft(fid) {
       if (validParent(saved.parent)) state.parent = { fid: Number(saved.parent.fid), hash: saved.parent.hash };
       if (validParent(saved.root)) state.threadRoot = { fid: Number(saved.root.fid), hash: saved.root.hash };
       if (Array.isArray(saved.items)) state.threadItems = saved.items.filter((text) => typeof text === 'string' && text.trim()).slice(0, 10).map((text) => truncateUtf8(text));
-      if (saved.pending && typeof saved.pending === 'object' && /^0x[\da-f]{40,64}$/i.test(saved.pending.hash) && typeof saved.pending.encoded === 'string' && saved.pending.encoded.length <= 100_000 && typeof saved.pending.text === 'string') {
+      const validManagedPending = (pending) => pending?.managed === true && /^[a-zA-Z0-9_-]{12,64}$/.test(pending.idem || '') && typeof pending.text === 'string' && typeof pending.bodyText === 'string';
+      if (validManagedPending(saved.pending)) {
+        state.threadPending = { managed: true, idem: saved.pending.idem, text: truncateUtf8(saved.pending.text), bodyText: truncateUtf8(saved.pending.bodyText), parent: validParent(saved.pending.parent) ? { fid: Number(saved.pending.parent.fid), hash: saved.pending.parent.hash } : null };
+        if (!state.threadItems.length) { state.threadItems = [state.threadPending.text]; state.threadRoot = state.parent; }
+      } else if (saved.pending && typeof saved.pending === 'object' && /^0x[\da-f]{40,64}$/i.test(saved.pending.hash) && typeof saved.pending.encoded === 'string' && saved.pending.encoded.length <= 100_000 && typeof saved.pending.text === 'string') {
         state.threadPending = { hash: saved.pending.hash, encoded: saved.pending.encoded, text: truncateUtf8(saved.pending.text) };
         if (!state.threadItems.length) { state.threadItems = [state.threadPending.text]; state.threadRoot = state.parent; }
       }
-      if (saved.pendingCast && typeof saved.pendingCast === 'object' && /^0x[\da-f]{40,64}$/i.test(saved.pendingCast.hash) && typeof saved.pendingCast.encoded === 'string' && /^[A-Za-z0-9+/]+=*$/.test(saved.pendingCast.encoded) && saved.pendingCast.encoded.length > 0 && saved.pendingCast.encoded.length <= 100_000 && typeof saved.pendingCast.text === 'string' && utf8ByteLength(saved.pendingCast.text) <= CAST_USER_LIMIT && typeof saved.pendingCast.mediaUrl === 'string' && saved.pendingCast.mediaUrl.length <= 2048) {
+      if (validManagedPending(saved.pendingCast) && utf8ByteLength(saved.pendingCast.text) <= CAST_USER_LIMIT && typeof saved.pendingCast.mediaUrl === 'string' && saved.pendingCast.mediaUrl.length <= 2048) {
+        state.pendingCast = { managed: true, idem: saved.pendingCast.idem, text: truncateUtf8(saved.pendingCast.text), bodyText: truncateUtf8(saved.pendingCast.bodyText), mediaUrl: safeExternalUrl(saved.pendingCast.mediaUrl)?.href || '', parent: validParent(saved.pendingCast.parent) ? { fid: Number(saved.pendingCast.parent.fid), hash: saved.pendingCast.parent.hash } : null };
+      } else if (saved.pendingCast && typeof saved.pendingCast === 'object' && /^0x[\da-f]{40,64}$/i.test(saved.pendingCast.hash) && typeof saved.pendingCast.encoded === 'string' && /^[A-Za-z0-9+/]+=*$/.test(saved.pendingCast.encoded) && saved.pendingCast.encoded.length > 0 && saved.pendingCast.encoded.length <= 100_000 && typeof saved.pendingCast.text === 'string' && utf8ByteLength(saved.pendingCast.text) <= CAST_USER_LIMIT && typeof saved.pendingCast.mediaUrl === 'string' && saved.pendingCast.mediaUrl.length <= 2048) {
         try {
           if (toBase64(fromBase64(saved.pendingCast.encoded)) === saved.pendingCast.encoded) state.pendingCast = { hash: saved.pendingCast.hash, encoded: saved.pendingCast.encoded, text: saved.pendingCast.text, mediaUrl: safeExternalUrl(saved.pendingCast.mediaUrl)?.href || '' };
         } catch { /* Corrupt pending data is ignored; keep the editable draft text. */ }
@@ -4422,7 +4646,7 @@ function restoreComposerDraft(fid) {
     $('#composer-media').hidden = !state.pendingCast.mediaUrl;
     setPendingCastControls(true);
     setComposerSubmitLabel('Resume saved post');
-    $('#draft-status').textContent = 'A signed post is waiting for confirmation. Resume it to avoid creating a duplicate.';
+    $('#draft-status').textContent = state.pendingCast.managed ? 'A post request is saved here. Resume it to safely retry the same request.' : 'A signed post is waiting for confirmation. Resume it to avoid creating a duplicate.';
   }
   setComposerExpanded(Boolean(!state.pendingCast && ($('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.threadItems.length || state.threadPending)));
   renderThreadDraft();
@@ -4464,6 +4688,17 @@ function setComposerSubmitLabel(label) {
 }
 
 async function publishPendingCast(pending) {
+  if (pending.managed) {
+    const result = await managedWrite({
+      action: 'cast', idem: pending.idem, text: pending.bodyText,
+      embeds: pending.mediaUrl ? [pending.mediaUrl] : [],
+      ...(pending.parent ? { parent: managedParentHash(pending.parent), parent_author_fid: pending.parent.fid } : {}),
+    });
+    const hash = result.cast?.hash || result.hash;
+    if (!/^0x[\da-f]{40,64}$/i.test(String(hash || ''))) throw new Error('Neynar accepted the request but returned no cast hash. Resume the saved post to retry safely.');
+    setNotice('Post accepted by Farcaster through Neynar. Your Snapchain node may take a moment to show it.', 'success');
+    return;
+  }
   const params = { fid: state.fid, hash: pending.hash };
   try {
     await nodeRequest('castById', params);
@@ -4488,29 +4723,38 @@ async function publishThread() {
   const button = $('#thread-publish');
   let confirmed = 0;
   try {
-    const protocol = await import('./protocol.js');
-    const signer = await getActiveSigner();
+    const managed = state.signerMode === 'neynar';
+    const protocol = managed ? null : await import('./protocol.js');
+    const signer = managed ? null : await getActiveSigner();
     while (state.threadItems.length) {
       let pending = state.threadPending;
       if (!pending) {
         const text = state.threadItems[0];
         const parent = state.threadRoot;
         const attributedText = withCastonautAttribution(text);
-        const result = await protocol.makeCastAdd(castBody(attributedText, parent, protocol), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
-        const signed = resultOrThrow(result, 'Could not sign thread post');
-        const hash = postHash(signed);
-        if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. The draft remains saved.');
-        pending = { hash, encoded: toBase64(protocol.Message.encode(signed).finish()), text };
+        if (managed) pending = { managed: true, idem: crypto.randomUUID().replaceAll('-', '').slice(0, 24), text, bodyText: attributedText, parent };
+        else {
+          const result = await protocol.makeCastAdd(castBody(attributedText, parent, protocol), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
+          const signed = resultOrThrow(result, 'Could not sign thread post');
+          const hash = postHash(signed);
+          if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. The draft remains saved.');
+          pending = { hash, encoded: toBase64(protocol.Message.encode(signed).finish()), text };
+        }
         state.threadPending = pending; saveComposerDraft();
       }
-      const params = { fid: state.fid, hash: pending.hash };
-      try {
-        await nodeRequest('castById', params);
-      } catch (error) {
-        if (!isNotFound(error)) throw error;
-        await submitEncodedMessage(fromBase64(pending.encoded));
-        setNotice('Thread post relayed. Waiting for Snapchain confirmation…', 'pending');
-        if (!await waitForMerge('castById', params)) throw new Error('This post was relayed but is not confirmed yet. Resume the thread to check it safely.');
+      if (pending.managed) {
+        const result = await managedWrite({ action: 'cast', idem: pending.idem, text: pending.bodyText, embeds: [], ...(pending.parent ? { parent: managedParentHash(pending.parent), parent_author_fid: pending.parent.fid } : {}) });
+        pending.hash = String(result.cast?.hash || result.hash || '');
+        if (!/^0x[\da-f]{40,64}$/i.test(pending.hash)) throw new Error('Neynar accepted the request but returned no cast hash. Resume the saved thread to retry safely.');
+      } else {
+        const params = { fid: state.fid, hash: pending.hash };
+        try { await nodeRequest('castById', params); }
+        catch (error) {
+          if (!isNotFound(error)) throw error;
+          await submitEncodedMessage(fromBase64(pending.encoded));
+          setNotice('Thread post relayed. Waiting for Snapchain confirmation…', 'pending');
+          if (!await waitForMerge('castById', params)) throw new Error('This post was relayed but is not confirmed yet. Resume the thread to check it safely.');
+        }
       }
       state.threadRoot = { fid: state.fid, hash: pending.hash };
       state.threadItems.shift(); state.threadPending = null; confirmed += 1;
@@ -4520,7 +4764,7 @@ async function publishThread() {
     state.threadRoot = null;
     saveComposerDraft(); renderThreadDraft();
     $('#thread-draft-status').textContent = 'Thread confirmed on Snapchain.';
-    setNotice('Thread confirmed on Snapchain.', 'success');
+    setNotice(state.signerMode === 'neynar' ? 'Thread accepted by Farcaster through Neynar.' : 'Thread confirmed on Snapchain.', 'success');
     await loadFeed(state.fid, 'following');
   } catch (error) {
     $('#thread-draft-status').textContent = `${confirmed ? `${confirmed} post${confirmed === 1 ? '' : 's'} confirmed. ` : ''}${clientErrorText(error)} Your remaining thread is saved; resume to check the last post and continue.`;
@@ -4820,13 +5064,17 @@ async function shareOrCopyLink(url, { title, text, copiedMessage } = {}) {
 document.addEventListener('click', async (event) => {
   const composeButton = event.target.closest('[data-compose-cast]');
   if (composeButton) {
+    if (state.sessionRestoring) {
+      setNotice('Checking this browser for your saved Farcaster account. Try Write again in a moment.', 'pending');
+      return;
+    }
     if (!state.signerReady) { openConnectDialog(); return; }
-    navigate('feed');
+    navigate('feed', { restoreScroll: false });
     if (state.boardMode !== 'signals') setBoardMode('signals');
-    await loadFeed(state.fid, 'following');
-    const composer = $('#composer-text');
-    composer?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
-    composer?.focus({ preventScroll: true });
+    setComposerExpanded(true, { focus: true });
+    // Feed refreshes can wait on the node. Keep the button responsive by
+    // opening the composer first and refreshing the timeline in the background.
+    void loadFeed(state.fid, 'following');
     return;
   }
   const deskButton = event.target.closest('[data-desk-fid]');
@@ -5416,14 +5664,18 @@ $('#composer').addEventListener('submit', async (event) => {
     let pending = state.pendingCast;
     if (!pending) {
       setComposerSubmitLabel('Preparing…');
-      const protocol = await import('./protocol.js');
-      const signer = await getActiveSigner();
       const attributedText = withCastonautAttribution(text);
-      const message = await protocol.makeCastAdd(castBody(attributedText, state.parent, protocol, mediaUrl ? [mediaUrl.href] : [], text), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
-      const signedMessage = resultOrThrow(message, 'Could not sign cast');
-      const hash = postHash(signedMessage);
-      if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. Your draft remains saved.');
-      pending = { hash, encoded: toBase64((await import('./protocol.js')).Message.encode(signedMessage).finish()), text, mediaUrl: mediaUrl?.href || '' };
+      if (state.signerMode === 'neynar') {
+        pending = { managed: true, idem: crypto.randomUUID().replaceAll('-', '').slice(0, 24), text, bodyText: attributedText, mediaUrl: mediaUrl?.href || '', parent: state.parent && { fid: Number(state.parent.fid), hash: String(state.parent.hash) } };
+      } else {
+        const protocol = await import('./protocol.js');
+        const signer = await getActiveSigner();
+        const message = await protocol.makeCastAdd(castBody(attributedText, state.parent, protocol, mediaUrl ? [mediaUrl.href] : [], text), { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, signer);
+        const signedMessage = resultOrThrow(message, 'Could not sign cast');
+        const hash = postHash(signedMessage);
+        if (!/^0x[\da-f]{40,64}$/i.test(hash)) throw new Error('Could not verify the signed post hash. Your draft remains saved.');
+        pending = { hash, encoded: toBase64((await import('./protocol.js')).Message.encode(signedMessage).finish()), text, mediaUrl: mediaUrl?.href || '' };
+      }
       state.pendingCast = pending;
       setPendingCastControls(true);
       $('#draft-discard').hidden = false;
@@ -5627,6 +5879,19 @@ document.addEventListener('click', async (event) => {
       const params = { fid: state.fid, target_fid: targetFid, link_type: 'follow' };
       let following = false;
       button.setAttribute('aria-busy', 'true');
+      if (state.signerMode === 'neynar') {
+        if (!state.following.has(targetFid) || state.followStatusUnknown.has(targetFid)) throw new Error('Follow status is not confirmed yet. Refresh the feed or node status, then try again.');
+        following = !!state.following.get(targetFid);
+        await managedWrite({ action: following ? 'unfollow' : 'follow', target_fid: targetFid });
+        setFollowState(targetFid, !following);
+        state.suggestionsLoadedFor = 0;
+        updateCastRelationship(targetFid);
+        if (!following) { state.suggestedPeople = state.suggestedPeople.filter((person) => person.fid !== targetFid); renderSuggestedPeople(); }
+        document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => updateFollowButton(item, targetFid));
+        button.removeAttribute('aria-busy'); button.disabled = false;
+        setNotice(following ? 'Unfollow sent through Farcaster.' : 'Follow sent through Farcaster.', 'success');
+        return;
+      }
       if (maxNodeDelay() === null) await checkNode();
       const nodeDelay = maxNodeDelay();
       if (nodeDelay === null || nodeDelay > 10) {
@@ -5665,6 +5930,16 @@ document.addEventListener('click', async (event) => {
       button.setAttribute('aria-label', `${routeType === 'Like' ? 'Like' : 'Recast'} update waiting for node confirmation`);
       try { await nodeRequest('reactionById', params, { fresh: true }); active = true; }
       catch (error) { if (!isNotFound(error)) throw error; }
+      if (state.signerMode === 'neynar') {
+        const kind = routeType.toLowerCase();
+        await managedWrite({ action: active ? `un${kind}` : kind, target_fid: targetFid, hash, idem: crypto.randomUUID().replaceAll('-', '').slice(0, 24) });
+        saveViewerReactionState(state.fid, targetFid, hash, routeType, !active);
+        paintReactionButtonState(button, routeType, !active);
+        button.removeAttribute('aria-busy'); button.disabled = false;
+        refreshCastEngagement(targetFid, hash);
+        setNotice(`${routeType === 'Like' ? 'Like' : 'Recast'} sent through Farcaster; your node may take a moment to catch up.`, 'success');
+        return;
+      }
       const body = { type: reactionType, targetCastId: { fid: targetFid, hash: resultOrThrow(protocol.hexStringToBytes(hash), 'Could not read the reaction cast hash') } };
       const message = active
         ? await protocol.makeReactionRemove(body, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner())
