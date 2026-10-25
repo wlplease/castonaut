@@ -4313,6 +4313,10 @@ function setComposerExpanded(expanded, { focus = false } = {}) {
   const open = Boolean(expanded);
   composer.classList.toggle('is-expanded', open);
   toggle.setAttribute('aria-expanded', String(open));
+  const title = toggle.querySelector('.composer-toggle-title');
+  if (title) title.textContent = state.pendingCast && !open ? 'Signed post waiting for confirmation' : 'Write a cast';
+  const reviewPending = $('#composer-review-pending');
+  if (reviewPending) reviewPending.hidden = !state.pendingCast || open;
   const mark = toggle.querySelector('.composer-toggle-mark');
   if (mark) mark.textContent = open ? '−' : '＋';
   if (focus && open) focusComposerInput();
@@ -4363,7 +4367,7 @@ function restoreComposerDraft(fid) {
     setComposerSubmitLabel('Resume saved post');
     $('#draft-status').textContent = 'A signed post is waiting for confirmation. Resume it to avoid creating a duplicate.';
   }
-  setComposerExpanded(Boolean(state.pendingCast || $('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.threadItems.length || state.threadPending));
+  setComposerExpanded(Boolean(!state.pendingCast && ($('#composer-text').value.trim() || $('#composer-media-url').value.trim() || state.threadItems.length || state.threadPending)));
   renderThreadDraft();
 }
 
@@ -4386,7 +4390,7 @@ function setPendingCastControls(pending) {
   $('#composer-text').readOnly = pending;
   $('#composer-media-url').disabled = pending;
   $('#composer')?.querySelectorAll('button').forEach((button) => {
-    if (button.type === 'submit' || button.id === 'draft-discard' || button.id === 'composer-toggle') return;
+    if (button.type === 'submit' || button.id === 'draft-discard' || button.id === 'composer-toggle' || button.id === 'composer-review-pending') return;
     button.disabled = pending;
   });
   const submit = $('#composer-submit');
@@ -5076,6 +5080,7 @@ $('#composer-toggle').addEventListener('click', () => {
   const opening = !$('#composer').classList.contains('is-expanded');
   setComposerExpanded(opening, { focus: opening });
 });
+$('#composer-review-pending').addEventListener('click', () => setComposerExpanded(true));
 $('#composer-text').addEventListener('input', (event) => {
   const field = event.currentTarget;
   if (utf8ByteLength(field.value) > CAST_USER_LIMIT) {
