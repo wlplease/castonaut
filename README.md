@@ -20,6 +20,17 @@ You can browse the hosted client without setting up a node or entering an API ke
 
 <p align="center"><em>Explore a sample timeline and the read path before connecting an account. The people and posts shown here are sample content.</em></p>
 
+### What runs where
+
+```text
+YOUR COMPUTER                     YOUR NODE                         VALIDATOR NETWORK
+Castonaut client  ⇄  Snapchain read node  ⇄  Farcaster validators
+feed · local Desk     stores state · serves API   decide blocks · replicate messages
+signs actions         relays signed writes
+```
+
+The client and its personal Desk run in your browser. The read node runs on infrastructure you operate and follows network state; it does not vote or decide blocks. Validators run consensus. Castonaut reads through the node and verifies submitted social actions against network state.
+
 ## A familiar place for your Farcaster life
 
 - **A feed you can follow:** read recent casts in chronological order, switch to Top people, or discover accounts through your follow graph. Posts keep replies, quoted casts, links, and media in context.
@@ -35,6 +46,10 @@ You can browse the hosted client without setting up a node or entering an API ke
 
 <p align="center"><em>A narrow-screen preview of the landing page and sample feed.</em></p>
 
+<p align="center"><img src="docs/screenshots/node-ready.png" alt="Real Snapchain node status output showing shard heights, one-second sync delays, and READY" width="760"></p>
+
+<p align="center"><em>Example from an operated node: all three shards are current and readiness is READY. Heights and message counts advance over time; this is a captured example, not a live status page.</em></p>
+
 ## Run your own client and read node
 
 The hosted preview is the fastest way to explore. To run the complete self-hosted path, first install Node.js 22, the Google Cloud CLI, and this repo’s dependencies with `npm ci`; sign in to a billing-enabled Google Cloud project and select it. Then these three commands provision a Snapchain read node, start it, and point your local Castonaut client at it:
@@ -46,6 +61,8 @@ npm run client -- --zone us-central1-a
 ```
 
 The node’s first sync can take hours. Check readiness with `npm run node:check -- us-central1-a` before relying on fresh data. A read node follows and serves network state; it does not vote on blocks. It can relay signed messages to validators, so Castonaut checks the message back against network state before showing it as confirmed. Read the [three-step quickstart](https://castonaut.vercel.app/tutorial.html#quickstart) for prerequisites, cost controls, account setup, and cleanup. For a hosted deployment, set `SNAPCHAIN_URL` as a server-side environment variable and check node readiness before inviting people to use it; never expose node credentials through a `VITE_` variable.
+
+The commands are inspectable in the repository: [provisioning script](scripts/provision-gcp.mjs), [node startup script](scripts/start-node.mjs), and [read-only status script](scripts/node-status.mjs). The node readiness check is implemented in the startup script. See the [security guide](tutorial.html#security) before entering an account recovery phrase, and review the [MIT License](LICENSE).
 
 ### Why run your own Snapchain read node?
 
