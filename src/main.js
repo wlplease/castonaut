@@ -2466,6 +2466,7 @@ async function loadMoreFollowed({ automatic = false } = {}) {
     } else { renderFeedMore(); return; }
 
     if (requestId !== state.feedRequest) return;
+    const previousPostCount = state.casts.length;
     const existing = new Set(state.casts.map((message) => `${Number(message?.data?.fid)}:${postHash(message)}`));
     for (const message of groups.filter(Boolean).flatMap((group) => group.messages || [])) {
       const key = `${Number(message?.data?.fid)}:${postHash(message)}`;
@@ -2479,7 +2480,7 @@ async function loadMoreFollowed({ automatic = false } = {}) {
     renderFeed();
     restoreFeedScrollAnchor(scrollAnchor);
     updateFollowingCoverage();
-    const added = state.casts.length - existing.size;
+    const added = state.casts.length - previousPostCount;
     const checkedNow = groups.filter(Boolean).length;
     if (!automatic) {
       setNotice(pageFailures
