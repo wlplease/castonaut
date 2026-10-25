@@ -51,7 +51,7 @@ try {
   const address = details.networkInterfaces?.[0]?.accessConfigs?.[0]?.natIP;
   console.log(`\nVM created in ${zone}. Public IP: ${address || 'not assigned yet'}`);
   console.log('Wait 2–4 minutes for startup, then run: npm run node -- --zone ' + zone);
-  console.log('When the contest run ends, run npm run destroy -- ' + zone + ' to delete the VM, data disk, and firewall rule.');
+  console.log('When the test ends, run npm run destroy -- ' + zone + ' to delete the VM, data disk, and firewall rule.');
 } catch (error) {
   console.error(`Provisioning stopped: ${error.message}`);
   process.exit(1);

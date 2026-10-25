@@ -6,3 +6,19 @@
 node_modules/
 dist/
 arcade/preview*.png
+archive/**
+.private-archive/**
+# Private planning material stays local and out of the public source tree.
+/PRIZE_PLAN.md
+/PRODUCT_PLAN.md
+# Never commit local credentials, signing keys, or service-account files.
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+service-account*.json
+*-service-account*.json
+firebase-adminsdk-*.json
+credentials*.json
+secrets/

@@ -12,7 +12,7 @@ const zone = valueAfter('--zone', positional || 'us-central1-a');
 const projectOverride = valueAfter('--project', '');
 if (args.includes('--help') || args.includes('-h')) {
   console.log('Usage: npm run destroy -- [ZONE]');
-  console.log('Deletes the Castonaut contest VM, its dedicated data disk, and its Snapchain firewall rule after confirmation.');
+  console.log('Deletes the Castonaut test VM, its dedicated data disk, and its Snapchain firewall rule after confirmation.');
   process.exit(0);
 }
 if (!/^[a-z0-9-]+-[a-z]$/.test(zone)) {
@@ -62,7 +62,7 @@ try {
   } else if (hasFirewall) {
     console.log(`Kept firewall rule castonaut-snapchain because other tagged instances still exist: ${taggedInstances.stdout.replace(/\n/g, ', ')}.`);
   }
-  console.log('Contest node VM and dedicated data disk cleanup complete.');
+  console.log('Test node VM and dedicated data disk cleanup complete.');
 } catch (error) {
   console.error(`Cleanup stopped: ${error.message}`);
   process.exit(1);

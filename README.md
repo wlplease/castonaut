@@ -75,12 +75,8 @@ Core feed, profile, follow, post, reaction, and search features do not require u
 - [Open the client](https://castonaut.vercel.app/)
 - [Three-step quickstart and operating guide](https://castonaut.vercel.app/tutorial.html#quickstart)
 - [Privacy Notice](privacy.html) · [Terms of Use](terms.html) · [Security guide](https://castonaut.vercel.app/tutorial.html#security)
-- [Product plan](PRODUCT_PLAN.md) · [Brand guide](BRAND_GUIDE.md)
+- [Brand guide](BRAND_GUIDE.md)
 - [MIT License](LICENSE)
-
-## Before a public launch
-
-The operator contact and governing-jurisdiction details in the Privacy Notice and Terms still need to be completed. Finish those details and verify the live deployment’s node and optional services before inviting the public.
 
 ## License
 

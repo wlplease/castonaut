@@ -544,3 +544,58 @@ html[data-theme="night-radio"] .network-search-status[data-state="error"] { colo
     border-color: CanvasText;
   }
 }
+
+/* First-run onboarding: a small system readout, not another dashboard panel. */
+.onboarding-terminal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 31px;
+  margin: 2px 0 4px;
+  padding: 0 10px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--station-soft) 44%, var(--station-card));
+  color: var(--station-copy-muted);
+  font: 9px var(--mono);
+  letter-spacing: .025em;
+}
+.onboarding-terminal strong { color: var(--station-ink); font-weight: 500; }
+.onboarding-terminal i { color: var(--station-accent); font-style: normal; }
+.onboarding-terminal-led {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #51a77e;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #51a77e 14%, transparent);
+}
+.onboarding-terminal-cursor { color: var(--station-accent); animation: onboarding-cursor 1.15s steps(2, end) infinite; }
+.portal-browse-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  margin: 1px 0 5px;
+  color: var(--station-accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+.portal-browse-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.portal-copy .onboarding-terminal { margin: 5px 0 3px; }
+.welcome-content .onboarding-terminal-compact { margin: 0 0 3px; }
+.welcome-content .onboarding-terminal-compact > span:nth-child(2) { color: var(--station-copy-muted); }
+.welcome-content .button { justify-self: start; }
+.welcome-steps li { min-height: 55px; }
+.welcome-foot { margin-top: 13px; }
+@keyframes onboarding-cursor { 50% { opacity: 0; } }
+@media (max-width: 620px) {
+  .onboarding-terminal { min-height: 29px; font-size: 8px; }
+  .portal-browse-link { min-height: 34px; }
+  .welcome-steps li { min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-terminal-cursor { animation: none; }
+}

@@ -4590,7 +4590,7 @@ function renderIdentity() {
   if (deskGate) deskGate.hidden = currentArea !== 'desk' || ready;
   $('#public-browse-note').hidden = ready || accountReady;
   empty.hidden = !!state.fid; connected.hidden = !state.fid;
-  $('#portal-enter').textContent = state.fid && !ready ? 'Check key status ↻' : 'Sign in ↗';
+  $('#portal-enter').textContent = state.fid && !ready ? 'Check app key status ↻' : 'Connect existing account ↗';
   if (state.sessionRestoring) $('#portal-enter').textContent = 'Checking this browser…';
   $('#portal-enter').disabled = state.sessionRestoring;
   $('#open-account').disabled = state.sessionRestoring;
@@ -4598,8 +4598,8 @@ function renderIdentity() {
   if (portalStatus) portalStatus.textContent = state.sessionRestoring
     ? 'Checking for your saved sign-in on this device…'
     : state.fid && !ready
-    ? 'Your account is identified. The app key is still awaiting confirmation, so the desk stays locked.'
-    : state.signerMode === 'neynar' ? 'Connected with a revocable Farcaster signer.' : 'Connect your Farcaster account to post and follow.';
+    ? 'Account found. Castonaut is checking whether this browser’s social key is confirmed on your node.'
+    : state.signerMode === 'neynar' ? 'Connected with a revocable Farcaster signer.' : 'Your existing account is all you need. The next step creates a separate, limited social key.';
   if (!state.fid) { $('#avatar-initial').textContent = '?'; $('#composer').hidden = true; return; }
   const profile = state.people.get(state.fid) || { fid: state.fid, name: `Farcaster ${state.fid}`, username: `fid-${state.fid}` };
   const shownName = localProfileName(profile);
@@ -4695,7 +4695,10 @@ async function restoreSession() {
   await fetchProfile(state.fid).catch(() => null);
   renderIdentity();
   if (!state.signerReady) setNotice('This app key is not confirmed on the current node. Your feed is available read-only; posting and reactions are paused.');
-  else setNotice('Your account is ready. Loading your feed…', 'success');
+  else {
+    const restoredName = localProfileName(state.people.get(state.fid) || { username: `fid-${state.fid}` });
+    setNotice(`Welcome back, ${restoredName}. Your browser key is ready; loading your timeline…`, 'success');
+  }
   await loadFeed(state.fid);
 }
 

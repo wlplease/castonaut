@@ -1,1 +1,4 @@
 archive/**
+.private-archive/**
+/PRIZE_PLAN.md
+/PRODUCT_PLAN.md
