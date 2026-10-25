@@ -389,6 +389,35 @@ html[data-theme] .post-action[aria-pressed="true"] {
   }
 }
 
+/* Keep the Castonaut mark crisp and anchored in the compact phone masthead. */
+@media (max-width: 620px) {
+  .topbar .mobile-brand {
+    flex: 0 1 auto;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .topbar .mobile-brand img {
+    display: block;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    object-fit: contain;
+    border: 1px solid var(--station-line);
+    border-radius: 7px;
+    background: var(--station-card);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--station-card) 85%, white), 0 1px 2px color-mix(in srgb, var(--station-ink) 12%, transparent);
+  }
+}
+
+@media (max-width: 390px) {
+  .topbar .mobile-brand img {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+  }
+}
+
 /* A little more of the original desktop language, kept quiet and usable. */
 .site-header--client {
   position: sticky;
