@@ -225,6 +225,11 @@
                   <div><input id="desk-person-query" type="search" maxlength="200" placeholder="Find a person…" autocomplete="off" /><button type="submit" class="button button-outline">＋ Add</button></div>
                   <p id="desk-person-status" role="status" aria-live="polite" hidden></p>
                 </form>
+                <details class="desk-leader-picker" id="desk-leader-picker">
+                  <summary><span>Browse Farcaster leaders</span><small id="desk-leader-picker-count">20 accounts · choose who to pin</small></summary>
+                  <p>Pick leaders for your Desk. Pins stay on this device and do not follow anyone.</p>
+                  <div class="desk-leader-list" id="desk-leader-list" aria-live="polite"></div>
+                </details>
                 <div class="desk-body-grid desk-people-grid">
                   <section class="desk-people-section desk-panel" aria-labelledby="desk-people-title"><div class="desk-section-heading"><h3 id="desk-people-title">Pinned people</h3><div class="desk-stack-tools"><select class="desk-sort-select" data-desk-sort="people" aria-label="Sort pinned people"><option value="saved">Recently saved</option><option value="name">Name A–Z</option></select><span id="desk-people-count">0 pinned</span></div></div><div class="desk-pins" id="desk-pins"><span class="desk-empty">Pin people to keep them close.</span></div></section>
                   <section class="desk-activity desk-panel" aria-labelledby="desk-activity-title"><div class="desk-section-heading"><h3 id="desk-activity-title">Recent from your people</h3><span id="desk-activity-count">0</span></div><div class="desk-orbit-pulse" id="desk-orbit-pulse" hidden></div><div class="desk-activity-list" id="desk-activity-list"><p class="desk-activity-empty">New posts from pinned people appear here.</p></div></section>
@@ -369,7 +374,7 @@
                     <label class="feed-option-control" title="Mini Apps appear as URL embeds in cast data; regular website links may match too."><input id="filter-apps" data-quick-setting="appsOnly" type="checkbox" /><span>Apps &amp; links</span></label>
                     <label class="feed-option-control" id="orbit-only-control"><input id="orbit-only" data-quick-setting="orbitOnly" type="checkbox" /><span>Pinned people only</span></label>
                     </div>
-                    <fieldset class="feed-filter-section client-source-section"><legend>Client source</legend><p>Filter by the app that signed posts. Enter that app’s FID.</p>
+                    <fieldset class="feed-filter-section client-source-section"><legend>Client source</legend><p>Filter posts by the signing app’s FID.</p>
                       <label class="source-control" for="source-fid"><span>App FID</span><input id="source-fid" type="number" min="1" placeholder="Any app" /></label>
                       <label class="source-control" for="source-mode"><span>Match</span><select id="source-mode" class="source-mode"><option value="include">Only this app</option><option value="exclude">Hide this app</option></select></label>
                     </fieldset>

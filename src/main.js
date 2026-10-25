@@ -1985,7 +1985,9 @@ function updateFeedFilterSummary() {
     !!state.feedQuery.trim(), state.repliesOnly, state.mediaOnly, state.appsOnly, state.orbitOnly,
     Number($('#source-fid')?.value) > 0,
   ].filter(Boolean).length;
-  summary.textContent = activeCount ? `View & filters · ${activeCount}` : 'View & filters';
+  summary.textContent = activeCount ? `Filters · ${activeCount} active` : 'Filters';
+  const reset = $('#clear-feed-filters');
+  if (reset) reset.hidden = activeCount === 0;
 }
 
 function renderSuggestedPeople() {
@@ -2998,6 +3000,11 @@ function renderProfileSummary() {
   const detailsSection = document.createElement('section'); detailsSection.className = 'profile-customize-details';
   const detailsHeading = document.createElement('strong'); detailsHeading.textContent = 'Profile details';
   detailsSection.append(detailsHeading, edit);
+  if (isOwnProfile) {
+    const manageDeskPins = document.createElement('button'); manageDeskPins.type = 'button'; manageDeskPins.className = 'button button-outline';
+    manageDeskPins.dataset.manageDeskLeaders = 'true'; manageDeskPins.textContent = 'Choose pinned people';
+    detailsSection.append(manageDeskPins);
+  }
   morePanel.append(coverFieldset, detailsSection);
   const profileUrl = originalProfileUrl(profile);
   if (profileUrl) {
@@ -3596,11 +3603,59 @@ function renderDesk() {
       chip.append(open, remove); container.append(chip);
     }
   }
+  renderDeskLeaderPicker();
   renderDeskShortcuts();
   renderDeskAtlas();
   renderCapsuleShelf();
   renderDeskActivity();
 }
+
+function renderDeskLeaderPicker() {
+  const list = $('#desk-leader-list');
+  const count = $('#desk-leader-picker-count');
+  if (!list) return;
+  if (count) count.textContent = `${CURATED_TOP_ACCOUNTS.length} leaders · ${state.deskPins.length}/24 pinned`;
+  list.replaceChildren();
+  const resolvedByName = new Map(state.curatedTopAccounts.map((account) => [account.username, account]));
+  for (const leader of CURATED_TOP_ACCOUNTS) {
+    const resolved = resolvedByName.get(leader.username);
+    const row = document.createElement('div'); row.className = 'desk-leader-row';
+    const identity = document.createElement('span'); identity.className = 'desk-leader-identity';
+    const name = document.createElement('strong'); name.textContent = leader.name;
+    const handle = document.createElement('small'); handle.textContent = `@${leader.username} · ${leader.role}`;
+    identity.append(name, handle);
+    const action = document.createElement('button'); action.type = 'button'; action.className = 'button button-outline desk-leader-toggle';
+    if (resolved?.fid) {
+      const pinned = state.deskPins.includes(Number(resolved.fid));
+      action.dataset.action = pinned ? 'unpin-person' : 'pin-person'; action.dataset.fid = String(resolved.fid);
+      action.setAttribute('aria-pressed', String(pinned)); action.textContent = pinned ? 'Pinned ✓' : 'Pin';
+      action.setAttribute('aria-label', `${pinned ? 'Remove' : 'Pin'} ${leader.name} ${pinned ? 'from' : 'to'} your Desk`);
+      action.disabled = !pinned && state.deskPins.length >= 24;
+    } else {
+      action.disabled = true; action.textContent = state.curatedTopLoadPromise ? 'Loading…' : 'Unavailable';
+      action.title = 'This username could not be resolved by the configured Snapchain node.';
+    }
+    row.append(identity, action); list.append(row);
+  }
+  if (!state.curatedTopAccounts.length) {
+    const status = document.createElement('p'); status.className = 'desk-leader-status';
+    status.textContent = state.curatedTopLoadPromise ? 'Loading the leader list…' : 'Open the list to check these accounts against your node.';
+    list.append(status);
+  }
+}
+
+$('#desk-leader-picker')?.addEventListener('toggle', async (event) => {
+  if (!event.currentTarget.open) return;
+  renderDeskLeaderPicker();
+  if (state.curatedTopAccounts.length < CURATED_TOP_ACCOUNTS.length) {
+    const list = $('#desk-leader-list');
+    if (list && !state.curatedTopAccounts.length) {
+      const status = document.createElement('p'); status.className = 'desk-leader-status'; status.textContent = 'Checking leaders on your Snapchain node…'; list.replaceChildren(status);
+    }
+    await ensureCuratedTopAccounts();
+    renderDeskLeaderPicker();
+  }
+});
 
 function updateDeskNotepadControls() {
   const field = $('#desk-notepad-text');
@@ -6289,6 +6344,15 @@ document.addEventListener('click', async (event) => {
   if (profilePin) {
     await toggleDeskPin(profilePin.dataset.profilePin, null);
     renderProfileSummary();
+    return;
+  }
+  const manageDeskLeaders = event.target.closest('[data-manage-desk-leaders]');
+  if (manageDeskLeaders) {
+    navigate('desk', { restoreScroll: false });
+    requestAnimationFrame(() => {
+      const picker = $('#desk-leader-picker');
+      if (picker) { picker.open = true; picker.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' }); }
+    });
     return;
   }
   const profileEdit = event.target.closest('[data-edit-profile]');
