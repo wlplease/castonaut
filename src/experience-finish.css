@@ -925,3 +925,101 @@ html[data-theme="manga-ink"] :focus-visible { outline-color:#c43d2d; }
     transition: none;
   }
 }
+
+/* Make feed empty states readable as distinct conditions on narrow screens. */
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"],
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="node-behind"],
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="network"],
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="empty"] {
+  position: relative;
+  border-left: 3px solid var(--station-line);
+}
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"] { border-left-color: var(--station-accent); }
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="node-behind"] { border-left-color: #c58a42; }
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="network"] { border-left-color: #bb6259; }
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"]::before,
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="node-behind"]::before,
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="network"]::before,
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="empty"]::before {
+  color: var(--station-copy-soft);
+  font: 8px var(--mono);
+  letter-spacing: .1em;
+}
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"]::before { content: "LOADING"; color: var(--station-accent); }
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="node-behind"]::before { content: "NODE CATCHING UP"; color: #a66c28; }
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="network"]::before { content: "NODE UNAVAILABLE"; color: #a84e48; }
+.feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="empty"]::before { content: "NO POSTS"; }
+
+@media (max-width: 620px) {
+  .feed-window > .feed-list[data-empty="true"] > .empty-message {
+    justify-items: start;
+    gap: 7px;
+    min-height: 0;
+    padding: 15px 13px;
+    text-align: left;
+    box-shadow: inset 0 1px color-mix(in srgb, var(--station-card) 86%, white);
+  }
+  .feed-window > .feed-list[data-empty="true"] > .empty-message strong { font-size: 14px; }
+  .feed-window > .feed-list[data-empty="true"] > .empty-message p { font-size: 10px; line-height: 1.5; }
+  .feed-window > .feed-list[data-empty="true"] > .empty-message .loading-indicator { justify-self: start; }
+  .feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"] { grid-template-columns: 15px minmax(0,1fr); }
+  .feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"]::before { grid-column: 2; grid-row: 1; }
+  .feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"] strong,
+  .feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"] p,
+  .feed-window > .feed-list[data-empty="true"] > .empty-message[data-state="loading"] .empty-message-actions { grid-column: 2; }
+  .empty-message-actions { justify-content: flex-start; width: 100%; gap: 6px; }
+  .empty-message-actions > .button { min-height: 38px; }
+
+  /* Keep the profile header compact without squeezing identity or controls. */
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-cover { min-height: 0; padding: 10px; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-main { grid-template-columns: 50px minmax(0,1fr); gap: 10px; padding: 12px; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-avatar { width: 50px; height: 50px; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-identity { min-width: 0; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-identity h3 { font-size: 18px; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-identity p { margin: 0; overflow-wrap: anywhere; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-visibility { display: flex; flex-wrap: wrap; gap: 4px; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; padding-top: 10px; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-actions > .button,
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-more-options { width: 100%; min-width: 0; margin: 0; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-actions > .button,
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-more-options > summary { min-height: 40px; justify-content: center; padding-inline: 5px; font-size: 9px; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-bio { grid-column: 1/-1; font-size: 11px; line-height: 1.5; }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-private-note { grid-column: 1/-1; overflow-wrap: anywhere; }
+  .feed-window[data-profile-view="true"] > .profile-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; }
+  .feed-window[data-profile-view="true"] > .profile-tabs > .profile-tab { min-width: 0; padding-inline: 4px; font-size: 9px; }
+
+  /* Search cards stay scannable, with actions below the matching account. */
+  .network-search-person,
+  .network-search-channel { min-width: 0; }
+  .network-search-person > :nth-child(2),
+  .network-search-channel > :nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
+  .network-search-actions .button,
+  .network-search-channel > .button { min-height: 38px; }
+  .network-search-cast { min-width: 0; overflow-wrap: anywhere; }
+}
+@media (max-width: 360px) {
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-actions { grid-template-columns: minmax(0,1fr); }
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-summary-actions > .button,
+  .feed-window[data-profile-view="true"] > .profile-summary .profile-more-options > summary { justify-content: flex-start; padding-inline: 10px; }
+  .feed-window[data-profile-view="true"] > .profile-tabs > .profile-tab { font-size: 8px; }
+}
+
+/* Keep account setup and the main composing actions usable on compact phones. */
+.post-action[data-reaction-state="loading"] { cursor: progress; opacity: .68; }
+.post-action[data-reaction-state="unavailable"] { border-style: dashed; color: var(--station-copy-muted); }
+.post-action[data-reaction-state="unknown"] { opacity: .8; }
+@media (max-width: 620px) {
+  .recovery-import-body input[type="password"],
+  .recovery-import-body input[type="text"] { font-size: 16px; letter-spacing: .04em; }
+  .signer-request-card { grid-template-columns: 28px minmax(0,1fr); gap: 8px; padding: 10px; }
+  .signer-request-mark { width: 28px; height: 28px; }
+  .signer-request-copy small { font-size: 10px; }
+  .conversation-view { margin-inline: 4px; border-radius: 8px; }
+  .conversation-head { flex-wrap: wrap; gap: 8px; }
+  .conversation-head > div { min-width: 0; }
+  .composer-quote-card,
+  .composer-media,
+  .composer-photo-preview { min-width: 0; max-width: 100%; }
+  .composer-photo-preview img { display: block; max-width: 100%; height: auto; object-fit: contain; }
+  .nav-more-menu { max-width: calc(100vw - 20px); }
+}

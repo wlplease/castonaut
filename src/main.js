@@ -1008,8 +1008,9 @@ async function checkNode() {
 function renderEmpty(title, copy, action = null) {
   const isLoading = /(?:\.\.\.|…|tuning in|loading|searching|checking)/i.test(title);
   const isNetworkState = !isLoading && /(?:node|unavailable|service|could not|catching up|behind|incomplete|waiting)/i.test(`${title} ${copy}`);
+  const isNodeBehind = isNetworkState && /(?:catching up|behind|sync(?:ing| delay))/i.test(`${title} ${copy}`);
   const box = document.createElement('div'); box.className = `empty-message${isLoading ? ' is-loading' : ''}`;
-  box.dataset.state = isLoading ? 'loading' : isNetworkState ? 'network' : 'empty';
+  box.dataset.state = isLoading ? 'loading' : isNodeBehind ? 'node-behind' : isNetworkState ? 'network' : 'empty';
   box.setAttribute('role', 'status');
   box.setAttribute('aria-live', 'polite');
   box.setAttribute('aria-busy', String(isLoading));
@@ -1616,13 +1617,13 @@ function renderCast(message, { priority = false } = {}) {
   const likeCount = document.createElement('span'); likeCount.className = 'post-action-count'; likeCount.dataset.engagementCount = 'Like'; likeCount.textContent = '…';
   like.append(likeGlyph, likeCount); like.setAttribute('aria-label', Number(state.fid) > 0 ? 'Checking like status' : 'Like cast'); like.title = 'Like';
   like.dataset.reactionState = Number(state.fid) > 0 ? 'loading' : 'unknown';
-  like.setAttribute('aria-pressed', 'false');
+  if (Number(state.fid) > 0) like.setAttribute('aria-busy', 'true');
   const recast = document.createElement('button'); recast.type = 'button'; recast.className = 'post-action'; recast.dataset.action = 'recast';
   const recastGlyph = document.createElement('span'); recastGlyph.className = 'post-action-glyph'; recastGlyph.textContent = '⟳';
   const recastCount = document.createElement('span'); recastCount.className = 'post-action-count'; recastCount.dataset.engagementCount = 'Recast'; recastCount.textContent = '…';
   recast.append(recastGlyph, recastCount); recast.setAttribute('aria-label', Number(state.fid) > 0 ? 'Checking recast status' : 'Recast'); recast.title = 'Recast';
   recast.dataset.reactionState = Number(state.fid) > 0 ? 'loading' : 'unknown';
-  recast.setAttribute('aria-pressed', 'false');
+  if (Number(state.fid) > 0) recast.setAttribute('aria-busy', 'true');
   const reply = document.createElement('button'); reply.type = 'button'; reply.className = 'post-action'; reply.dataset.action = 'reply';
   const replyGlyph = document.createElement('span'); replyGlyph.className = 'post-action-glyph'; replyGlyph.textContent = '↩';
   const replyCount = document.createElement('span'); replyCount.className = 'post-action-count'; replyCount.dataset.engagementCount = 'Reply'; replyCount.textContent = '…';
@@ -1736,6 +1737,7 @@ function paintReactionButtonState(button, type, active) {
   if (!button) return;
   const isLike = type === 'Like';
   button.dataset.reactionState = active ? 'active' : 'inactive';
+  button.removeAttribute('aria-busy');
   button.setAttribute('aria-pressed', String(active));
   const glyph = button.querySelector('.post-action-glyph');
   if (glyph) glyph.textContent = isLike ? (active ? '♥' : '♡') : (active ? '✓' : '⟳');
@@ -1757,6 +1759,13 @@ function paintEngagementCount(card, type, result) {
   const label = type === 'Like' ? 'likes' : type === 'Recast' ? 'recasts' : 'replies';
   const button = count.closest('button');
   if (type === 'Like' || type === 'Recast') {
+    if (button?.dataset.reactionState === 'loading' || button?.dataset.reactionState === 'unavailable' || button?.dataset.reactionState === 'unknown') {
+      const action = type === 'Like' ? 'Like' : 'Recast';
+      const status = button.dataset.reactionState === 'loading' ? 'status checking' : button.dataset.reactionState === 'unavailable' ? 'status unavailable' : action;
+      const countStatus = count.dataset.countState === 'ready' ? ` · ${count.textContent} ${type === 'Like' ? 'likes' : 'recasts'}` : count.dataset.countState === 'error' ? ` · ${type === 'Like' ? 'likes' : 'recasts'} count unavailable` : '';
+      button.setAttribute('aria-label', `${status}${countStatus}`);
+      return;
+    }
     paintReactionButtonState(button, type, button?.getAttribute('aria-pressed') === 'true');
     return;
   }
@@ -1828,6 +1837,8 @@ function loadViewerReactionState(card, type) {
   }).catch(() => {
     if (card.isConnected && Number(state.fid) === viewerFid) {
       button.dataset.reactionState = 'unavailable';
+      button.removeAttribute('aria-busy');
+      button.removeAttribute('aria-pressed');
       const label = type === 'Like' ? 'Like' : 'Recast';
       button.setAttribute('aria-label', `${label} status unavailable · refresh to try again`);
       button.title = `${label} status unavailable`;
@@ -2897,11 +2908,11 @@ function updateFollowButton(button, fid) {
   const profile = state.people.get(targetFid);
   const following = !!state.following.get(targetFid);
   const isSelf = targetFid === Number(state.fid);
+  const statusUnknown = !state.following.has(targetFid) || state.followStatusUnknown.has(targetFid);
   const action = following ? 'Unfollow' : 'Follow';
   const delay = maxNodeDelay();
   const stale = delay !== null && delay > 10;
   const freshnessUnknown = delay === null;
-  const statusUnknown = !state.following.has(targetFid) || state.followStatusUnknown.has(targetFid);
   const unknown = statusUnknown || freshnessUnknown;
   const confidence = unknown ? 'unknown' : stale ? 'stale' : 'confirmed';
   const confidenceNote = state.followStatusUnknown.has(targetFid)
@@ -2913,18 +2924,19 @@ function updateFollowButton(button, fid) {
     : stale ? `Follow status may be out of date because the node is ${formatNodeDelay(delay)} behind. Castonaut checks before signing.`
       : `${action} status confirmed by your node.`;
   const label = button.dataset.deskPrimary === 'follow'
-    ? (isSelf ? 'Your account' : `${following ? '✓ Following' : '＋ Follow'} @${profile?.username || `fid-${targetFid}`}`)
-    : isSelf ? 'You' : button.classList.contains('post-action') ? (following ? '✓' : '＋') : action;
+    ? (isSelf ? 'Your account' : statusUnknown ? `Check @${profile?.username || `fid-${targetFid}`}` : `${following ? '✓ Following' : '＋ Follow'} @${profile?.username || `fid-${targetFid}`}`)
+    : isSelf ? 'You' : button.classList.contains('post-action') ? (statusUnknown ? '?' : following ? '✓' : '＋') : statusUnknown ? 'Check status' : action;
   button.replaceChildren(document.createTextNode(label));
-  if (!isSelf && (unknown || stale)) {
+  if (!isSelf && (stale || (unknown && !statusUnknown))) {
     const marker = document.createElement('span'); marker.className = 'follow-confidence-mark'; marker.setAttribute('aria-hidden', 'true'); marker.textContent = '?';
     button.append(marker);
   }
-  button.setAttribute('aria-label', isSelf ? 'This is your account' : `${action} @${profile?.username || `fid-${targetFid}`}`);
+  button.setAttribute('aria-label', isSelf ? 'This is your account' : statusUnknown ? `Check follow status for @${profile?.username || `fid-${targetFid}`}` : `${action} @${profile?.username || `fid-${targetFid}`}`);
   button.setAttribute('aria-description', isSelf ? 'This is your active account.' : confidenceNote);
   button.dataset.followConfidence = confidence;
   button.title = isSelf ? 'This is your active account.' : confidenceNote;
-  button.setAttribute('aria-pressed', String(following));
+  if (statusUnknown) button.removeAttribute('aria-pressed');
+  else button.setAttribute('aria-pressed', String(following));
   button.disabled = isSelf || !state.signerReady || button.hasAttribute('aria-busy');
 }
 
@@ -6487,9 +6499,34 @@ document.addEventListener('click', async (event) => {
       const params = { fid: state.fid, target_fid: targetFid, link_type: 'follow' };
       let following = false;
       button.setAttribute('aria-busy', 'true');
+      const previousStatusKnown = state.following.has(targetFid) && !state.followStatusUnknown.has(targetFid);
+      const previousFollowing = !!state.following.get(targetFid);
+      if (maxNodeDelay() === null) await checkNode();
+      const nodeDelay = maxNodeDelay();
+      if (nodeDelay === null || nodeDelay > 10) {
+        state.followStatusUnknown.add(targetFid);
+        document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => updateFollowButton(item, targetFid));
+        throw new Error(`${nodeDelay === null ? 'Node freshness could not be confirmed' : `The node is ${formatNodeDelay(nodeDelay)} behind`}. Follow status may be stale, so no change was made. Check node status and retry when the node is current.`);
+      }
+      try { await nodeRequest('linkById', params, { fresh: true }); following = true; }
+      catch (error) {
+        if (isNotFound(error)) following = false;
+        else {
+          state.followStatusUnknown.add(targetFid);
+          document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => updateFollowButton(item, targetFid));
+          throw new Error(`Could not confirm follow status with the node. No change was made. ${clientErrorText(error)}`);
+        }
+      }
+      if (!previousStatusKnown || previousFollowing !== following) {
+        setFollowState(targetFid, following);
+        updateCastRelationship(targetFid);
+        document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => updateFollowButton(item, targetFid));
+        button.removeAttribute('aria-busy'); button.disabled = false;
+        const handle = state.people.get(targetFid)?.username || `fid-${targetFid}`;
+        setNotice(`Follow status refreshed: ${following ? `you already follow @${handle}` : `you do not follow @${handle}`}. Tap again to ${following ? 'unfollow' : 'follow'}.`, 'success');
+        return;
+      }
       if (state.signerMode === 'neynar') {
-        if (!state.following.has(targetFid) || state.followStatusUnknown.has(targetFid)) throw new Error('Follow status is not confirmed yet. Refresh the feed or node status, then try again.');
-        following = !!state.following.get(targetFid);
         await managedWrite({ action: following ? 'unfollow' : 'follow', target_fid: targetFid });
         setFollowState(targetFid, !following);
         state.suggestionsLoadedFor = 0;
@@ -6499,22 +6536,6 @@ document.addEventListener('click', async (event) => {
         button.removeAttribute('aria-busy'); button.disabled = false;
         setNotice(following ? 'Unfollow sent through Farcaster.' : 'Follow sent through Farcaster.', 'success');
         return;
-      }
-      if (maxNodeDelay() === null) await checkNode();
-      const nodeDelay = maxNodeDelay();
-      if (nodeDelay === null || nodeDelay > 10) {
-        state.followStatusUnknown.add(targetFid);
-        document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => updateFollowButton(item, targetFid));
-        throw new Error(`${nodeDelay === null ? 'Node freshness could not be confirmed' : `The node is ${formatNodeDelay(nodeDelay)} behind`}. Follow status may be stale, so no change was signed. Check node status and retry when the node is current.`);
-      }
-      try { await nodeRequest('linkById', params, { fresh: true }); following = true; setFollowState(targetFid, true); }
-      catch (error) {
-        if (isNotFound(error)) setFollowState(targetFid, false);
-        else {
-          state.followStatusUnknown.add(targetFid);
-          document.querySelectorAll(`[data-action="follow"][data-fid="${targetFid}"]`).forEach((item) => updateFollowButton(item, targetFid));
-          throw new Error(`Could not confirm your follow status with the node. No follow change was signed. ${clientErrorText(error)}`);
-        }
       }
       const message = following
         ? await protocol.makeLinkRemove({ type: 'follow', targetFid }, { fid: state.fid, network: protocol.FarcasterNetwork.MAINNET }, await getActiveSigner())
